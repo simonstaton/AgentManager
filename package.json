@@ -1,0 +1,42 @@
+{
+  "name": "ClaudeSwarm",
+  "version": "2.0.0",
+  "description": "Cloud Hosted Claude Swarm Platform",
+  "scripts": {
+    "dev": "npx concurrently \"node --env-file=.env --import tsx server.ts\" \"cd ui && npm run dev\"",
+    "dev:server": "node --env-file=.env --import tsx server.ts",
+    "build": "cd ui && npm run build",
+    "start": "node --import tsx server.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "typecheck": "tsc --noEmit && cd ui && tsc --noEmit",
+    "check": "npm run lint && npm run typecheck && npm run test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/simonstaton/ClaudeSwarm_PRIVATE.git"
+  },
+  "author": "Simon Staton <simon.staton@live.co.uk>",
+  "license": "MIT",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/simonstaton/ClaudeSwarm_PRIVATE/issues"
+  },
+  "homepage": "https://github.com/simonstaton/ClaudeSwarm_PRIVATE#readme",
+  "dependencies": {
+    "@google-cloud/storage": "^7.15.0",
+    "express": "^5.2.1",
+    "tsx": "^4.21.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.0",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.2.3",
+    "concurrently": "^9.1.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}

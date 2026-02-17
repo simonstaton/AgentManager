@@ -1,0 +1,20 @@
+project_id        = "your-gcp-project-id"
+region            = "europe-west2"
+anthropic_api_key = "sk-ant-..."
+agent_api_key     = "your-login-key-here"
+image             = "europe-west2-docker.pkg.dev/your-project/claude-swarm/claude-swarm:latest"
+
+# Cloud Run access — who can invoke the service
+# Use ["allUsers"] for public access (app has its own JWT auth)
+# Or ["user:you@example.com"] for IAM-restricted access
+cloud_run_invokers = ["allUsers"]
+
+# GitHub Actions CI/CD — set to enable Workload Identity Federation
+# github_repo = "your-org/your-repo"
+
+# Optional MCP credentials — uncomment and fill in to enable
+# github_token        = "ghp_..."
+# notion_api_key      = "ntn_..."
+# slack_token         = "xoxb-..."
+# google_credentials  = "..."
+# figma_token         = "figd_..."

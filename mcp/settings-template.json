@@ -1,0 +1,29 @@
+{
+  "mcpServers": {
+    "notion": {
+      "command": "npx",
+      "args": ["-y", "@notionhq/notion-mcp-server"],
+      "env": { "NOTION_API_KEY": "${NOTION_API_KEY}" }
+    },
+    "github": {
+      "command": "gh",
+      "args": ["copilot", "mcp"],
+      "env": { "GITHUB_TOKEN": "${GITHUB_TOKEN}" }
+    },
+    "google-calendar": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/google-calendar-mcp"],
+      "env": { "GOOGLE_CREDENTIALS": "${GOOGLE_CREDENTIALS}" }
+    },
+    "slack": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/slack-mcp"],
+      "env": { "SLACK_TOKEN": "${SLACK_TOKEN}" }
+    },
+    "figma": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/figma-mcp"],
+      "env": { "FIGMA_TOKEN": "${FIGMA_TOKEN}" }
+    }
+  }
+}
