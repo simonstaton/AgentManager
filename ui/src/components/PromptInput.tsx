@@ -132,7 +132,7 @@ export function PromptInput({
 
   // Create mode state
   const [agentName, setAgentName] = useState("");
-  const [agentModel, setAgentModel] = useState("claude-sonnet-4-5-20250929");
+  const [agentModel, setAgentModel] = useState("claude-sonnet-4-6");
   const [agentMaxTurns, setAgentMaxTurns] = useState(200);
   const [showCreateConfig, setShowCreateConfig] = useState(!!createMode);
 

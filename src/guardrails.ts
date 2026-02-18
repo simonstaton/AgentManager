@@ -19,7 +19,7 @@ export const ALLOWED_MODELS = [
   "claude-sonnet-4-5-20250929",
   "claude-haiku-4-5-20251001",
 ];
-export const DEFAULT_MODEL = "claude-sonnet-4-5-20250929";
+export const DEFAULT_MODEL = "claude-sonnet-4-6";
 
 export const MAX_PROMPT_LENGTH = 100_000;
 export const MAX_TURNS = 500;

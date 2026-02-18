@@ -41,7 +41,7 @@ Always think about the most efficient way to parallelize work. Be the human's si
     label: "Product Manager",
     icon: "📋",
     description: "Backlog management, feature prioritization, user stories, and product strategy",
-    model: "claude-sonnet-4-5-20250929",
+    model: "claude-sonnet-4-6",
     maxTurns: 30,
     prompt: `You are a product manager helping to plan and prioritize work across software projects.
 
@@ -70,7 +70,7 @@ Be opinionated about priorities. Push back when scope creeps. Keep things action
     label: "Budget Planner",
     icon: "💰",
     description: "Monitors agent costs, flags waste, and enforces efficient swarm usage",
-    model: "claude-sonnet-4-5-20250929",
+    model: "claude-sonnet-4-6",
     maxTurns: 30,
     prompt: `You are a budget planner and cost-efficiency analyst for this agent swarm. Your job is to monitor running agents, identify waste, and recommend optimizations that reduce API spend without sacrificing output quality.
 
@@ -129,7 +129,7 @@ Be opinionated but open to discussion. Back up recommendations with concrete rea
     label: "Frontend Dev",
     icon: "🎨",
     description: "UI implementation, components, styling, and frontend architecture",
-    model: "claude-sonnet-4-5-20250929",
+    model: "claude-sonnet-4-6",
     maxTurns: 200,
     prompt: `You are a frontend developer. You implement UI features, build components, fix styling issues, and improve user experience.
 
@@ -159,7 +159,7 @@ Run the project's lint/typecheck commands after making changes. Fix any issues y
     label: "Backend Dev",
     icon: "⚙️",
     description: "APIs, server logic, data models, and backend architecture",
-    model: "claude-sonnet-4-5-20250929",
+    model: "claude-sonnet-4-6",
     maxTurns: 200,
     prompt: `You are a backend developer. You implement APIs, server-side logic, data models, and integrations.
 
@@ -190,7 +190,7 @@ Run the project's lint/typecheck/test commands after making changes. Fix any iss
     label: "Full-Stack Dev",
     icon: "🔧",
     description: "End-to-end feature implementation across the full stack",
-    model: "claude-sonnet-4-5-20250929",
+    model: "claude-sonnet-4-6",
     maxTurns: 200,
     prompt: `You are a full-stack developer. You implement features end-to-end — from database and API changes through to the UI.
 
@@ -222,7 +222,7 @@ Run the project's lint/typecheck/test commands after making changes. Fix any iss
     label: "DevOps",
     icon: "🚀",
     description: "Infrastructure, CI/CD, Docker, cloud deployment, and operations",
-    model: "claude-sonnet-4-5-20250929",
+    model: "claude-sonnet-4-6",
     maxTurns: 100,
     prompt: `You are a DevOps engineer. You handle infrastructure, deployment, CI/CD, containerization, and operational concerns.
 
@@ -305,7 +305,7 @@ Output format:
     label: "Debugger",
     icon: "🐛",
     description: "Systematic bug investigation, root cause analysis, and fixes",
-    model: "claude-sonnet-4-5-20250929",
+    model: "claude-sonnet-4-6",
     maxTurns: 75,
     prompt: `You are a debugging specialist. You systematically investigate bugs to find root causes and implement reliable fixes.
 
@@ -341,7 +341,7 @@ Anti-patterns to avoid:
     label: "Researcher",
     icon: "📚",
     description: "Codebase exploration, documentation, and architectural understanding",
-    model: "claude-sonnet-4-5-20250929",
+    model: "claude-sonnet-4-6",
     maxTurns: 50,
     prompt: `You are a codebase researcher. You explore, analyze, and document codebases to help humans understand how things work.
 
@@ -375,7 +375,7 @@ When documenting findings:
     label: "Test Engineer",
     icon: "🧪",
     description: "Write and improve tests — unit, integration, and end-to-end",
-    model: "claude-sonnet-4-5-20250929",
+    model: "claude-sonnet-4-6",
     maxTurns: 100,
     prompt: `You are a test engineer. You write, improve, and maintain tests to ensure code quality and prevent regressions.
 
@@ -411,7 +411,7 @@ Always run the test suite after making changes to verify everything passes.`,
     label: "Blank Agent",
     icon: "➕",
     description: "Start from scratch with a custom prompt",
-    model: "claude-sonnet-4-5-20250929",
+    model: "claude-sonnet-4-6",
     maxTurns: 200,
     prompt: "",
   },
