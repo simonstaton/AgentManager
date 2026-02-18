@@ -1,0 +1,1743 @@
+openapi: 3.0.3
+info:
+  title: Claude Swarm API
+  description: |
+    REST API for the Claude Swarm multi-agent orchestration platform.
+
+    ## Authentication
+
+    Most endpoints require a JWT bearer token. Obtain one by calling
+    `POST /api/auth/token` with your `API_KEY`.
+
+    ```
+    Authorization: Bearer <token>
+    ```
+
+    Agent service tokens (`sub: "agent-service"`) have restricted access:
+    they cannot change the API key, update guardrails, or operate the kill switch.
+
+    ## Server-Sent Events (SSE)
+
+    Several endpoints stream responses as SSE. Each event is a JSON object
+    serialised on a `data:` line followed by two newlines. Clients should
+    parse each `data:` payload with `JSON.parse`.
+
+  version: "1.0.0"
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Auth
+    description: Obtain a JWT from an API key
+  - name: Agents
+    description: Create, inspect, message, and destroy Claude agents
+  - name: Messages
+    description: Inter-agent message bus
+  - name: Context
+    description: Shared markdown context files
+  - name: Config
+    description: Claude config files, skills, and runtime settings
+  - name: KillSwitch
+    description: Emergency stop for all agents
+  - name: MCP
+    description: MCP server OAuth management
+  - name: Health
+    description: Liveness and readiness probe
+
+paths:
+
+  # ---------------------------------------------------------------------------
+  # Auth
+  # ---------------------------------------------------------------------------
+  /api/auth/token:
+    post:
+      tags: [Auth]
+      summary: Exchange API key for JWT
+      description: |
+        Validates the provided `apiKey` against `API_KEY` in the server
+        environment and returns a short-lived JWT for use in subsequent requests.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [apiKey]
+              properties:
+                apiKey:
+                  type: string
+                  description: The platform API key set in the `API_KEY` environment variable.
+                  example: "my-secret-api-key"
+      responses:
+        "200":
+          description: JWT issued successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: Signed JWT. Pass as `Authorization: Bearer <token>`.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: Invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ---------------------------------------------------------------------------
+  # Health
+  # ---------------------------------------------------------------------------
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: |
+        Returns platform health metrics. Does **not** require authentication —
+        suitable for load-balancer and uptime probes.
+      security: []
+      responses:
+        "200":
+          description: Platform is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  # ---------------------------------------------------------------------------
+  # Agents
+  # ---------------------------------------------------------------------------
+  /api/agents:
+    get:
+      tags: [Agents]
+      summary: List all agents
+      description: |
+        Returns every agent currently known to the platform and refreshes the
+        `lastActivity` timestamp on each one to prevent premature idle cleanup.
+      responses:
+        "200":
+          description: Array of agents.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Agent"
+    post:
+      tags: [Agents]
+      summary: Create agent (SSE stream)
+      description: |
+        Spawns a new Claude agent and streams its output as Server-Sent Events.
+        Each SSE `data:` payload is a `StreamEvent` JSON object.
+
+        The connection stays open until the agent's Claude CLI process exits or
+        emits a `done` event, at which point the stream closes.
+
+        Returns `503` when memory pressure exceeds 85 % of the container limit.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAgentRequest"
+      responses:
+        "200":
+          description: SSE stream of `StreamEvent` objects.
+          content:
+            text/event-stream:
+              schema:
+                $ref: "#/components/schemas/StreamEvent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          description: Server under memory pressure.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/agents/registry:
+    get:
+      tags: [Agents]
+      summary: Agent registry
+      description: |
+        Returns a compact summary of all agents — their role, current task,
+        capabilities, and unread message count. Intended for agent-to-agent
+        discovery.
+      responses:
+        "200":
+          description: Array of registry entries.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentRegistryEntry"
+
+  /api/agents/batch:
+    post:
+      tags: [Agents]
+      summary: Batch create agents
+      description: |
+        Creates up to 10 agents in a single request. Unlike `POST /api/agents`
+        this endpoint returns a JSON response (not SSE) with the created agent
+        objects. Useful when you want to spawn a team without streaming output.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agents]
+              properties:
+                agents:
+                  type: array
+                  description: Agent specifications to create (max 10).
+                  maxItems: 10
+                  items:
+                    $ref: "#/components/schemas/CreateAgentRequest"
+      responses:
+        "200":
+          description: Batch creation results.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Agent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          description: Server under memory pressure.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/agents/{id}:
+    get:
+      tags: [Agents]
+      summary: Get agent details
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Agent object.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Agents]
+      summary: Update agent metadata
+      description: |
+        Updates mutable metadata fields on an existing agent: `role`,
+        `capabilities`, and `currentTask`. All fields are optional; only
+        supplied fields are changed.
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                  description: Human-readable role label (e.g. `"frontend-engineer"`).
+                capabilities:
+                  type: array
+                  items:
+                    type: string
+                  description: List of capability tags for discovery.
+                currentTask:
+                  type: string
+                  description: Short description of what the agent is currently doing.
+      responses:
+        "200":
+          description: Updated agent object.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Agents]
+      summary: Destroy agent
+      description: |
+        Terminates the agent and all of its child agents (those with
+        `parentId` matching this agent's `id`). Cleans up workspace and
+        message bus entries.
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Agent destroyed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/agents/{id}/message:
+    post:
+      tags: [Agents]
+      summary: Send message to agent (SSE stream)
+      description: |
+        Delivers a follow-up prompt to a running agent and streams the
+        response as SSE `StreamEvent` objects.
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              properties:
+                prompt:
+                  type: string
+                  description: The message/prompt to send to the agent.
+                maxTurns:
+                  type: integer
+                  description: Override the maximum number of agentic turns for this message.
+                sessionId:
+                  type: string
+                  description: Resume a specific Claude session ID.
+                attachments:
+                  type: array
+                  description: File or image attachments to include with the prompt.
+                  items:
+                    $ref: "#/components/schemas/PromptAttachment"
+      responses:
+        "200":
+          description: SSE stream of `StreamEvent` objects.
+          content:
+            text/event-stream:
+              schema:
+                $ref: "#/components/schemas/StreamEvent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/agents/{id}/events:
+    get:
+      tags: [Agents]
+      summary: Reconnect to agent SSE stream
+      description: |
+        Opens an SSE connection to an existing agent. Replays historical
+        events and then streams new ones as they arrive. Use `?after=N` to
+        skip events the client has already received (for seamless reconnect).
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: after
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Skip events with an index ≤ this value (for reconnect).
+      responses:
+        "200":
+          description: SSE stream — replays history then continues live.
+          content:
+            text/event-stream:
+              schema:
+                $ref: "#/components/schemas/StreamEvent"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/agents/{id}/raw-events:
+    get:
+      tags: [Agents]
+      summary: Debug — raw event log
+      description: |
+        Returns a summary of the raw event log for the agent: total count,
+        session IDs, event types seen, and the 50 most recent events.
+        Intended for debugging agent session state.
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Raw event log summary.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  sessionIds:
+                    type: array
+                    items:
+                      type: string
+                  eventTypes:
+                    type: array
+                    items:
+                      type: string
+                  recent:
+                    type: array
+                    items:
+                      type: object
+
+  /api/agents/{id}/logs:
+    get:
+      tags: [Agents]
+      summary: Session logs
+      description: |
+        Returns formatted session logs for an agent. Supports filtering by
+        event type and limiting to the last N lines. Pass `?format=text` or
+        `Accept: text/plain` to get plain-text output suitable for piping in
+        agent terminals.
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            Comma-separated event types to include (e.g. `stderr,system`).
+        - name: tail
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Return only the last N log lines.
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [text]
+          description: Pass `text` for plain-text output instead of JSON.
+      responses:
+        "200":
+          description: Log lines (JSON or plain text depending on `format`).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of log lines available.
+                  returned:
+                    type: integer
+                    description: Number of lines returned in this response.
+                  lines:
+                    type: array
+                    items:
+                      type: string
+            text/plain:
+              schema:
+                type: string
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/agents/{id}/files:
+    get:
+      tags: [Agents]
+      summary: List workspace files
+      description: |
+        Lists files in the agent's workspace directory. Supports an optional
+        substring filter (`?q=`) and result limit (`?limit=`). Used by the UI
+        for `@`-mention file completion.
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Case-insensitive substring filter on relative file paths.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+          description: Maximum number of results to return.
+      responses:
+        "200":
+          description: Array of relative file paths.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------------------------------------------------------------------
+  # Messages
+  # ---------------------------------------------------------------------------
+  /api/messages:
+    post:
+      tags: [Messages]
+      summary: Post a message to the bus
+      description: |
+        Posts a message to the inter-agent message bus. Messages can be
+        addressed to a specific agent (`to`), broadcast to a channel, or
+        sent to all agents (omit both `to` and `channel`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMessageRequest"
+      responses:
+        "200":
+          description: The created message.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentMessage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    get:
+      tags: [Messages]
+      summary: Query messages
+      description: |
+        Queries messages from the bus with optional filters. All query
+        parameters are optional — omitting all returns all messages (subject
+        to the `limit`).
+      parameters:
+        - name: to
+          in: query
+          schema:
+            type: string
+          description: Filter by recipient agent ID.
+        - name: from
+          in: query
+          schema:
+            type: string
+          description: Filter by sender agent ID.
+        - name: channel
+          in: query
+          schema:
+            type: string
+          description: Filter by channel name.
+        - name: type
+          in: query
+          schema:
+            $ref: "#/components/schemas/MessageType"
+          description: Filter by message type.
+        - name: unreadBy
+          in: query
+          schema:
+            type: string
+          description: Return only messages not yet read by this agent ID.
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Return only messages created after this ISO 8601 timestamp.
+        - name: limit
+          in: query
+          schema:
+            type: integer
+          description: Maximum number of messages to return.
+        - name: agentRole
+          in: query
+          schema:
+            type: string
+          description: Filter messages relevant to agents with this role.
+      responses:
+        "200":
+          description: Array of matching messages.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentMessage"
+
+  /api/messages/stream:
+    get:
+      tags: [Messages]
+      summary: SSE stream for real-time messages
+      description: |
+        Keeps an SSE connection open and pushes new messages as they are
+        posted to the bus. Sends a `: heartbeat` comment every 15 seconds to
+        keep the connection alive through proxies.
+
+        Optionally filter to messages relevant to a specific agent with
+        `?agentId=`.
+      parameters:
+        - name: agentId
+          in: query
+          schema:
+            type: string
+          description: If provided, only messages to/from this agent are streamed.
+      responses:
+        "200":
+          description: SSE stream of `AgentMessage` objects.
+          content:
+            text/event-stream:
+              schema:
+                $ref: "#/components/schemas/AgentMessage"
+
+  /api/messages/read-all:
+    post:
+      tags: [Messages]
+      summary: Mark all messages as read for an agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agentId]
+              properties:
+                agentId:
+                  type: string
+                  description: The agent whose unread messages should be marked read.
+                agentRole:
+                  type: string
+                  description: Also mark messages addressed to this role as read.
+      responses:
+        "200":
+          description: Number of messages marked as read.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  markedRead:
+                    type: integer
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/messages/{id}/read:
+    post:
+      tags: [Messages]
+      summary: Mark a message as read
+      parameters:
+        - $ref: "#/components/parameters/MessageId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agentId]
+              properties:
+                agentId:
+                  type: string
+                  description: The agent marking the message as read.
+      responses:
+        "200":
+          description: Marked as read.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/messages/{id}:
+    delete:
+      tags: [Messages]
+      summary: Delete a message
+      parameters:
+        - $ref: "#/components/parameters/MessageId"
+      responses:
+        "200":
+          description: Message deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------------------------------------------------------------------
+  # Context
+  # ---------------------------------------------------------------------------
+  /api/context:
+    get:
+      tags: [Context]
+      summary: List shared context files
+      description: |
+        Recursively lists all `.md` files in the shared context directory.
+        Returns name, size, and last-modified time for each file.
+      responses:
+        "200":
+          description: Array of context file metadata.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      description: Relative path within the context directory.
+                    size:
+                      type: integer
+                      description: File size in bytes.
+                    modified:
+                      type: string
+                      format: date-time
+
+  /api/context/file:
+    get:
+      tags: [Context]
+      summary: Read a context file
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Relative path of the `.md` file (supports subdirectories).
+      responses:
+        "200":
+          description: File content.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Context]
+      summary: Create or update a context file
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, content]
+              properties:
+                name:
+                  type: string
+                  description: Relative `.md` filename (supports subdirectories).
+                content:
+                  type: string
+                  description: Full file content to write.
+      responses:
+        "200":
+          description: File written.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    delete:
+      tags: [Context]
+      summary: Delete a context file
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Relative `.md` filename to delete.
+      responses:
+        "200":
+          description: File deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------------------------------------------------------------------
+  # Config
+  # ---------------------------------------------------------------------------
+  /api/settings:
+    get:
+      tags: [Config]
+      summary: Get current settings
+      description: |
+        Returns the current API key hint, key mode (`openrouter` or
+        `anthropic`), available model names, and current guardrail values.
+      responses:
+        "200":
+          description: Platform settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettingsResponse"
+
+  /api/settings/anthropic-key:
+    put:
+      tags: [Config]
+      summary: Switch API key at runtime
+      description: |
+        Replaces the active Anthropic/OpenRouter API key without restarting
+        the server. Agent service tokens cannot call this endpoint.
+
+        - Keys starting with `sk-or-` are treated as OpenRouter keys.
+        - Keys starting with `sk-ant-` are treated as direct Anthropic keys.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [key]
+              properties:
+                key:
+                  type: string
+                  description: New API key (`sk-or-...` or `sk-ant-...`).
+      responses:
+        "200":
+          description: Key updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  hint:
+                    type: string
+                    description: Last 8 characters of the new key.
+                  keyMode:
+                    type: string
+                    enum: [openrouter, anthropic]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: Agent service tokens may not change the API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/settings/guardrails:
+    put:
+      tags: [Config]
+      summary: Update guardrail settings at runtime
+      description: |
+        Adjusts safety limits without restarting the server. All fields are
+        optional — omit any field to leave its current value unchanged.
+        Agent service tokens cannot call this endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuardrailsUpdateRequest"
+      responses:
+        "200":
+          description: Updated guardrail values.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  guardrails:
+                    $ref: "#/components/schemas/Guardrails"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: Agent service tokens may not change guardrails.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/claude-config:
+    get:
+      tags: [Config]
+      summary: List editable Claude config files
+      description: |
+        Returns the set of Claude config files that can be read and written
+        via the API: `settings.json`, `.claude.json`, `CLAUDE.md` variants,
+        `mcp/settings-template.json`, skill `.md` files, and memory files.
+      responses:
+        "200":
+          description: Array of editable config file descriptors.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConfigFile"
+
+  /api/claude-config/file:
+    get:
+      tags: [Config]
+      summary: Read a config file
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Absolute path of the config file to read.
+      responses:
+        "200":
+          description: File content.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: Path is outside the allowed set.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Config]
+      summary: Write a config file
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path, content]
+              properties:
+                path:
+                  type: string
+                  description: Absolute path of the config file to write.
+                content:
+                  type: string
+                  description: New file content.
+      responses:
+        "200":
+          description: File written.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: Path is outside the allowed set.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [Config]
+      summary: Delete a skill or memory file
+      description: Only files inside `commands/` or `projects/` directories may be deleted.
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Absolute path of the file to delete.
+      responses:
+        "200":
+          description: File deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: Path is outside the deletable set.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/claude-config/commands:
+    post:
+      tags: [Config]
+      summary: Create a new skill/command
+      description: |
+        Creates a new slash-command skill `.md` file inside
+        `~/.claude/commands/`. The `name` field becomes the command path
+        (e.g. `"my-skill"` → `/my-skill`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, content]
+              properties:
+                name:
+                  type: string
+                  description: |
+                    Command name — alphanumeric, hyphens, underscores, and `/`
+                    for subdirectories. Do not include `.md`.
+                  example: my-skill
+                content:
+                  type: string
+                  description: Markdown content of the skill file.
+      responses:
+        "200":
+          description: Skill created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  file:
+                    $ref: "#/components/schemas/ConfigFile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: A command with this name already exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ---------------------------------------------------------------------------
+  # Kill Switch
+  # ---------------------------------------------------------------------------
+  /api/kill-switch:
+    get:
+      tags: [KillSwitch]
+      summary: Check kill switch status
+      responses:
+        "200":
+          description: Current kill switch state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KillSwitchState"
+    post:
+      tags: [KillSwitch]
+      summary: Activate or deactivate the kill switch
+      description: |
+        Only human user tokens (JWT `sub === "user"`) may operate the kill switch.
+        Agent service tokens are rejected with `403`.
+
+        **Activating** immediately:
+        1. Blocks all API requests.
+        2. Destroys all agents (SIGKILL).
+        3. Rotates the JWT secret (all existing tokens invalidated).
+        4. Writes a persistent flag to disk and GCS.
+
+        **Deactivating** clears the flag, removes the tombstone, and rotates
+        the JWT secret again (forcing a fresh login).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [activate, deactivate]
+                reason:
+                  type: string
+                  description: Human-readable reason for activation (optional).
+      responses:
+        "200":
+          description: Kill switch state after the operation.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  state:
+                    $ref: "#/components/schemas/KillSwitchState"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: Agent service tokens cannot operate the kill switch.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ---------------------------------------------------------------------------
+  # MCP
+  # ---------------------------------------------------------------------------
+  /api/mcp/servers:
+    get:
+      tags: [MCP]
+      summary: List MCP servers and auth status
+      description: |
+        Returns all configured MCP servers with their authentication status
+        (`oauth`, `token`, or `none`) and whether a valid token exists.
+      responses:
+        "200":
+          description: MCP server list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  servers:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/McpServerStatus"
+
+  /api/mcp/auth/{server}:
+    post:
+      tags: [MCP]
+      summary: Initiate OAuth flow for an MCP server
+      description: |
+        Generates an OAuth authorization URL for the named MCP server.
+        The caller should redirect the user's browser to `authUrl`.
+      parameters:
+        - name: server
+          in: path
+          required: true
+          schema:
+            type: string
+          description: MCP server name (e.g. `figma`, `notion`).
+      responses:
+        "200":
+          description: OAuth authorization URL.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authUrl:
+                    type: string
+                    format: uri
+                  message:
+                    type: string
+                  server:
+                    type: string
+        "400":
+          description: Server does not support OAuth.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Unknown MCP server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/mcp/callback:
+    get:
+      tags: [MCP]
+      summary: OAuth callback endpoint
+      description: |
+        Receives the OAuth authorization code from the identity provider,
+        exchanges it for an access token, and returns an HTML success/failure
+        page to the user's browser. Not intended for direct API clients.
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: error
+          in: query
+          schema:
+            type: string
+        - name: error_description
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: HTML page confirming success or failure.
+          content:
+            text/html:
+              schema:
+                type: string
+        "400":
+          description: Invalid request or expired state.
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /api/mcp/token/{server}:
+    get:
+      tags: [MCP]
+      summary: Get token status for an MCP server
+      parameters:
+        - name: server
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Token status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpTokenStatus"
+        "404":
+          description: Unknown MCP server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [MCP]
+      summary: Revoke OAuth token for an MCP server
+      parameters:
+        - name: server
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Token revoked.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        "404":
+          description: No token found or unknown server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+# =============================================================================
+# Components
+# =============================================================================
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    AgentId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Agent ID (UUID).
+    MessageId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Message ID.
+
+  responses:
+    BadRequest:
+      description: Invalid request body or parameters.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
+
+    OkResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+
+    AgentStatus:
+      type: string
+      enum: [starting, running, idle, error, restored, killing, destroying]
+      description: Lifecycle state of an agent.
+
+    MessageType:
+      type: string
+      enum: [task, result, question, info, status, interrupt]
+      description: |
+        Semantic type of an inter-agent message:
+        - `task` — assign work to another agent
+        - `result` — return the outcome of a task
+        - `question` — ask for information
+        - `info` — share context without expecting a reply
+        - `status` — report current state
+        - `interrupt` — redirect a busy agent
+
+    Agent:
+      type: object
+      required: [id, name, status, workspaceDir, createdAt, lastActivity, model, depth]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique agent identifier.
+        name:
+          type: string
+          description: Human-readable display name.
+        status:
+          $ref: "#/components/schemas/AgentStatus"
+        workspaceDir:
+          type: string
+          description: Absolute path of the agent's isolated workspace.
+        claudeSessionId:
+          type: string
+          description: Active Claude CLI session ID (if running).
+        createdAt:
+          type: string
+          format: date-time
+        lastActivity:
+          type: string
+          format: date-time
+        model:
+          type: string
+          description: Claude model ID being used.
+          example: claude-sonnet-4-6
+        role:
+          type: string
+          description: Agent role label (e.g. `"frontend-engineer"`).
+        capabilities:
+          type: array
+          items:
+            type: string
+          description: Capability tags for agent discovery.
+        currentTask:
+          type: string
+          description: Short description of the agent's current task.
+        parentId:
+          type: string
+          format: uuid
+          description: ID of the parent agent (if spawned by another agent).
+        depth:
+          type: integer
+          description: |
+            Spawn depth (immutable). `1` = top-level agent.
+            Maximum depth is controlled by the `maxAgentDepth` guardrail.
+
+    AgentRegistryEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          $ref: "#/components/schemas/AgentStatus"
+        role:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        currentTask:
+          type: string
+        parentId:
+          type: string
+          format: uuid
+        model:
+          type: string
+        lastActivity:
+          type: string
+          format: date-time
+        unreadMessages:
+          type: integer
+          description: Number of unread messages in the agent's inbox.
+
+    AgentMessage:
+      type: object
+      required: [id, from, type, content, createdAt, readBy]
+      properties:
+        id:
+          type: string
+          description: Message ID.
+        from:
+          type: string
+          description: Sender agent ID.
+        fromName:
+          type: string
+          description: Sender display name (optional).
+        to:
+          type: string
+          description: Recipient agent ID. Omit for broadcast.
+        channel:
+          type: string
+          description: Channel name for group messages.
+        type:
+          $ref: "#/components/schemas/MessageType"
+        content:
+          type: string
+          description: Message body (max 50,000 characters).
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Arbitrary key/value metadata.
+        createdAt:
+          type: string
+          format: date-time
+        readBy:
+          type: array
+          items:
+            type: string
+          description: Agent IDs that have marked this message as read.
+        excludeRoles:
+          type: array
+          items:
+            type: string
+          description: Roles to exclude from broadcast delivery.
+
+    CreateMessageRequest:
+      type: object
+      required: [from, type, content]
+      properties:
+        from:
+          type: string
+          description: Sender agent ID.
+        fromName:
+          type: string
+          description: Sender display name.
+        to:
+          type: string
+          description: Recipient agent ID (omit for broadcast).
+        channel:
+          type: string
+          description: Channel name (omit for direct or global broadcast).
+        type:
+          $ref: "#/components/schemas/MessageType"
+        content:
+          type: string
+          description: Message body (max 50,000 characters).
+        metadata:
+          type: object
+          additionalProperties: true
+        excludeRoles:
+          type: array
+          items:
+            type: string
+          description: Agent roles to exclude from broadcast delivery.
+
+    PromptAttachment:
+      type: object
+      required: [name, type, data, mime]
+      properties:
+        name:
+          type: string
+          description: Filename (used when saving to workspace).
+        type:
+          type: string
+          enum: [image, file]
+        data:
+          type: string
+          description: Data URL for images; plain text content for files.
+        mime:
+          type: string
+          description: MIME type (e.g. `image/png`, `text/plain`).
+
+    CreateAgentRequest:
+      type: object
+      required: [prompt]
+      properties:
+        prompt:
+          type: string
+          description: Initial prompt/instruction for the agent.
+        name:
+          type: string
+          description: Display name for the agent.
+        model:
+          type: string
+          description: Claude model to use.
+          example: claude-sonnet-4-6
+          enum:
+            - claude-haiku-4-5-20251001
+            - claude-sonnet-4-5-20250929
+            - claude-sonnet-4-6
+            - claude-opus-4-6
+        maxTurns:
+          type: integer
+          description: Maximum number of agentic turns before the agent stops.
+        role:
+          type: string
+          description: Role label for discovery (e.g. `"security-engineer"`).
+        capabilities:
+          type: array
+          items:
+            type: string
+          description: Capability tags.
+        parentId:
+          type: string
+          format: uuid
+          description: If set, this agent is a child of the specified parent.
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/PromptAttachment"
+
+    StreamEvent:
+      type: object
+      description: A single event emitted by a Claude agent during execution.
+      properties:
+        type:
+          type: string
+          description: Event type (e.g. `text`, `tool_use`, `result`, `done`).
+        subtype:
+          type: string
+        session_id:
+          type: string
+        message:
+          type: string
+        tool:
+          type: string
+        content:
+          type: string
+        result:
+          type: string
+        text:
+          type: string
+        exitCode:
+          type: integer
+      additionalProperties: true
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        timestamp:
+          type: string
+          format: date-time
+        agents:
+          type: integer
+          description: Number of currently active agents.
+        maxAgents:
+          type: integer
+          description: Configured maximum agent count.
+        memory:
+          type: object
+          properties:
+            rssMB:
+              type: integer
+            heapUsedMB:
+              type: integer
+            heapTotalMB:
+              type: integer
+            limitMB:
+              type: integer
+            pressurePct:
+              type: integer
+              description: RSS as a percentage of the memory limit.
+
+    Guardrails:
+      type: object
+      properties:
+        maxPromptLength:
+          type: integer
+        maxTurns:
+          type: integer
+        maxAgents:
+          type: integer
+        maxBatchSize:
+          type: integer
+        maxAgentDepth:
+          type: integer
+        maxChildrenPerAgent:
+          type: integer
+        sessionTtlMs:
+          type: integer
+
+    GuardrailsUpdateRequest:
+      type: object
+      description: All fields are optional; omitted fields are left unchanged.
+      properties:
+        maxPromptLength:
+          type: integer
+          minimum: 1000
+          maximum: 1000000
+        maxTurns:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        maxAgents:
+          type: integer
+          minimum: 1
+          maximum: 100
+        maxBatchSize:
+          type: integer
+          minimum: 1
+          maximum: 50
+        maxAgentDepth:
+          type: integer
+          minimum: 1
+          maximum: 10
+        maxChildrenPerAgent:
+          type: integer
+          minimum: 1
+          maximum: 20
+        sessionTtlMs:
+          type: integer
+          minimum: 60000
+          maximum: 86400000
+
+    SettingsResponse:
+      type: object
+      properties:
+        anthropicKeyHint:
+          type: string
+          description: Last 8 characters of the current API key (masked).
+        keyMode:
+          type: string
+          enum: [openrouter, anthropic]
+        models:
+          type: array
+          items:
+            type: string
+          description: Available Claude model IDs.
+        guardrails:
+          $ref: "#/components/schemas/Guardrails"
+
+    ConfigFile:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Logical name shown in the UI.
+        path:
+          type: string
+          description: Absolute filesystem path.
+        description:
+          type: string
+        category:
+          type: string
+          enum: [core, mcp, skills, memory]
+        deletable:
+          type: boolean
+
+    KillSwitchState:
+      type: object
+      properties:
+        killed:
+          type: boolean
+          description: Whether the kill switch is currently active.
+        reason:
+          type: string
+          description: Human-readable reason for the most recent activation.
+        activatedAt:
+          type: string
+          format: date-time
+
+    McpServerStatus:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        url:
+          type: string
+          format: uri
+        authRequired:
+          type: boolean
+        authMethod:
+          type: string
+          enum: [oauth, token, none]
+        authenticated:
+          type: boolean
+        authenticatedAt:
+          type: string
+          format: date-time
+        configured:
+          type: boolean
+        tokenExpired:
+          type: boolean
+
+    McpTokenStatus:
+      type: object
+      properties:
+        server:
+          type: string
+        authenticated:
+          type: boolean
+        tokenType:
+          type: string
+        scope:
+          type: string
+        authenticatedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        expired:
+          type: boolean
