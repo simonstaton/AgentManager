@@ -52,13 +52,13 @@ ${opts.skillsList}
 
 Endpoints (all require auth header):
 - \`GET  /api/messages?to={id}&unreadBy={id}\` — get messages
-- \`POST /api/messages\` body: \`{from, fromName, to?, type, content, channel?}\` — send message
+- \`POST /api/messages\` body: \`{from, fromName, to?, type, content, channel?, excludeRoles?}\` — send message (excludeRoles: optional array of agent roles to exclude from broadcasts)
 - \`POST /api/messages/{id}/read\` body: \`{agentId}\` — mark read
 - \`GET  /api/agents/registry\` — list agents
 - \`GET  /api/agents/{id}/logs?tail=N&type=stderr,system&format=text\` — get your session logs for debugging
 - \`PATCH /api/agents/{id}\` body: \`{role?, currentTask?}\` — update profile
 - \`POST /api/agents\` body: \`{prompt, name, model?, role, parentId}\` — spawn sub-agent (models: "claude-haiku-4-5-20251001", "claude-sonnet-4-5-20250929", "claude-sonnet-4-6", "claude-opus-4-6"; defaults to sonnet-4-6)
-- \`POST /api/agents/batch\` body: \`{agents: [{prompt, name, model?, role, parentId}, ...]}\` — spawn multiple sub-agents at once (max 6, returns JSON)
+- \`POST /api/agents/batch\` body: \`{agents: [{prompt, name, model?, role, parentId}, ...]}\` — spawn multiple sub-agents at once (max 10, returns JSON)
 - \`DELETE /api/agents/{id}\` — destroy agent
 
 Message types: task, result, question, info, status, interrupt
