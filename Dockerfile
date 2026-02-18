@@ -37,11 +37,6 @@ RUN mkdir -p /home/agent/.claude /shared-context /persistent/repos /persistent/t
 
 USER agent
 
-# API key helper script — returns ANTHROPIC_AUTH_TOKEN (OpenRouter key)
-# ANTHROPIC_API_KEY must be empty for OpenRouter; auth uses ANTHROPIC_AUTH_TOKEN instead.
-RUN echo 'echo ${ANTHROPIC_AUTH_TOKEN}' > /home/agent/.claude/api_key_helper.sh \
-  && chmod +x /home/agent/.claude/api_key_helper.sh
-
 # Global identity config (~/.claude.json)
 RUN printf '{\n\
   "hasCompletedOnboarding": true,\n\
@@ -50,8 +45,9 @@ RUN printf '{\n\
 }\n' > /home/agent/.claude.json
 
 # Tool/project settings (~/.claude/settings.json)
+# Note: apiKeyHelper is NOT set because we use OpenRouter auth via ANTHROPIC_AUTH_TOKEN,
+# not direct Anthropic API key auth. Setting apiKeyHelper with OpenRouter token causes errors.
 RUN printf '{\n\
-  "apiKeyHelper": "/home/agent/.claude/api_key_helper.sh",\n\
   "hasTrustDialogAccepted": true,\n\
   "hasCompletedProjectOnboarding": true,\n\
   "parallelTasksCount": 3,\n\

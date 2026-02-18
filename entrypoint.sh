@@ -1,14 +1,7 @@
 #!/bin/sh
 set -e
 
-# ── 1. Ensure api_key_helper.sh exists ────────────────────────────────────────
-# Recreate api_key_helper.sh if missing (e.g. when using persistent storage)
-if [ ! -f /home/agent/.claude/api_key_helper.sh ]; then
-  echo 'echo ${ANTHROPIC_AUTH_TOKEN}' > /home/agent/.claude/api_key_helper.sh
-  chmod +x /home/agent/.claude/api_key_helper.sh
-fi
-
-# ── 2. Inject API key suffix for trust dialog ─────────────────────────────────
+# ── 1. Inject API key suffix for trust dialog ─────────────────────────────────
 # With OpenRouter, the auth token is in ANTHROPIC_AUTH_TOKEN (ANTHROPIC_API_KEY is empty).
 AUTH_KEY="${ANTHROPIC_AUTH_TOKEN:-$ANTHROPIC_API_KEY}"
 if [ -n "$AUTH_KEY" ]; then
@@ -21,12 +14,12 @@ if [ -n "$AUTH_KEY" ]; then
   "
 fi
 
-# ── 3. Configure GitHub CLI + git credentials if token is present ────────────
+# ── 2. Configure GitHub CLI + git credentials if token is present ────────────
 if [ -n "$GITHUB_TOKEN" ]; then
   gh auth setup-git 2>/dev/null && echo "GitHub CLI configured for git operations" || true
 fi
 
-# ── 4. Merge MCP settings if env vars are present ─────────────────────────────
+# ── 3. Merge MCP settings if env vars are present ─────────────────────────────
 node -e "
   const fs = require('fs');
   const path = require('path');
@@ -125,10 +118,10 @@ node -e "
   }
 "
 
-# ── 5. Sync from GCS (handled by server startup, but ensure dirs exist) ──────
+# ── 4. Sync from GCS (handled by server startup, but ensure dirs exist) ──────
 mkdir -p /shared-context
 
-# ── 6. Init persistent storage if GCS FUSE is mounted ───────────────────────
+# ── 5. Init persistent storage if GCS FUSE is mounted ───────────────────────
 if [ -d /persistent ] && mountpoint -q /persistent 2>/dev/null; then
   mkdir -p /persistent/repos /persistent/tools /persistent/shared-context
   export SHARED_CONTEXT_DIR=/persistent/shared-context
@@ -139,7 +132,7 @@ if [ -d /persistent ] && mountpoint -q /persistent 2>/dev/null; then
   # as shims on the next container start, creating a persistence backdoor. If persistent
   # tools are needed in the future, add them manually with a verified integrity manifest.
 
-  # ── 7. Prune stale git worktrees from previous container runs ─────────────
+  # ── 6. Prune stale git worktrees from previous container runs ─────────────
   # When containers restart, /tmp workspace dirs are gone but worktree metadata
   # in /persistent/repos/*.git still references them. Clean up before server starts.
   for bare_repo in /persistent/repos/*.git; do
@@ -149,11 +142,11 @@ if [ -d /persistent ] && mountpoint -q /persistent 2>/dev/null; then
   done
 fi
 
-# ── 8. Generate JWT_SECRET if not set ─────────────────────────────────────────
+# ── 7. Generate JWT_SECRET if not set ─────────────────────────────────────────
 if [ -z "$JWT_SECRET" ]; then
   export JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
   echo "Generated ephemeral JWT_SECRET"
 fi
 
-# ── 9. Start server ──────────────────────────────────────────────────────────
+# ── 8. Start server ──────────────────────────────────────────────────────────
 exec node --import tsx server.ts
