@@ -280,7 +280,7 @@ export function createConfigRouter() {
         res.status(400).json({ error: "maxPromptLength must be between 1,000 and 1,000,000" });
         return;
       }
-      Object.assign(guardrails, { MAX_PROMPT_LENGTH: val });
+      guardrails.MAX_PROMPT_LENGTH = val;
       updates.maxPromptLength = val;
     }
 
@@ -290,7 +290,7 @@ export function createConfigRouter() {
         res.status(400).json({ error: "maxTurns must be between 1 and 10,000" });
         return;
       }
-      Object.assign(guardrails, { MAX_TURNS: val });
+      guardrails.MAX_TURNS = val;
       updates.maxTurns = val;
     }
 
@@ -300,7 +300,7 @@ export function createConfigRouter() {
         res.status(400).json({ error: "maxAgents must be between 1 and 100" });
         return;
       }
-      Object.assign(guardrails, { MAX_AGENTS: val });
+      guardrails.MAX_AGENTS = val;
       updates.maxAgents = val;
     }
 
@@ -310,7 +310,7 @@ export function createConfigRouter() {
         res.status(400).json({ error: "maxBatchSize must be between 1 and 50" });
         return;
       }
-      Object.assign(guardrails, { MAX_BATCH_SIZE: val });
+      guardrails.MAX_BATCH_SIZE = val;
       updates.maxBatchSize = val;
     }
 
@@ -320,7 +320,7 @@ export function createConfigRouter() {
         res.status(400).json({ error: "maxAgentDepth must be between 1 and 10" });
         return;
       }
-      Object.assign(guardrails, { MAX_AGENT_DEPTH: val });
+      guardrails.MAX_AGENT_DEPTH = val;
       updates.maxAgentDepth = val;
     }
 
@@ -330,7 +330,7 @@ export function createConfigRouter() {
         res.status(400).json({ error: "maxChildrenPerAgent must be between 1 and 20" });
         return;
       }
-      Object.assign(guardrails, { MAX_CHILDREN_PER_AGENT: val });
+      guardrails.MAX_CHILDREN_PER_AGENT = val;
       updates.maxChildrenPerAgent = val;
     }
 
@@ -340,7 +340,7 @@ export function createConfigRouter() {
         res.status(400).json({ error: "sessionTtlMs must be between 1 minute and 24 hours" });
         return;
       }
-      Object.assign(guardrails, { SESSION_TTL_MS: val });
+      guardrails.SESSION_TTL_MS = val;
       updates.sessionTtlMs = val;
     }
 
