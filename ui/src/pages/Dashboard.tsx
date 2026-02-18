@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useKillSwitchContext } from "../App";
 import type { AgentTemplate } from "../agentTemplates";
@@ -17,6 +17,10 @@ export function Dashboard() {
   const [creating, setCreating] = useState(false);
   const killSwitch = useKillSwitchContext();
   const [selectedTemplate, setSelectedTemplate] = useState<AgentTemplate | null>(null);
+
+  useEffect(() => {
+    document.title = "Dashboard \u2014 ClaudeSwarm";
+  }, []);
 
   const handleTemplateSelect = useCallback((template: AgentTemplate) => {
     setSelectedTemplate(template);

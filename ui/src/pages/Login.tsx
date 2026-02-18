@@ -1,5 +1,5 @@
 import { Alert, Button, PasswordField } from "@fanvue/ui";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { useAuth } from "../auth";
 
 export function Login() {
@@ -7,6 +7,10 @@ export function Login() {
   const [key, setKey] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    document.title = "Login \u2014 ClaudeSwarm";
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

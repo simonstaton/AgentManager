@@ -23,6 +23,11 @@ export function AgentView() {
   const { events, isStreaming, error, sendMessage, reconnect, clearEvents, injectEvent } = useAgentStream(id || null);
   const killSwitch = useKillSwitchContext();
 
+  // Set page title based on agent name
+  useEffect(() => {
+    document.title = agent?.name ? `${agent.name} \u2014 ClaudeSwarm` : "ClaudeSwarm";
+  }, [agent?.name]);
+
   // Load agent details and reconnect to stream.
   // Use refs for clearEvents/reconnect so this effect only re-runs when `id`
   // changes — not when callback references change (which caused redundant

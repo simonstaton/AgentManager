@@ -225,6 +225,10 @@ export function Settings() {
   const killSwitch = useKillSwitchContext();
 
   useEffect(() => {
+    document.title = "Settings \u2014 ClaudeSwarm";
+  }, []);
+
+  useEffect(() => {
     api
       .fetchAgents()
       .then(setAgents)
