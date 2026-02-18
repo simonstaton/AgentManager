@@ -6,6 +6,7 @@ import { Header } from "../components/Header";
 import { MessageFeed } from "../components/MessageFeed";
 import { Sidebar } from "../components/Sidebar";
 import { useApi } from "../hooks/useApi";
+import { useKillSwitchContext } from "../App";
 
 // ── Generic file tree utilities ─────────────────────────────────────────────
 
@@ -221,6 +222,7 @@ export function Settings() {
   const navigate = useNavigate();
   const api = useApi();
   const [agents, setAgents] = useState<Agent[]>([]);
+  const killSwitch = useKillSwitchContext();
 
   useEffect(() => {
     api
@@ -231,7 +233,7 @@ export function Settings() {
 
   return (
     <div className="h-screen flex flex-col">
-      <Header agentCount={agents.length} />
+      <Header agentCount={agents.length} killSwitch={killSwitch} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar agents={agents} activeId={null} onSelect={(id) => navigate(`/agents/${id}`)} />
         <main className="flex-1 overflow-y-auto">
