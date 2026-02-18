@@ -13,6 +13,7 @@ import { createConfigRouter } from "./src/routes/config";
 import { createContextRouter } from "./src/routes/context";
 import { createHealthRouter } from "./src/routes/health";
 import { createKillSwitchRouter } from "./src/routes/kill-switch";
+import { createMcpRouter } from "./src/routes/mcp";
 import { createMessagesRouter } from "./src/routes/messages";
 import {
   ensureDefaultContextFiles,
@@ -136,6 +137,7 @@ app.use(createAgentsRouter(agentManager, messageBus, startKeepAlive, stopKeepAli
 app.use(createMessagesRouter(messageBus));
 app.use(createConfigRouter());
 app.use(createContextRouter());
+app.use(createMcpRouter());
 // Layer 1: Kill switch endpoint (no extra auth beyond authMiddleware above)
 app.use(createKillSwitchRouter(agentManager));
 
@@ -381,6 +383,10 @@ async function start() {
   if (agentManager.list().length > 0) {
     startKeepAlive();
   }
+
+  // Initialize MCP OAuth token storage directory
+  const { ensureTokenDir } = await import("./src/mcp-oauth-storage");
+  ensureTokenDir();
 
   // Start worktree garbage collection (prunes orphaned worktrees from dead agents)
   const worktreeGCInterval = startWorktreeGC(() => agentManager.getActiveWorkspaceDirs());

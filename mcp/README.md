@@ -67,12 +67,21 @@ Then `npm run dev` — the entrypoint auto-merges MCP settings when these env va
 
 For Figma and Linear, you can skip providing tokens entirely. These servers are always activated and agents can authenticate via OAuth:
 
-1. Start a Claude Code session (or message an agent)
-2. Run `/mcp` to see available MCP servers
-3. Follow the browser link to authenticate with Figma/Linear
-4. Authentication persists for the session
+1. Make a POST request to initiate OAuth:
+   ```bash
+   curl -X POST http://localhost:8080/api/mcp/auth/figma \
+     -H "Authorization: Bearer $TOKEN"
+   ```
 
-This is useful when you don't want to manage API tokens manually.
+2. Open the returned `authUrl` in your browser and authenticate
+
+3. After successful authentication, tokens are stored in `/persistent/mcp-tokens/` and automatically injected into agent sessions
+
+4. All agents will have access to your authenticated Figma/Linear account
+
+For detailed OAuth documentation, API reference, and troubleshooting, see [docs/mcp-oauth.md](../docs/mcp-oauth.md).
+
+**Note:** OAuth tokens persist across container restarts and are shared by all agents on the platform.
 
 ## Available integrations
 
