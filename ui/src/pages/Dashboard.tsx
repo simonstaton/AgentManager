@@ -8,14 +8,14 @@ import { type Attachment, PromptInput, type PromptInputDefaultValues } from "../
 import { Sidebar } from "../components/Sidebar";
 import { useAgentPolling } from "../hooks/useAgentPolling";
 import { useApi } from "../hooks/useApi";
-import { useKillSwitch } from "../hooks/useKillSwitch";
+import { useKillSwitchContext } from "../App";
 
 export function Dashboard() {
   const navigate = useNavigate();
   const api = useApi();
   const { agents, refreshAgents } = useAgentPolling();
   const [creating, setCreating] = useState(false);
-  const killSwitch = useKillSwitch();
+  const killSwitch = useKillSwitchContext();
   const [selectedTemplate, setSelectedTemplate] = useState<AgentTemplate | null>(null);
 
   const handleTemplateSelect = useCallback((template: AgentTemplate) => {
