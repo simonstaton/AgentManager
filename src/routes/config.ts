@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import express, { type Request, type Response } from "express";
+import * as guardrails from "../guardrails";
 import { resetSanitizeCache } from "../sanitize";
 import { syncClaudeHome } from "../storage";
 import { errorMessage } from "../types";
@@ -18,6 +19,15 @@ export function createConfigRouter() {
       anthropicKeyHint: key ? `...${key.slice(-8)}` : "(not set)",
       keyMode: isOpenRouter ? "openrouter" : "anthropic",
       models: ["claude-haiku-4-5-20251001", "claude-sonnet-4-5-20250929", "claude-sonnet-4-6", "claude-opus-4-6"],
+      guardrails: {
+        maxPromptLength: guardrails.MAX_PROMPT_LENGTH,
+        maxTurns: guardrails.MAX_TURNS,
+        maxAgents: guardrails.MAX_AGENTS,
+        maxBatchSize: guardrails.MAX_BATCH_SIZE,
+        maxAgentDepth: guardrails.MAX_AGENT_DEPTH,
+        maxChildrenPerAgent: guardrails.MAX_CHILDREN_PER_AGENT,
+        sessionTtlMs: guardrails.SESSION_TTL_MS,
+      },
     });
   });
 
@@ -243,6 +253,114 @@ export function createConfigRouter() {
         description: `Skill: /${filename.replace(".md", "")}`,
         category: "skills",
         deletable: true,
+      },
+    });
+  });
+
+  // Update guardrails settings
+  router.put("/api/settings/guardrails", (req: Request, res: Response) => {
+    // biome-ignore lint/suspicious/noExplicitAny: Express Request augmentation for auth
+    const user = (req as any).user;
+    if (user?.sub === "agent-service") {
+      res.status(403).json({ error: "Agents are not allowed to change guardrails" });
+      return;
+    }
+
+    const {
+      maxPromptLength,
+      maxTurns,
+      maxAgents,
+      maxBatchSize,
+      maxAgentDepth,
+      maxChildrenPerAgent,
+      sessionTtlMs,
+    } = req.body ?? {};
+
+    // Validate and update each setting if provided
+    const updates: Record<string, number> = {};
+
+    if (maxPromptLength !== undefined) {
+      const val = Number(maxPromptLength);
+      if (!Number.isInteger(val) || val < 1000 || val > 1_000_000) {
+        res.status(400).json({ error: "maxPromptLength must be between 1,000 and 1,000,000" });
+        return;
+      }
+      Object.assign(guardrails, { MAX_PROMPT_LENGTH: val });
+      updates.maxPromptLength = val;
+    }
+
+    if (maxTurns !== undefined) {
+      const val = Number(maxTurns);
+      if (!Number.isInteger(val) || val < 1 || val > 10000) {
+        res.status(400).json({ error: "maxTurns must be between 1 and 10,000" });
+        return;
+      }
+      Object.assign(guardrails, { MAX_TURNS: val });
+      updates.maxTurns = val;
+    }
+
+    if (maxAgents !== undefined) {
+      const val = Number(maxAgents);
+      if (!Number.isInteger(val) || val < 1 || val > 100) {
+        res.status(400).json({ error: "maxAgents must be between 1 and 100" });
+        return;
+      }
+      Object.assign(guardrails, { MAX_AGENTS: val });
+      updates.maxAgents = val;
+    }
+
+    if (maxBatchSize !== undefined) {
+      const val = Number(maxBatchSize);
+      if (!Number.isInteger(val) || val < 1 || val > 50) {
+        res.status(400).json({ error: "maxBatchSize must be between 1 and 50" });
+        return;
+      }
+      Object.assign(guardrails, { MAX_BATCH_SIZE: val });
+      updates.maxBatchSize = val;
+    }
+
+    if (maxAgentDepth !== undefined) {
+      const val = Number(maxAgentDepth);
+      if (!Number.isInteger(val) || val < 1 || val > 10) {
+        res.status(400).json({ error: "maxAgentDepth must be between 1 and 10" });
+        return;
+      }
+      Object.assign(guardrails, { MAX_AGENT_DEPTH: val });
+      updates.maxAgentDepth = val;
+    }
+
+    if (maxChildrenPerAgent !== undefined) {
+      const val = Number(maxChildrenPerAgent);
+      if (!Number.isInteger(val) || val < 1 || val > 20) {
+        res.status(400).json({ error: "maxChildrenPerAgent must be between 1 and 20" });
+        return;
+      }
+      Object.assign(guardrails, { MAX_CHILDREN_PER_AGENT: val });
+      updates.maxChildrenPerAgent = val;
+    }
+
+    if (sessionTtlMs !== undefined) {
+      const val = Number(sessionTtlMs);
+      if (!Number.isInteger(val) || val < 60_000 || val > 24 * 60 * 60 * 1000) {
+        res.status(400).json({ error: "sessionTtlMs must be between 1 minute and 24 hours" });
+        return;
+      }
+      Object.assign(guardrails, { SESSION_TTL_MS: val });
+      updates.sessionTtlMs = val;
+    }
+
+    console.warn(`[AUDIT] Guardrails updated by user: ${user?.sub ?? "unknown"}`, updates);
+
+    res.json({
+      ok: true,
+      guardrails: {
+        maxPromptLength: guardrails.MAX_PROMPT_LENGTH,
+        maxTurns: guardrails.MAX_TURNS,
+        maxAgents: guardrails.MAX_AGENTS,
+        maxBatchSize: guardrails.MAX_BATCH_SIZE,
+        maxAgentDepth: guardrails.MAX_AGENT_DEPTH,
+        maxChildrenPerAgent: guardrails.MAX_CHILDREN_PER_AGENT,
+        sessionTtlMs: guardrails.SESSION_TTL_MS,
       },
     });
   });

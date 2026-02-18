@@ -244,6 +244,7 @@ export function Settings() {
               <TabsTrigger value="context">Shared Context</TabsTrigger>
               <TabsTrigger value="messages">Messages</TabsTrigger>
               <TabsTrigger value="config">Claude Config</TabsTrigger>
+              <TabsTrigger value="guardrails">Guardrails</TabsTrigger>
               <TabsTrigger value="apikey">API Key</TabsTrigger>
             </TabsList>
 
@@ -258,6 +259,9 @@ export function Settings() {
               </TabsContent>
               <TabsContent value="config">
                 <ConfigPanel api={api} />
+              </TabsContent>
+              <TabsContent value="guardrails">
+                <GuardrailsPanel api={api} />
               </TabsContent>
               <TabsContent value="apikey">
                 <ApiKeyPanel api={api} />
@@ -835,6 +839,202 @@ function ApiKeyPanel({ api }: { api: ReturnType<typeof createApi> }) {
             {message}
           </Alert>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ── Guardrails Panel ────────────────────────────────────────────────────────
+function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [values, setValues] = useState({
+    maxPromptLength: 100000,
+    maxTurns: 500,
+    maxAgents: 20,
+    maxBatchSize: 10,
+    maxAgentDepth: 3,
+    maxChildrenPerAgent: 6,
+    sessionTtlMs: 4 * 60 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    api
+      .getSettings()
+      .then((s) => {
+        setValues(s.guardrails);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("[GuardrailsPanel] getSettings failed", err);
+        setLoading(false);
+      });
+  }, [api]);
+
+  const saveSettings = async () => {
+    setSaving(true);
+    setMessage("");
+    try {
+      const result = await api.updateGuardrails(values);
+      setValues(result.guardrails);
+      setMessage("Guardrails updated successfully");
+      setTimeout(() => setMessage(""), 3000);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : "Failed to update guardrails";
+      setMessage(errMsg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateValue = (key: keyof typeof values, value: number) => {
+    setValues((prev) => ({ ...prev, [key]: value }));
+  };
+
+  if (loading) {
+    return <div className="text-zinc-600 text-sm">Loading...</div>;
+  }
+
+  return (
+    <div className="max-w-2xl space-y-6">
+      <div>
+        <p className="text-xs text-zinc-600 mb-4">
+          Configure spawn limits and resource constraints for agent creation and operations. Changes take effect
+          immediately for new operations.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          {/* Spawn Limits */}
+          <div className="space-y-3">
+            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Spawn Limits</p>
+
+            <div>
+              <label className="text-sm text-zinc-400 mb-1 block">
+                Max Batch Size
+                <span className="text-xs text-zinc-600 ml-2">(agents spawned at once)</span>
+              </label>
+              <TextField
+                type="number"
+                value={values.maxBatchSize.toString()}
+                onChange={(e) => updateValue("maxBatchSize", Number(e.target.value))}
+                size="40"
+                fullWidth
+              />
+              <p className="text-xs text-zinc-700 mt-1">Range: 1-50 (default: 10)</p>
+            </div>
+
+            <div>
+              <label className="text-sm text-zinc-400 mb-1 block">
+                Max Total Agents
+                <span className="text-xs text-zinc-600 ml-2">(concurrent limit)</span>
+              </label>
+              <TextField
+                type="number"
+                value={values.maxAgents.toString()}
+                onChange={(e) => updateValue("maxAgents", Number(e.target.value))}
+                size="40"
+                fullWidth
+              />
+              <p className="text-xs text-zinc-700 mt-1">Range: 1-100 (default: 20)</p>
+            </div>
+
+            <div>
+              <label className="text-sm text-zinc-400 mb-1 block">
+                Max Agent Depth
+                <span className="text-xs text-zinc-600 ml-2">(spawning hierarchy)</span>
+              </label>
+              <TextField
+                type="number"
+                value={values.maxAgentDepth.toString()}
+                onChange={(e) => updateValue("maxAgentDepth", Number(e.target.value))}
+                size="40"
+                fullWidth
+              />
+              <p className="text-xs text-zinc-700 mt-1">Range: 1-10 (default: 3)</p>
+            </div>
+
+            <div>
+              <label className="text-sm text-zinc-400 mb-1 block">
+                Max Children Per Agent
+                <span className="text-xs text-zinc-600 ml-2">(sub-agents)</span>
+              </label>
+              <TextField
+                type="number"
+                value={values.maxChildrenPerAgent.toString()}
+                onChange={(e) => updateValue("maxChildrenPerAgent", Number(e.target.value))}
+                size="40"
+                fullWidth
+              />
+              <p className="text-xs text-zinc-700 mt-1">Range: 1-20 (default: 6)</p>
+            </div>
+          </div>
+
+          {/* Session Limits */}
+          <div className="space-y-3">
+            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Session Limits</p>
+
+            <div>
+              <label className="text-sm text-zinc-400 mb-1 block">
+                Max Prompt Length
+                <span className="text-xs text-zinc-600 ml-2">(characters)</span>
+              </label>
+              <TextField
+                type="number"
+                value={values.maxPromptLength.toString()}
+                onChange={(e) => updateValue("maxPromptLength", Number(e.target.value))}
+                size="40"
+                fullWidth
+              />
+              <p className="text-xs text-zinc-700 mt-1">Range: 1,000-1,000,000 (default: 100,000)</p>
+            </div>
+
+            <div>
+              <label className="text-sm text-zinc-400 mb-1 block">
+                Max Turns
+                <span className="text-xs text-zinc-600 ml-2">(conversation rounds)</span>
+              </label>
+              <TextField
+                type="number"
+                value={values.maxTurns.toString()}
+                onChange={(e) => updateValue("maxTurns", Number(e.target.value))}
+                size="40"
+                fullWidth
+              />
+              <p className="text-xs text-zinc-700 mt-1">Range: 1-10,000 (default: 500)</p>
+            </div>
+
+            <div>
+              <label className="text-sm text-zinc-400 mb-1 block">
+                Session TTL
+                <span className="text-xs text-zinc-600 ml-2">(milliseconds)</span>
+              </label>
+              <TextField
+                type="number"
+                value={values.sessionTtlMs.toString()}
+                onChange={(e) => updateValue("sessionTtlMs", Number(e.target.value))}
+                size="40"
+                fullWidth
+              />
+              <p className="text-xs text-zinc-700 mt-1">
+                Range: 60,000-86,400,000 (1min-24hr, default: 4hr)
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 pt-4">
+          <Button variant="primary" size="40" onClick={saveSettings} disabled={saving} loading={saving}>
+            Save Changes
+          </Button>
+          {message && (
+            <Alert variant={message.includes("Failed") || message.includes("must") ? "error" : "success"}>
+              {message}
+            </Alert>
+          )}
+        </div>
       </div>
     </div>
   );

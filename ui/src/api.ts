@@ -253,7 +253,20 @@ export function createApi(authFetch: AuthFetch) {
     },
 
     // Settings
-    async getSettings(): Promise<{ anthropicKeyHint: string; keyMode: "openrouter" | "anthropic"; models: string[] }> {
+    async getSettings(): Promise<{
+      anthropicKeyHint: string;
+      keyMode: "openrouter" | "anthropic";
+      models: string[];
+      guardrails: {
+        maxPromptLength: number;
+        maxTurns: number;
+        maxAgents: number;
+        maxBatchSize: number;
+        maxAgentDepth: number;
+        maxChildrenPerAgent: number;
+        sessionTtlMs: number;
+      };
+    }> {
       const res = await authFetch("/api/settings");
       if (!res.ok) throw new Error("Failed to get settings");
       return res.json();
@@ -266,6 +279,38 @@ export function createApi(authFetch: AuthFetch) {
         body: JSON.stringify({ key }),
       });
       if (!res.ok) throw new Error("Invalid API key format");
+      return res.json();
+    },
+
+    async updateGuardrails(settings: {
+      maxPromptLength?: number;
+      maxTurns?: number;
+      maxAgents?: number;
+      maxBatchSize?: number;
+      maxAgentDepth?: number;
+      maxChildrenPerAgent?: number;
+      sessionTtlMs?: number;
+    }): Promise<{
+      ok: boolean;
+      guardrails: {
+        maxPromptLength: number;
+        maxTurns: number;
+        maxAgents: number;
+        maxBatchSize: number;
+        maxAgentDepth: number;
+        maxChildrenPerAgent: number;
+        sessionTtlMs: number;
+      };
+    }> {
+      const res = await authFetch("/api/settings/guardrails", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to update guardrails");
+      }
       return res.json();
     },
 

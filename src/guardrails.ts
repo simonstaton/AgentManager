@@ -21,14 +21,14 @@ export const ALLOWED_MODELS = [
 ];
 export const DEFAULT_MODEL = "claude-sonnet-4-6";
 
-export const MAX_PROMPT_LENGTH = 100_000;
-export const MAX_TURNS = 500;
-export const MAX_AGENTS = 20;
-export const MAX_BATCH_SIZE = 10;
-export const SESSION_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
+export let MAX_PROMPT_LENGTH = 100_000;
+export let MAX_TURNS = 500;
+export let MAX_AGENTS = 20;
+export let MAX_BATCH_SIZE = 10;
+export let SESSION_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
 // Layer 4: Spawning depth limits — stored as an immutable field on Agent at
 // creation time. Walking the parent chain at runtime is bypassable if a parent
 // is destroyed (chain breaks, depth resets to 0).
-export const MAX_AGENT_DEPTH = 3;
-export const MAX_CHILDREN_PER_AGENT = 20;
+export let MAX_AGENT_DEPTH = 3;
+export let MAX_CHILDREN_PER_AGENT = 20;
