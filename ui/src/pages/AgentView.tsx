@@ -1,6 +1,7 @@
 import { Badge, Button } from "@fanvue/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useKillSwitchContext } from "../App";
 import type { Agent } from "../api";
 import { AgentTerminal } from "../components/AgentTerminal";
 import { Header } from "../components/Header";
@@ -11,7 +12,6 @@ import { useAgentPolling } from "../hooks/useAgentPolling";
 import { useAgentStream } from "../hooks/useAgentStream";
 import { useApi } from "../hooks/useApi";
 import { usePageVisible } from "../hooks/usePageVisible";
-import { useKillSwitchContext } from "../App";
 
 export function AgentView() {
   const { id } = useParams<{ id: string }>();

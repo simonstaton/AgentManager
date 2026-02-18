@@ -66,7 +66,9 @@ export function loadAllAgentStates(): Agent[] {
   }
   const agents: Agent[] = [];
   try {
-    const files = readdirSync(STATE_DIR).filter((f) => f.endsWith(".json") && !f.endsWith(".tmp") && !f.startsWith("_"));
+    const files = readdirSync(STATE_DIR).filter(
+      (f) => f.endsWith(".json") && !f.endsWith(".tmp") && !f.startsWith("_"),
+    );
     for (const file of files) {
       try {
         const data = readFileSync(path.join(STATE_DIR, file), "utf-8");
@@ -160,7 +162,9 @@ export function hasTombstone(): boolean {
 export function clearTombstone(): void {
   try {
     if (existsSync(TOMBSTONE_FILE)) unlinkSync(TOMBSTONE_FILE);
-  } catch { /* best-effort */ }
+  } catch {
+    /* best-effort */
+  }
 }
 
 export function removeAgentState(id: string): void {

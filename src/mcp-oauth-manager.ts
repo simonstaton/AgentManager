@@ -2,6 +2,14 @@ import crypto from "node:crypto";
 import type { MCPOAuthToken } from "./mcp-oauth-storage";
 import { deleteToken, isTokenExpired, loadToken, saveToken } from "./mcp-oauth-storage";
 
+interface OAuthTokenResponse {
+  access_token: string;
+  refresh_token?: string;
+  token_type?: string;
+  scope?: string;
+  expires_in?: number;
+}
+
 export interface MCPServerConfig {
   name: string;
   type: "http" | "stdio";
@@ -17,7 +25,7 @@ export interface MCPServerConfig {
 }
 
 /** In-memory store for OAuth state tokens (CSRF protection) */
-const pendingStates = new Map<string, { server: string; createdAt: number }>();
+const pendingStates = new Map<string, { server: string; createdAt: number; callbackUrl: string }>();
 
 /** State token expiry time (10 minutes) */
 const STATE_EXPIRY_MS = 10 * 60 * 1000;
@@ -71,28 +79,41 @@ export const MCP_SERVERS: Record<string, MCPServerConfig> = {
 };
 
 /**
- * Get callback URL for OAuth redirects
+ * Get callback URL for OAuth redirects.
+ * Derives the URL from the incoming request headers when available,
+ * falling back to PUBLIC_URL env var or localhost for dev.
  */
-export function getCallbackUrl(): string {
-  const baseUrl = process.env.PUBLIC_URL || "http://localhost:8080";
-  return `${baseUrl}/api/mcp/callback`;
+export function getCallbackUrl(reqHeaders?: { host?: string; "x-forwarded-proto"?: string }): string {
+  if (process.env.PUBLIC_URL) {
+    return `${process.env.PUBLIC_URL}/api/mcp/callback`;
+  }
+
+  if (reqHeaders?.host) {
+    const proto = reqHeaders["x-forwarded-proto"] || "https";
+    return `${proto}://${reqHeaders.host}/api/mcp/callback`;
+  }
+
+  return "http://localhost:8080/api/mcp/callback";
 }
 
 /**
  * Generate OAuth authorization URL
  */
-export function generateAuthUrl(server: string): string | null {
+export function generateAuthUrl(
+  server: string,
+  reqHeaders?: { host?: string; "x-forwarded-proto"?: string },
+): string | null {
   const config = MCP_SERVERS[server];
   if (!config?.oauthConfig) {
     return null;
   }
 
-  // Generate state token for CSRF protection
-  const state = crypto.randomBytes(32).toString("hex");
-  pendingStates.set(state, { server, createdAt: Date.now() });
-
   const { authUrl, clientId, scope } = config.oauthConfig;
-  const callbackUrl = getCallbackUrl();
+  const callbackUrl = getCallbackUrl(reqHeaders);
+
+  // Generate state token for CSRF protection, storing callback URL for token exchange
+  const state = crypto.randomBytes(32).toString("hex");
+  pendingStates.set(state, { server, createdAt: Date.now(), callbackUrl });
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -109,9 +130,10 @@ export function generateAuthUrl(server: string): string | null {
 }
 
 /**
- * Validate OAuth state token
+ * Validate OAuth state token. Returns server name and the callback URL
+ * that was used when generating the auth URL (so token exchange matches).
  */
-export function validateState(state: string): string | null {
+export function validateState(state: string): { server: string; callbackUrl: string } | null {
   cleanupExpiredStates();
   const data = pendingStates.get(state);
 
@@ -119,23 +141,23 @@ export function validateState(state: string): string | null {
     return null;
   }
 
-  // Check if state is expired
   if (Date.now() - data.createdAt > STATE_EXPIRY_MS) {
     pendingStates.delete(state);
     return null;
   }
 
-  // Delete state after validation (one-time use)
   pendingStates.delete(state);
-  return data.server;
+  return { server: data.server, callbackUrl: data.callbackUrl };
 }
 
 /**
- * Exchange authorization code for access token
+ * Exchange authorization code for access token.
+ * callbackUrl must match the redirect_uri used in the original auth URL.
  */
 export async function exchangeCodeForToken(
   server: string,
   code: string,
+  callbackUrl?: string,
 ): Promise<MCPOAuthToken | null> {
   const config = MCP_SERVERS[server];
   if (!config?.oauthConfig) {
@@ -144,13 +166,13 @@ export async function exchangeCodeForToken(
   }
 
   const { tokenUrl, clientId, clientSecret } = config.oauthConfig;
-  const callbackUrl = getCallbackUrl();
+  const redirectUri = callbackUrl || getCallbackUrl();
 
   try {
     const params = new URLSearchParams({
       grant_type: "authorization_code",
       code,
-      redirect_uri: callbackUrl,
+      redirect_uri: redirectUri,
       client_id: clientId,
     });
 
@@ -173,7 +195,7 @@ export async function exchangeCodeForToken(
       return null;
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as OAuthTokenResponse;
 
     const token: MCPOAuthToken = {
       server,
@@ -184,13 +206,11 @@ export async function exchangeCodeForToken(
       authenticatedAt: new Date().toISOString(),
     };
 
-    // Calculate expiry if expires_in is provided
     if (data.expires_in) {
       const expiresAt = new Date(Date.now() + data.expires_in * 1000);
       token.expiresAt = expiresAt.toISOString();
     }
 
-    // Save token to storage
     saveToken(token);
 
     return token;
@@ -245,7 +265,7 @@ export async function refreshAccessToken(server: string): Promise<MCPOAuthToken 
       return null;
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as OAuthTokenResponse;
 
     const token: MCPOAuthToken = {
       server,

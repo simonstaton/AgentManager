@@ -16,8 +16,7 @@
  * The server polls GCS every 10 seconds via startGcsKillSwitchPoll().
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { errorMessage } from "./types";
 

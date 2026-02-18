@@ -13,19 +13,17 @@ export function KillSwitchBanner({ state, loading, onDeactivate }: KillSwitchBan
 
   if (!state.killed) return null;
 
-  const activatedAt = state.activatedAt
-    ? new Date(state.activatedAt).toLocaleString()
-    : "unknown time";
+  const activatedAt = state.activatedAt ? new Date(state.activatedAt).toLocaleString() : "unknown time";
 
   return (
     <div className="bg-red-900 border-b border-red-700 text-red-100 px-6 py-3 flex items-center justify-between gap-4">
       <div className="flex items-center gap-3 min-w-0">
-        <span className="text-red-400 text-lg flex-shrink-0" aria-hidden>&#9888;</span>
+        <span className="text-red-400 text-lg flex-shrink-0" aria-hidden>
+          &#9888;
+        </span>
         <div className="min-w-0">
           <span className="font-semibold text-red-100">KILL SWITCH ACTIVE</span>
-          {state.reason && (
-            <span className="text-red-300 text-sm ml-2 truncate">— {state.reason}</span>
-          )}
+          {state.reason && <span className="text-red-300 text-sm ml-2 truncate">— {state.reason}</span>}
           <span className="text-red-400 text-xs ml-2 hidden sm:inline">Activated {activatedAt}</span>
         </div>
       </div>
@@ -36,7 +34,10 @@ export function KillSwitchBanner({ state, loading, onDeactivate }: KillSwitchBan
             <span className="text-red-200 text-sm">Deactivate and re-enable agents?</span>
             <button
               type="button"
-              onClick={() => { setConfirming(false); onDeactivate(); }}
+              onClick={() => {
+                setConfirming(false);
+                onDeactivate();
+              }}
               disabled={loading}
               className="px-3 py-1 text-sm font-medium bg-red-700 hover:bg-red-600 text-white rounded transition-colors disabled:opacity-50"
             >

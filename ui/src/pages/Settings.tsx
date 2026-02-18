@@ -1,12 +1,12 @@
 import { Alert, Button, PasswordField, Tabs, TabsContent, TabsList, TabsTrigger, TextField } from "@fanvue/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useKillSwitchContext } from "../App";
 import type { Agent, ClaudeConfigFile, ContextFile, createApi } from "../api";
 import { Header } from "../components/Header";
 import { MessageFeed } from "../components/MessageFeed";
 import { Sidebar } from "../components/Sidebar";
 import { useApi } from "../hooks/useApi";
-import { useKillSwitchContext } from "../App";
 
 // ── Generic file tree utilities ─────────────────────────────────────────────
 
@@ -376,29 +376,29 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
         {loading ? (
           <p className="text-xs text-zinc-600">Loading...</p>
         ) : (
-        <TreeList
-          nodes={tree}
-          depth={0}
-          selectedKey={selected}
-          expandedFolders={folders.expanded}
-          onToggleFolder={folders.toggle}
-          onSelectNode={(node) => loadFile(node.fullPath)}
-          renderActions={(node) =>
-            !node.isFolder && (
-              <Button
-                variant="text"
-                size="24"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  deleteFile(node.fullPath);
-                }}
-                className="text-zinc-600 hover:text-red-400"
-              >
-                x
-              </Button>
-            )
-          }
-        />
+          <TreeList
+            nodes={tree}
+            depth={0}
+            selectedKey={selected}
+            expandedFolders={folders.expanded}
+            onToggleFolder={folders.toggle}
+            onSelectNode={(node) => loadFile(node.fullPath)}
+            renderActions={(node) =>
+              !node.isFolder && (
+                <Button
+                  variant="text"
+                  size="24"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteFile(node.fullPath);
+                  }}
+                  className="text-zinc-600 hover:text-red-400"
+                >
+                  x
+                </Button>
+              )
+            }
+          />
         )}
         <div className="flex gap-1 mt-3">
           <TextField
@@ -580,109 +580,109 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
         {loading ? (
           <p className="text-xs text-zinc-600">Loading...</p>
         ) : (
-        grouped.map((group) => {
-          const stripPrefix = TREE_CATEGORIES[group.category];
-          const useTree = stripPrefix && group.files.some((f) => f.name.includes("/"));
+          grouped.map((group) => {
+            const stripPrefix = TREE_CATEGORIES[group.category];
+            const useTree = stripPrefix && group.files.some((f) => f.name.includes("/"));
 
-          return (
-            <div key={group.category}>
-              <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">{group.label}</p>
-              <p className="text-[11px] text-zinc-600 mb-2">{group.description}</p>
+            return (
+              <div key={group.category}>
+                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">{group.label}</p>
+                <p className="text-[11px] text-zinc-600 mb-2">{group.description}</p>
 
-              <div className="space-y-0.5">
-                {useTree ? (
-                  <TreeList<ClaudeConfigFile>
-                    nodes={buildTree<ClaudeConfigFile>(
-                      group.files.map((f) => ({
-                        key: f.name.startsWith(stripPrefix) ? f.name.slice(stripPrefix.length) : f.name,
-                        data: f,
-                      })),
-                    )}
-                    depth={0}
-                    selectedKey={
-                      selected
-                        ? selected.name.startsWith(stripPrefix)
-                          ? selected.name.slice(stripPrefix.length)
-                          : selected.name
-                        : null
-                    }
-                    expandedFolders={folders.expanded}
-                    folderKeyPrefix={group.category}
-                    onToggleFolder={folders.toggle}
-                    onSelectNode={(node) => node.data && loadFile(node.data)}
-                    renderActions={(node) => {
-                      if (node.isFolder || !node.data?.deletable) return null;
-                      return (
-                        <Button
-                          variant="text"
-                          size="24"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (node.data) deleteFile(node.data);
-                          }}
-                          className="text-zinc-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                        >
-                          x
-                        </Button>
-                      );
-                    }}
-                  />
-                ) : (
-                  group.files.map((f) => (
-                    <button
-                      type="button"
-                      key={f.path}
-                      className={`flex items-center justify-between w-full text-left px-2 py-1.5 rounded text-sm cursor-pointer transition-colors group ${
-                        selected?.path === f.path ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/50"
-                      }`}
-                      onClick={() => loadFile(f)}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="font-mono text-xs truncate">{f.name}</div>
-                        <div className="text-[11px] text-zinc-600 truncate">{f.description}</div>
-                      </div>
-                      {f.deletable && (
-                        <Button
-                          variant="text"
-                          size="24"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteFile(f);
-                          }}
-                          className="text-zinc-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                        >
-                          x
-                        </Button>
+                <div className="space-y-0.5">
+                  {useTree ? (
+                    <TreeList<ClaudeConfigFile>
+                      nodes={buildTree<ClaudeConfigFile>(
+                        group.files.map((f) => ({
+                          key: f.name.startsWith(stripPrefix) ? f.name.slice(stripPrefix.length) : f.name,
+                          data: f,
+                        })),
                       )}
-                    </button>
-                  ))
+                      depth={0}
+                      selectedKey={
+                        selected
+                          ? selected.name.startsWith(stripPrefix)
+                            ? selected.name.slice(stripPrefix.length)
+                            : selected.name
+                          : null
+                      }
+                      expandedFolders={folders.expanded}
+                      folderKeyPrefix={group.category}
+                      onToggleFolder={folders.toggle}
+                      onSelectNode={(node) => node.data && loadFile(node.data)}
+                      renderActions={(node) => {
+                        if (node.isFolder || !node.data?.deletable) return null;
+                        return (
+                          <Button
+                            variant="text"
+                            size="24"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (node.data) deleteFile(node.data);
+                            }}
+                            className="text-zinc-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                          >
+                            x
+                          </Button>
+                        );
+                      }}
+                    />
+                  ) : (
+                    group.files.map((f) => (
+                      <button
+                        type="button"
+                        key={f.path}
+                        className={`flex items-center justify-between w-full text-left px-2 py-1.5 rounded text-sm cursor-pointer transition-colors group ${
+                          selected?.path === f.path ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/50"
+                        }`}
+                        onClick={() => loadFile(f)}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="font-mono text-xs truncate">{f.name}</div>
+                          <div className="text-[11px] text-zinc-600 truncate">{f.description}</div>
+                        </div>
+                        {f.deletable && (
+                          <Button
+                            variant="text"
+                            size="24"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteFile(f);
+                            }}
+                            className="text-zinc-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                          >
+                            x
+                          </Button>
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
+
+                {group.category === "skills" && (
+                  <div className="flex gap-1 mt-2">
+                    <TextField
+                      value={newSkillName}
+                      onChange={(e) => setNewSkillName(e.target.value)}
+                      placeholder="my-skill or sub/skill"
+                      onKeyDown={(e) => e.key === "Enter" && createSkill()}
+                      size="32"
+                      fullWidth
+                    />
+                    <Button
+                      variant="secondary"
+                      size="32"
+                      onClick={createSkill}
+                      disabled={!newSkillName.trim() || creatingSkill}
+                      loading={creatingSkill}
+                    >
+                      +
+                    </Button>
+                  </div>
                 )}
               </div>
-
-              {group.category === "skills" && (
-                <div className="flex gap-1 mt-2">
-                  <TextField
-                    value={newSkillName}
-                    onChange={(e) => setNewSkillName(e.target.value)}
-                    placeholder="my-skill or sub/skill"
-                    onKeyDown={(e) => e.key === "Enter" && createSkill()}
-                    size="32"
-                    fullWidth
-                  />
-                  <Button
-                    variant="secondary"
-                    size="32"
-                    onClick={createSkill}
-                    disabled={!newSkillName.trim() || creatingSkill}
-                    loading={creatingSkill}
-                  >
-                    +
-                  </Button>
-                </div>
-              )}
-            </div>
-          );
-        })
+            );
+          })
         )}
       </div>
 
@@ -811,7 +811,9 @@ function ApiKeyPanel({ api }: { api: ReturnType<typeof createApi> }) {
       <div>
         <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">
           Current API Key
-          <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold ${mode === "openrouter" ? "bg-emerald-900/50 text-emerald-400" : "bg-orange-900/50 text-orange-400"}`}>
+          <span
+            className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold ${mode === "openrouter" ? "bg-emerald-900/50 text-emerald-400" : "bg-orange-900/50 text-orange-400"}`}
+          >
             {modeLabel}
           </span>
         </p>
@@ -1018,9 +1020,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
                 size="40"
                 fullWidth
               />
-              <p className="text-xs text-zinc-700 mt-1">
-                Range: 60,000-86,400,000 (1min-24hr, default: 4hr)
-              </p>
+              <p className="text-xs text-zinc-700 mt-1">Range: 60,000-86,400,000 (1min-24hr, default: 4hr)</p>
             </div>
           </div>
         </div>

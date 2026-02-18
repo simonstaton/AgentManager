@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useKillSwitchContext } from "../App";
 import type { AgentTemplate } from "../agentTemplates";
 import { AgentCard } from "../components/AgentCard";
 import { AgentTemplates } from "../components/AgentTemplates";
@@ -8,7 +9,6 @@ import { type Attachment, PromptInput, type PromptInputDefaultValues } from "../
 import { Sidebar } from "../components/Sidebar";
 import { useAgentPolling } from "../hooks/useAgentPolling";
 import { useApi } from "../hooks/useApi";
-import { useKillSwitchContext } from "../App";
 
 export function Dashboard() {
   const navigate = useNavigate();

@@ -92,9 +92,7 @@ export function listStoredTokens(): string[] {
   ensureTokenDir();
   try {
     const files = fs.readdirSync(MCP_TOKEN_DIR);
-    return files
-      .filter((f) => f.endsWith(".json"))
-      .map((f) => f.replace(/\.json$/, ""));
+    return files.filter((f) => f.endsWith(".json")).map((f) => f.replace(/\.json$/, ""));
   } catch (err) {
     console.error("[MCP-OAuth] Failed to list stored tokens:", err);
     return [];
@@ -106,7 +104,5 @@ export function listStoredTokens(): string[] {
  */
 export function getAllTokens(): MCPOAuthToken[] {
   const servers = listStoredTokens();
-  return servers
-    .map((server) => loadToken(server))
-    .filter((token): token is MCPOAuthToken => token !== null);
+  return servers.map((server) => loadToken(server)).filter((token): token is MCPOAuthToken => token !== null);
 }

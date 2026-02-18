@@ -14,7 +14,7 @@ export function createConfigRouter() {
   // Get current settings
   router.get("/api/settings", (_req, res) => {
     const isOpenRouter = !!process.env.ANTHROPIC_AUTH_TOKEN;
-    const key = isOpenRouter ? process.env.ANTHROPIC_AUTH_TOKEN! : (process.env.ANTHROPIC_API_KEY || "");
+    const key = isOpenRouter ? process.env.ANTHROPIC_AUTH_TOKEN! : process.env.ANTHROPIC_API_KEY || "";
     res.json({
       anthropicKeyHint: key ? `...${key.slice(-8)}` : "(not set)",
       keyMode: isOpenRouter ? "openrouter" : "anthropic",
@@ -55,7 +55,9 @@ export function createConfigRouter() {
       delete process.env.ANTHROPIC_BASE_URL;
     }
     resetSanitizeCache();
-    console.warn(`[AUDIT] API key changed to ${isOpenRouter ? "OpenRouter" : "Anthropic"} by user: ${user?.sub ?? "unknown"}`);
+    console.warn(
+      `[AUDIT] API key changed to ${isOpenRouter ? "OpenRouter" : "Anthropic"} by user: ${user?.sub ?? "unknown"}`,
+    );
     res.json({ ok: true, hint: `...${key.slice(-8)}`, keyMode: isOpenRouter ? "openrouter" : "anthropic" });
   });
 
@@ -266,15 +268,8 @@ export function createConfigRouter() {
       return;
     }
 
-    const {
-      maxPromptLength,
-      maxTurns,
-      maxAgents,
-      maxBatchSize,
-      maxAgentDepth,
-      maxChildrenPerAgent,
-      sessionTtlMs,
-    } = req.body ?? {};
+    const { maxPromptLength, maxTurns, maxAgents, maxBatchSize, maxAgentDepth, maxChildrenPerAgent, sessionTtlMs } =
+      req.body ?? {};
 
     // Validate and update each setting if provided
     const updates: Record<string, number> = {};

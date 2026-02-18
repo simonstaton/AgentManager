@@ -66,10 +66,9 @@ for (const [name, config] of Object.entries(mcpServers)) {
     console.log(\`  URL: \${config.url}\`);
     console.log(\`  Auth: \${authMode}\`);
 
-    if (hasToken === false) {
-      // Provide OAuth instructions
-      console.log(\`  → Authenticate by using the tool — Claude Code will prompt for OAuth\`);
-      console.log(\`  → Alternative: Set \${name.toUpperCase()}_TOKEN env var to use token auth\`);
+    if (!hasToken) {
+      console.log(\`  → Use /linear or /figma slash commands for direct API access\`);
+      console.log(\`  → Alternative: Set \${name.toUpperCase()}_TOKEN env var to enable token auth\`);
     }
   } else {
     // Stdio server (always has token if activated)
@@ -82,47 +81,33 @@ for (const [name, config] of Object.entries(mcpServers)) {
 " || echo "Failed to parse MCP settings"
 ```
 
-## OAuth Authentication Flow
+## Using Linear and Figma
 
-For **Figma** and **Linear**, you can authenticate via the platform's OAuth API:
+Remote HTTP MCP servers (Linear, Figma) may not appear as native Claude Code tools in headless environments. Use the dedicated slash commands instead:
 
-**To initiate OAuth authentication:**
+- **Linear**: Run `/linear` for GraphQL API examples (get issues, search, comment, update status)
+- **Figma**: Run `/figma` for REST API examples (get files, export images, read comments)
 
-```bash
-# Check authentication status first
-curl -H "Authorization: Bearer $AGENT_AUTH_TOKEN" \
-  http://localhost:8080/api/mcp/servers
+These use API keys (`LINEAR_API_KEY`, `FIGMA_TOKEN`) that are pre-configured in the environment.
 
-# Start OAuth flow for a specific server
-curl -X POST -H "Authorization: Bearer $AGENT_AUTH_TOKEN" \
-  http://localhost:8080/api/mcp/auth/figma
+**Do NOT try OAuth authentication** — the OAuth callback requires browser access to the server's public URL, which doesn't work from agent sessions.
 
-# Or for Linear:
-curl -X POST -H "Authorization: Bearer $AGENT_AUTH_TOKEN" \
-  http://localhost:8080/api/mcp/auth/linear
-```
+## Getting API Tokens
 
-The response will include an `authUrl` - open that URL in your browser to authenticate. After authentication, the token will be stored and available to all agents automatically.
+Tokens are set as environment variables via Terraform/deployment config:
 
-**Alternatively**, when you use Figma/Linear tools for the first time without authentication, Claude Code will automatically prompt you to authenticate via browser.
-
-## Getting API Tokens (Optional)
-
-If you prefer token-based auth instead of OAuth:
-
-- **Figma**: [Figma Settings > Personal Access Tokens](https://www.figma.com/settings) → Set `FIGMA_TOKEN`
-- **Linear**: [Linear Settings > API](https://linear.app/settings/api) → Set `LINEAR_API_KEY`
-- **GitHub**: [GitHub Settings > Tokens](https://github.com/settings/tokens) → Set `GITHUB_TOKEN`
-- **Notion**: [Notion Integrations](https://www.notion.so/my-integrations) → Set `NOTION_API_KEY`
-- **Slack**: [Slack API > Your Apps](https://api.slack.com/apps) → Set `SLACK_TOKEN`
-
-Tokens should be set as environment variables in your deployment configuration (Terraform, .env file, Cloud Run, etc.).
+- **Linear**: `LINEAR_API_KEY` — [Linear Settings > API](https://linear.app/settings/api)
+- **Figma**: `FIGMA_TOKEN` — [Figma Settings > Personal Access Tokens](https://www.figma.com/settings)
+- **GitHub**: `GITHUB_TOKEN` — [GitHub Settings > Tokens](https://github.com/settings/tokens)
+- **Notion**: `NOTION_API_KEY` — [Notion Integrations](https://www.notion.so/my-integrations)
+- **Slack**: `SLACK_TOKEN` — [Slack API > Your Apps](https://api.slack.com/apps)
 
 ## Summary
 
-After running the script above, you'll see:
+After running the status script above, you'll see:
 - Which MCP servers are currently active
-- Their authentication status (token-based or OAuth)
-- OAuth instructions for servers that need browser authentication
+- Their authentication method (token-based or OAuth)
+
+For Linear and Figma, **always prefer the dedicated slash commands** over trying to use MCP tools directly.
 
 $ARGUMENTS

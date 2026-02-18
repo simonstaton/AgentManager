@@ -1,5 +1,14 @@
 # Global Agent Instructions
 
+## MCP & Integrations (REQUIRED)
+
+Before using any external tool or integration (Linear, Figma, GitHub, etc.), ALWAYS read the corresponding command file in `commands/` first:
+- **Linear**: `/linear` — uses `LINEAR_API_KEY` env var with direct GraphQL API (no MCP/OAuth needed)
+- **Figma**: `/figma` — uses `FIGMA_TOKEN` env var
+- **MCP status**: `/mcp` — check which MCP servers are configured and their auth status
+
+Do NOT attempt OAuth flows or guess at MCP configuration. The command files have working, copy-paste-ready examples.
+
 ## Working Memory (REQUIRED)
 
 You MUST maintain a working memory file in shared context that tracks what you are currently doing. This enables other agents and the human operator to see your real-time status.

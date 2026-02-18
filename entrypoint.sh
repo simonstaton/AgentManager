@@ -24,7 +24,7 @@ node -e "
   const fs = require('fs');
   const path = require('path');
 
-  const templatePath = path.join(__dirname, 'mcp', 'settings-template.json');
+  const templatePath = '/app/mcp/settings-template.json';
   const settingsPath = '/home/agent/.claude/settings.json';
   const tokenDir = process.env.MCP_TOKEN_DIR || '/persistent/mcp-tokens';
 

@@ -14,7 +14,14 @@ import {
 import { appendFile, readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { generateServiceToken } from "./auth";
-import { ALLOWED_MODELS, DEFAULT_MODEL, MAX_AGENTS, MAX_AGENT_DEPTH, MAX_CHILDREN_PER_AGENT, SESSION_TTL_MS } from "./guardrails";
+import {
+  ALLOWED_MODELS,
+  DEFAULT_MODEL,
+  MAX_AGENT_DEPTH,
+  MAX_AGENTS,
+  MAX_CHILDREN_PER_AGENT,
+  SESSION_TTL_MS,
+} from "./guardrails";
 import { EVENTS_DIR, loadAllAgentStates, removeAgentState, saveAgentState, writeTombstone } from "./persistence";
 import { sanitizeEvent } from "./sanitize";
 import { syncToGCS } from "./storage";
@@ -202,7 +209,7 @@ export class AgentManager {
   } {
     // Layer 1: Block spawning when kill switch is active
     if (this.killed) {
-      throw new Error('Kill switch is active — agent spawning is disabled');
+      throw new Error("Kill switch is active — agent spawning is disabled");
     }
     if (this.agents.size >= MAX_AGENTS) {
       throw new Error(`Maximum of ${MAX_AGENTS} agents reached`);
@@ -684,15 +691,27 @@ export class AgentManager {
           try {
             process.kill(-proc.pid, "SIGKILL");
           } catch {
-            try { process.kill(proc.pid, "SIGKILL"); } catch { /* already dead */ }
+            try {
+              process.kill(proc.pid, "SIGKILL");
+            } catch {
+              /* already dead */
+            }
           }
         }
       }
       agentProc.listeners.clear();
 
       // Delete state and event files immediately
-      try { removeAgentState(id); } catch { /* best-effort */ }
-      try { unlinkSync(path.join(EVENTS_DIR, `${id}.jsonl`)); } catch { /* best-effort */ }
+      try {
+        removeAgentState(id);
+      } catch {
+        /* best-effort */
+      }
+      try {
+        unlinkSync(path.join(EVENTS_DIR, `${id}.jsonl`));
+      } catch {
+        /* best-effort */
+      }
     }
 
     this.agents.clear();

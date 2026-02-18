@@ -1,17 +1,47 @@
 import fs from "node:fs";
-import path from "node:path";
 import express, { type Request, type Response } from "express";
 import {
-  type MCPServerConfig,
-  MCP_SERVERS,
   exchangeCodeForToken,
   generateAuthUrl,
   getValidToken,
+  MCP_SERVERS,
   revokeToken,
   validateState,
 } from "../mcp-oauth-manager";
-import { getAllTokens, isTokenExpired, loadToken } from "../mcp-oauth-storage";
+import { getAllTokens, isTokenExpired } from "../mcp-oauth-storage";
 import { errorMessage } from "../types";
+
+const SETTINGS_PATH = "/home/agent/.claude/settings.json";
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function renderPage(title: string, heading: string, body: string, success: boolean): string {
+  const bg = success ? "#efe" : "#fee";
+  const border = success ? "#cfc" : "#fcc";
+  const color = success ? "#3c3" : "#c33";
+  return `<!DOCTYPE html>
+<html>
+  <head>
+    <title>${escapeHtml(title)}</title>
+    <style>
+      body { font-family: system-ui, -apple-system, sans-serif; padding: 40px; max-width: 600px; margin: 0 auto; text-align: center; }
+      .box { background: ${bg}; border: 1px solid ${border}; padding: 30px; border-radius: 8px; }
+      h1 { color: ${color}; margin-bottom: 20px; }
+      p { color: #666; line-height: 1.6; }
+      code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; }
+      .hint { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 0.9em; color: #999; }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <h1>${heading}</h1>
+      ${body}
+    </div>
+  </body>
+</html>`;
+}
 
 export function createMcpRouter() {
   const router = express.Router();
@@ -22,31 +52,32 @@ export function createMcpRouter() {
    */
   router.get("/api/mcp/servers", (_req: Request, res: Response) => {
     try {
-      const settingsPath = path.join("/home/agent/.claude/settings.json");
-      let configuredServers: Record<string, any> = {};
+      let configuredServers: Record<string, { type?: string; url?: string; headers?: Record<string, string> }> = {};
 
-      // Read current MCP settings
-      if (fs.existsSync(settingsPath)) {
-        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+      if (fs.existsSync(SETTINGS_PATH)) {
+        const settings = JSON.parse(fs.readFileSync(SETTINGS_PATH, "utf8"));
         configuredServers = settings.mcpServers || {};
       }
 
-      // Get stored tokens
       const storedTokens = getAllTokens();
       const tokenMap = new Map(storedTokens.map((t) => [t.server, t]));
 
-      // Build server list
       const servers = Object.entries(MCP_SERVERS).map(([name, config]) => {
         const token = tokenMap.get(name);
         const isConfigured = !!configuredServers[name];
+
+        const serverSettings = configuredServers[name];
+        const hasApiKeyAuth = !!serverSettings?.headers?.Authorization;
+        const hasOAuthToken = !!token && !isTokenExpired(token);
+        const activeAuthMethod = hasApiKeyAuth ? "token" : hasOAuthToken ? "oauth" : "none";
 
         return {
           name,
           type: config.type,
           url: config.url,
           authRequired: config.authMethod === "oauth",
-          authMethod: config.authMethod || "none",
-          authenticated: !!token && !isTokenExpired(token),
+          authMethod: activeAuthMethod,
+          authenticated: hasApiKeyAuth || hasOAuthToken,
           authenticatedAt: token?.authenticatedAt,
           configured: isConfigured,
           tokenExpired: token ? isTokenExpired(token) : false,
@@ -64,7 +95,7 @@ export function createMcpRouter() {
    * POST /api/mcp/auth/:server
    * Initiate OAuth flow for a specific server
    */
-  router.post("/api/mcp/auth/:server", (req: Request, res: Response) => {
+  router.post("/api/mcp/auth/:server", (req: Request<{ server: string }>, res: Response) => {
     try {
       const { server } = req.params;
 
@@ -79,7 +110,11 @@ export function createMcpRouter() {
         return;
       }
 
-      const authUrl = generateAuthUrl(server);
+      const reqHeaders = {
+        host: req.headers.host,
+        "x-forwarded-proto": req.headers["x-forwarded-proto"] as string | undefined,
+      };
+      const authUrl = generateAuthUrl(server, reqHeaders);
       if (!authUrl) {
         res.status(500).json({ error: "Failed to generate authorization URL" });
         return;
@@ -106,186 +141,98 @@ export function createMcpRouter() {
     try {
       const { code, state, error, error_description } = req.query;
 
-      // Handle OAuth error responses
       if (error) {
         console.error(`[MCP-Routes] OAuth error:`, error, error_description);
-        res.status(400).send(`
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>Authentication Failed</title>
-              <style>
-                body { font-family: system-ui, -apple-system, sans-serif; padding: 40px; max-width: 600px; margin: 0 auto; }
-                .error { background: #fee; border: 1px solid #fcc; padding: 20px; border-radius: 8px; }
-                h1 { color: #c33; }
-                code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; }
-              </style>
-            </head>
-            <body>
-              <div class="error">
-                <h1>❌ Authentication Failed</h1>
-                <p><strong>Error:</strong> <code>${error}</code></p>
-                ${error_description ? `<p>${error_description}</p>` : ""}
-                <p>Please try again or contact support.</p>
-              </div>
-            </body>
-          </html>
-        `);
+        const desc = typeof error_description === "string" ? `<p>${escapeHtml(error_description)}</p>` : "";
+        res
+          .status(400)
+          .send(
+            renderPage(
+              "Authentication Failed",
+              "Authentication Failed",
+              `<p><strong>Error:</strong> <code>${escapeHtml(String(error))}</code></p>${desc}<p>Please try again or contact support.</p>`,
+              false,
+            ),
+          );
         return;
       }
 
       if (!code || !state || typeof code !== "string" || typeof state !== "string") {
-        res.status(400).send(`
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>Invalid Request</title>
-              <style>
-                body { font-family: system-ui, -apple-system, sans-serif; padding: 40px; max-width: 600px; margin: 0 auto; }
-                .error { background: #fee; border: 1px solid #fcc; padding: 20px; border-radius: 8px; }
-                h1 { color: #c33; }
-              </style>
-            </head>
-            <body>
-              <div class="error">
-                <h1>❌ Invalid Request</h1>
-                <p>Missing required parameters: code and state</p>
-              </div>
-            </body>
-          </html>
-        `);
+        res
+          .status(400)
+          .send(
+            renderPage(
+              "Invalid Request",
+              "Invalid Request",
+              "<p>Missing required parameters: code and state</p>",
+              false,
+            ),
+          );
         return;
       }
 
-      // Validate state token
-      const server = validateState(state);
-      if (!server) {
+      const stateData = validateState(state);
+      if (!stateData) {
         console.error("[MCP-Routes] Invalid or expired state token");
-        res.status(400).send(`
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>Invalid State</title>
-              <style>
-                body { font-family: system-ui, -apple-system, sans-serif; padding: 40px; max-width: 600px; margin: 0 auto; }
-                .error { background: #fee; border: 1px solid #fcc; padding: 20px; border-radius: 8px; }
-                h1 { color: #c33; }
-              </style>
-            </head>
-            <body>
-              <div class="error">
-                <h1>❌ Invalid or Expired State</h1>
-                <p>The authentication state token is invalid or has expired. Please try again.</p>
-              </div>
-            </body>
-          </html>
-        `);
+        res
+          .status(400)
+          .send(
+            renderPage(
+              "Invalid State",
+              "Invalid or Expired State",
+              "<p>The authentication state token is invalid or has expired. Please try again.</p>",
+              false,
+            ),
+          );
         return;
       }
 
+      const { server, callbackUrl } = stateData;
       console.log(`[MCP-Routes] Exchanging code for token (server: ${server})`);
 
-      // Exchange authorization code for access token
-      const token = await exchangeCodeForToken(server, code);
+      const token = await exchangeCodeForToken(server, code, callbackUrl);
 
       if (!token) {
-        res.status(500).send(`
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>Token Exchange Failed</title>
-              <style>
-                body { font-family: system-ui, -apple-system, sans-serif; padding: 40px; max-width: 600px; margin: 0 auto; }
-                .error { background: #fee; border: 1px solid #fcc; padding: 20px; border-radius: 8px; }
-                h1 { color: #c33; }
-              </style>
-            </head>
-            <body>
-              <div class="error">
-                <h1>❌ Token Exchange Failed</h1>
-                <p>Failed to exchange authorization code for access token. Please try again.</p>
-              </div>
-            </body>
-          </html>
-        `);
+        res
+          .status(500)
+          .send(
+            renderPage(
+              "Token Exchange Failed",
+              "Token Exchange Failed",
+              "<p>Failed to exchange authorization code for access token. Please try again.</p>",
+              false,
+            ),
+          );
         return;
       }
 
       console.log(`[MCP-Routes] Successfully authenticated ${server}`);
 
-      // Return success page
-      res.send(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Authentication Successful</title>
-            <style>
-              body {
-                font-family: system-ui, -apple-system, sans-serif;
-                padding: 40px;
-                max-width: 600px;
-                margin: 0 auto;
-                text-align: center;
-              }
-              .success {
-                background: #efe;
-                border: 1px solid #cfc;
-                padding: 30px;
-                border-radius: 8px;
-              }
-              h1 { color: #3c3; margin-bottom: 20px; }
-              .server {
-                font-size: 1.2em;
-                font-weight: bold;
-                color: #333;
-                margin: 20px 0;
-              }
-              p { color: #666; line-height: 1.6; }
-              .close-hint {
-                margin-top: 30px;
-                padding-top: 20px;
-                border-top: 1px solid #ddd;
-                font-size: 0.9em;
-                color: #999;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="success">
-              <h1>✅ Authentication Successful!</h1>
-              <div class="server">${server.toUpperCase()}</div>
-              <p>Your ${server} account has been successfully connected.</p>
-              <p>You can now close this window and return to Claude Swarm.</p>
-              <p>All agents will have access to your ${server} account.</p>
-              <div class="close-hint">
-                This window can be closed.
-              </div>
-            </div>
-          </body>
-        </html>
-      `);
+      const safeServer = escapeHtml(server);
+      res.send(
+        renderPage(
+          "Authentication Successful",
+          "Authentication Successful!",
+          `<div style="font-size:1.2em;font-weight:bold;color:#333;margin:20px 0">${safeServer.toUpperCase()}</div>
+          <p>Your ${safeServer} account has been successfully connected.</p>
+          <p>You can now close this window and return to Claude Swarm.</p>
+          <p>All agents will have access to your ${safeServer} account.</p>
+          <div class="hint">This window can be closed.</div>`,
+          true,
+        ),
+      );
     } catch (err) {
       console.error("[MCP-Routes] Error in OAuth callback:", err);
-      res.status(500).send(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Error</title>
-            <style>
-              body { font-family: system-ui, -apple-system, sans-serif; padding: 40px; max-width: 600px; margin: 0 auto; }
-              .error { background: #fee; border: 1px solid #fcc; padding: 20px; border-radius: 8px; }
-              h1 { color: #c33; }
-            </style>
-          </head>
-          <body>
-            <div class="error">
-              <h1>❌ Server Error</h1>
-              <p>An unexpected error occurred. Please try again.</p>
-              <p><small>${errorMessage(err)}</small></p>
-            </div>
-          </body>
-        </html>
-      `);
+      res
+        .status(500)
+        .send(
+          renderPage(
+            "Error",
+            "Server Error",
+            `<p>An unexpected error occurred. Please try again.</p><p><small>${escapeHtml(errorMessage(err))}</small></p>`,
+            false,
+          ),
+        );
     }
   });
 
@@ -293,7 +240,7 @@ export function createMcpRouter() {
    * GET /api/mcp/token/:server
    * Get current token status for a server
    */
-  router.get("/api/mcp/token/:server", async (req: Request, res: Response) => {
+  router.get("/api/mcp/token/:server", async (req: Request<{ server: string }>, res: Response) => {
     try {
       const { server } = req.params;
 
@@ -332,7 +279,7 @@ export function createMcpRouter() {
    * DELETE /api/mcp/token/:server
    * Revoke OAuth token for a server
    */
-  router.delete("/api/mcp/token/:server", async (req: Request, res: Response) => {
+  router.delete("/api/mcp/token/:server", async (req: Request<{ server: string }>, res: Response) => {
     try {
       const { server } = req.params;
 

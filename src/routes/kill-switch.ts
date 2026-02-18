@@ -1,8 +1,8 @@
 import { Router } from "express";
+import type { AgentManager } from "../agents";
 import { rotateJwtSecret } from "../auth";
 import { activate, deactivate, getKillSwitchState } from "../kill-switch";
 import { clearTombstone } from "../persistence";
-import type { AgentManager } from "../agents";
 import type { AuthenticatedRequest } from "../types";
 
 export function createKillSwitchRouter(agentManager: AgentManager): Router {
@@ -45,7 +45,6 @@ export function createKillSwitchRouter(agentManager: AgentManager): Router {
 
       console.log("[kill-switch] Activation sequence complete");
       res.json({ ok: true, state: getKillSwitchState() });
-
     } else if (action === "deactivate") {
       // Deactivate: clear flag, clear tombstone, rotate JWT so human must re-authenticate
       await deactivate();
@@ -58,7 +57,6 @@ export function createKillSwitchRouter(agentManager: AgentManager): Router {
 
       console.log("[kill-switch] Deactivation complete — JWT rotated, please re-authenticate");
       res.json({ ok: true, state: getKillSwitchState() });
-
     } else {
       res.status(400).json({ error: 'action must be "activate" or "deactivate"' });
     }

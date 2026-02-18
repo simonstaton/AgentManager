@@ -86,49 +86,76 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
       {confirming && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) setConfirming(false); }}
-          onKeyDown={(e) => { if (e.key === "Escape") setConfirming(false); }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setConfirming(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setConfirming(false);
+          }}
         >
           <div className="bg-zinc-900 border border-red-800 rounded-lg shadow-2xl max-w-md w-full mx-4 p-6">
             {/* Header */}
             <div className="flex items-start gap-3 mb-4">
-              <span className="text-red-500 text-2xl leading-none mt-0.5" aria-hidden>&#9888;</span>
+              <span className="text-red-500 text-2xl leading-none mt-0.5" aria-hidden>
+                &#9888;
+              </span>
               <div>
                 <h2 className="text-base font-semibold text-red-400">Activate Emergency Kill Switch?</h2>
-                <p className="text-sm text-zinc-400 mt-1">This action is immediate and cannot be undone without manual re-authentication.</p>
+                <p className="text-sm text-zinc-400 mt-1">
+                  This action is immediate and cannot be undone without manual re-authentication.
+                </p>
               </div>
             </div>
 
             {/* What will happen */}
             <div className="bg-zinc-950 border border-zinc-800 rounded-md p-4 mb-5">
-              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">What will happen immediately:</p>
+              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
+                What will happen immediately:
+              </p>
               <ul className="space-y-2">
                 <li className="flex items-start gap-2 text-sm text-zinc-300">
                   <span className="text-red-500 mt-0.5 flex-shrink-0">&#8226;</span>
-                  <span>All {agentCount > 0 ? agentCount : ""} running agent{agentCount !== 1 ? "s" : ""} will be <strong className="text-red-400">force-killed</strong> (SIGKILL) — any in-progress work is lost</span>
+                  <span>
+                    All {agentCount > 0 ? agentCount : ""} running agent{agentCount !== 1 ? "s" : ""} will be{" "}
+                    <strong className="text-red-400">force-killed</strong> (SIGKILL) — any in-progress work is lost
+                  </span>
                 </li>
                 <li className="flex items-start gap-2 text-sm text-zinc-300">
                   <span className="text-red-500 mt-0.5 flex-shrink-0">&#8226;</span>
-                  <span>All agent state files are <strong className="text-red-400">permanently deleted</strong> — agents cannot be restored</span>
+                  <span>
+                    All agent state files are <strong className="text-red-400">permanently deleted</strong> — agents
+                    cannot be restored
+                  </span>
                 </li>
                 <li className="flex items-start gap-2 text-sm text-zinc-300">
                   <span className="text-red-500 mt-0.5 flex-shrink-0">&#8226;</span>
-                  <span>All API tokens are <strong className="text-red-400">invalidated</strong> — every session (including this one) will require re-login</span>
+                  <span>
+                    All API tokens are <strong className="text-red-400">invalidated</strong> — every session (including
+                    this one) will require re-login
+                  </span>
                 </li>
                 <li className="flex items-start gap-2 text-sm text-zinc-300">
                   <span className="text-red-500 mt-0.5 flex-shrink-0">&#8226;</span>
-                  <span>New agents <strong className="text-red-400">cannot be spawned</strong> until you manually deactivate the kill switch</span>
+                  <span>
+                    New agents <strong className="text-red-400">cannot be spawned</strong> until you manually deactivate
+                    the kill switch
+                  </span>
                 </li>
                 <li className="flex items-start gap-2 text-sm text-zinc-300">
                   <span className="text-red-500 mt-0.5 flex-shrink-0">&#8226;</span>
-                  <span>Kill switch state is <strong className="text-red-400">persisted to GCS</strong> — it survives container restarts</span>
+                  <span>
+                    Kill switch state is <strong className="text-red-400">persisted to GCS</strong> — it survives
+                    container restarts
+                  </span>
                 </li>
               </ul>
             </div>
 
             {/* Error */}
             {killSwitch.error && (
-              <p className="text-xs text-red-400 mb-4 p-2 bg-red-950/50 border border-red-800 rounded">{killSwitch.error}</p>
+              <p className="text-xs text-red-400 mb-4 p-2 bg-red-950/50 border border-red-800 rounded">
+                {killSwitch.error}
+              </p>
             )}
 
             {/* Actions */}

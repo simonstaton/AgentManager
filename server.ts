@@ -15,13 +15,7 @@ import { createHealthRouter } from "./src/routes/health";
 import { createKillSwitchRouter } from "./src/routes/kill-switch";
 import { createMcpRouter } from "./src/routes/mcp";
 import { createMessagesRouter } from "./src/routes/messages";
-import {
-  ensureDefaultContextFiles,
-  startPeriodicSync,
-  stopPeriodicSync,
-  syncFromGCS,
-  syncToGCS,
-} from "./src/storage";
+import { ensureDefaultContextFiles, startPeriodicSync, stopPeriodicSync, syncFromGCS, syncToGCS } from "./src/storage";
 import { getContextDir } from "./src/utils/context";
 import { rateLimitMiddleware } from "./src/validation";
 import { startWorktreeGC } from "./src/worktrees";
@@ -71,12 +65,19 @@ app.use(express.json({ limit: "15mb" }));
 // Checked BEFORE auth so even valid tokens get blocked when the switch is active.
 // Exempts: /api/kill-switch (to allow deactivation), /api/health, /api/auth/token.
 app.use((req, res, next) => {
-  if (!isKilled()) { next(); return; }
+  if (!isKilled()) {
+    next();
+    return;
+  }
   const exempt = ["/api/kill-switch", "/api/health", "/api/auth/token"];
   if (exempt.some((p) => req.path === p || req.path.startsWith(p))) {
-    next(); return;
+    next();
+    return;
   }
-  if (!req.path.startsWith("/api/")) { next(); return; }
+  if (!req.path.startsWith("/api/")) {
+    next();
+    return;
+  }
   res.status(503).json({
     error: "Kill switch is active — all agent operations are disabled",
     state: "killed",
@@ -110,7 +111,7 @@ let keepAliveInterval: ReturnType<typeof setInterval> | null = null;
 function startKeepAlive() {
   if (keepAliveInterval) return;
   console.log("[keepalive] Starting — agents exist, keeping instance alive");
-  fetch(`http://localhost:${KEEPALIVE_PORT}/api/health`).catch(() => { });
+  fetch(`http://localhost:${KEEPALIVE_PORT}/api/health`).catch(() => {});
   keepAliveInterval = setInterval(async () => {
     if (agentManager.list().length === 0) {
       stopKeepAlive();
@@ -261,8 +262,8 @@ const memoryMonitorInterval = setInterval(() => {
   if (pct > MEMORY_WARN_THRESHOLD) {
     console.warn(
       `[memory] WARNING: RSS ${(rss / 1024 / 1024).toFixed(0)}MB (${(pct * 100).toFixed(1)}% of 8Gi limit) — ` +
-      `heap ${(heapUsed / 1024 / 1024).toFixed(0)}/${(heapTotal / 1024 / 1024).toFixed(0)}MB — ` +
-      `agents: ${agentManager.list().length}`,
+        `heap ${(heapUsed / 1024 / 1024).toFixed(0)}/${(heapTotal / 1024 / 1024).toFixed(0)}MB — ` +
+        `agents: ${agentManager.list().length}`,
     );
   }
 }, 60_000);
@@ -320,7 +321,7 @@ function cleanupStaleWorkspaces(manager: AgentManager): void {
         try {
           fs.rmSync(fullPath, { recursive: true, force: true });
           cleaned++;
-        } catch { }
+        } catch {}
       }
     }
     if (cleaned > 0) {
@@ -342,7 +343,7 @@ function cleanupStaleWorkspaces(manager: AgentManager): void {
         try {
           fs.unlinkSync(path.join(contextDir, file));
           cleanedWm++;
-        } catch { }
+        } catch {}
       }
     }
     if (cleanedWm > 0) {

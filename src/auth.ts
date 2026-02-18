@@ -12,7 +12,7 @@ if (!process.env.JWT_SECRET) {
 // immediately for all subsequent sign/verify calls. The original `const` captured
 // the value once at import time — updating process.env had no effect.
 let jwtSecret = process.env.JWT_SECRET;
-let apiKey = process.env.API_KEY || "";
+const apiKey = process.env.API_KEY || "";
 
 /**
  * Rotate the JWT secret in-memory.
