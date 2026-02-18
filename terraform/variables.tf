@@ -83,3 +83,23 @@ variable "github_repo" {
   type        = string
   default     = ""
 }
+
+# Billing budget
+variable "billing_account_id" {
+  description = "GCP billing account ID for budget alerts (e.g. \"XXXXXX-XXXXXX-XXXXXX\")"
+  type        = string
+  default     = ""
+}
+
+variable "monthly_budget_usd" {
+  description = "Monthly budget cap in USD. Alerts fire at 50%, 90%, and 100% of this amount."
+  type        = number
+  default     = 100
+}
+
+# Terraform remote state
+variable "terraform_state_bucket" {
+  description = "GCS bucket name for storing Terraform remote state"
+  type        = string
+  default     = ""
+}
