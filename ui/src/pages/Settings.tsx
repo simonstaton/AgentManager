@@ -273,14 +273,21 @@ export function Settings() {
 // ── Shared Context Panel ────────────────────────────────────────────────────
 function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
   const [files, setFiles] = useState<ContextFile[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const editor = useFileEditor();
   const folders = useFolderToggle();
 
   const refresh = useCallback(async () => {
-    const list = await api.listContext();
-    setFiles(list);
+    try {
+      const list = await api.listContext();
+      setFiles(list);
+    } catch (err) {
+      console.error("Failed to list context files:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [api]);
 
   useEffect(() => {
@@ -362,6 +369,9 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
       <div className="w-56 flex-shrink-0 space-y-2">
         <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Context files</p>
         <p className="text-xs text-zinc-600 mb-3">Shared .md files accessible to all agents</p>
+        {loading ? (
+          <p className="text-xs text-zinc-600">Loading...</p>
+        ) : (
         <TreeList
           nodes={tree}
           depth={0}
@@ -385,6 +395,7 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
             )
           }
         />
+        )}
         <div className="flex gap-1 mt-3">
           <TextField
             value={newName}
@@ -448,6 +459,7 @@ const TREE_CATEGORIES: Record<string, string> = {
 
 function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
   const [files, setFiles] = useState<ClaudeConfigFile[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ClaudeConfigFile | null>(null);
   const [newSkillName, setNewSkillName] = useState("");
   const [creatingSkill, setCreatingSkill] = useState(false);
@@ -460,6 +472,8 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
       setFiles(list);
     } catch (err) {
       console.error("[ConfigPanel] refresh failed", err);
+    } finally {
+      setLoading(false);
     }
   }, [api]);
 
@@ -559,7 +573,10 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
           Edit Claude config, skills, and memory. Changes are synced to GCS and persist across Cloud Run reloads.
         </p>
 
-        {grouped.map((group) => {
+        {loading ? (
+          <p className="text-xs text-zinc-600">Loading...</p>
+        ) : (
+        grouped.map((group) => {
           const stripPrefix = TREE_CATEGORIES[group.category];
           const useTree = stripPrefix && group.files.some((f) => f.name.includes("/"));
 
@@ -661,7 +678,8 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
               )}
             </div>
           );
-        })}
+        })
+        )}
       </div>
 
       {/* Editor */}
