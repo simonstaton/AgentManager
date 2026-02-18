@@ -26,11 +26,37 @@ node -e "
 
   const templatePath = path.join(__dirname, 'mcp', 'settings-template.json');
   const settingsPath = '/home/agent/.claude/settings.json';
+  const tokenDir = process.env.MCP_TOKEN_DIR || '/persistent/mcp-tokens';
 
   if (!fs.existsSync(templatePath)) process.exit(0);
 
   const template = JSON.parse(fs.readFileSync(templatePath, 'utf8'));
   const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+
+  // ── Helper: Load stored OAuth token for a server ──
+  function loadStoredToken(serverName) {
+    const tokenPath = path.join(tokenDir, serverName + '.json');
+    if (!fs.existsSync(tokenPath)) return null;
+    try {
+      const data = fs.readFileSync(tokenPath, 'utf8');
+      const token = JSON.parse(data);
+
+      // Check if token is expired
+      if (token.expiresAt) {
+        const expiresAt = new Date(token.expiresAt);
+        const now = new Date();
+        if (now >= expiresAt) {
+          console.log('MCP: stored token for ' + serverName + ' is expired');
+          return null;
+        }
+      }
+
+      return token;
+    } catch (err) {
+      console.error('MCP: failed to load token for ' + serverName + ':', err.message);
+      return null;
+    }
+  }
 
   const activeMcp = {};
   for (const [name, config] of Object.entries(template.mcpServers || {})) {
@@ -41,18 +67,25 @@ node -e "
       const tokenEnv = config._tokenEnv;
       const tokenVal = tokenEnv ? process.env[tokenEnv] : null;
 
-      if (!alwaysActivate && !tokenVal) continue;
+      // Check for stored OAuth token
+      const storedToken = loadStoredToken(name);
+
+      if (!alwaysActivate && !tokenVal && !storedToken) continue;
 
       const resolved = { type: 'http', url: config.url };
 
-      // If a token is available, add it as a header (skips OAuth flow)
-      if (tokenVal && config._tokenHeader) {
+      // Priority: 1. Stored OAuth token, 2. Env var token
+      if (storedToken && config._tokenHeader) {
+        const prefix = config._tokenPrefix || '';
+        resolved.headers = { [config._tokenHeader]: prefix + storedToken.accessToken };
+        console.log('MCP: activated ' + name + ' (OAuth token from storage)');
+      } else if (tokenVal && config._tokenHeader) {
         const prefix = config._tokenPrefix || '';
         resolved.headers = { [config._tokenHeader]: prefix + tokenVal };
-        console.log('MCP: activated ' + name + ' (token auth)');
+        console.log('MCP: activated ' + name + ' (token auth from env)');
       } else {
         // No token — Claude Code will use OAuth via browser on first use
-        console.log('MCP: activated ' + name + ' (OAuth — authenticate via /mcp)');
+        console.log('MCP: activated ' + name + ' (OAuth — authenticate via /api/mcp/auth/' + name + ')');
       }
 
       activeMcp[name] = resolved;
