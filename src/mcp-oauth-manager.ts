@@ -1,0 +1,306 @@
+import crypto from "node:crypto";
+import type { MCPOAuthToken } from "./mcp-oauth-storage";
+import { deleteToken, isTokenExpired, loadToken, saveToken } from "./mcp-oauth-storage";
+
+export interface MCPServerConfig {
+  name: string;
+  type: "http" | "stdio";
+  url?: string;
+  authMethod?: "oauth" | "token" | "none";
+  oauthConfig?: {
+    authUrl: string;
+    tokenUrl: string;
+    clientId: string;
+    clientSecret?: string;
+    scope?: string;
+  };
+}
+
+/** In-memory store for OAuth state tokens (CSRF protection) */
+const pendingStates = new Map<string, { server: string; createdAt: number }>();
+
+/** State token expiry time (10 minutes) */
+const STATE_EXPIRY_MS = 10 * 60 * 1000;
+
+/**
+ * Clean up expired state tokens
+ */
+function cleanupExpiredStates(): void {
+  const now = Date.now();
+  for (const [state, data] of pendingStates.entries()) {
+    if (now - data.createdAt > STATE_EXPIRY_MS) {
+      pendingStates.delete(state);
+    }
+  }
+}
+
+// Run cleanup every 5 minutes
+setInterval(cleanupExpiredStates, 5 * 60 * 1000);
+
+/**
+ * MCP server configurations
+ * In a real implementation, these would be loaded from the MCP settings template
+ */
+export const MCP_SERVERS: Record<string, MCPServerConfig> = {
+  figma: {
+    name: "figma",
+    type: "http",
+    url: "https://mcp.figma.com/mcp",
+    authMethod: "oauth",
+    oauthConfig: {
+      authUrl: "https://mcp.figma.com/oauth/authorize",
+      tokenUrl: "https://mcp.figma.com/oauth/token",
+      clientId: process.env.FIGMA_OAUTH_CLIENT_ID || "claude-swarm",
+      clientSecret: process.env.FIGMA_OAUTH_CLIENT_SECRET,
+      scope: "mcp:connect",
+    },
+  },
+  linear: {
+    name: "linear",
+    type: "http",
+    url: "https://mcp.linear.app/mcp",
+    authMethod: "oauth",
+    oauthConfig: {
+      authUrl: "https://mcp.linear.app/oauth/authorize",
+      tokenUrl: "https://mcp.linear.app/oauth/token",
+      clientId: process.env.LINEAR_OAUTH_CLIENT_ID || "claude-swarm",
+      clientSecret: process.env.LINEAR_OAUTH_CLIENT_SECRET,
+      scope: "read write",
+    },
+  },
+};
+
+/**
+ * Get callback URL for OAuth redirects
+ */
+export function getCallbackUrl(): string {
+  const baseUrl = process.env.PUBLIC_URL || "http://localhost:8080";
+  return `${baseUrl}/api/mcp/callback`;
+}
+
+/**
+ * Generate OAuth authorization URL
+ */
+export function generateAuthUrl(server: string): string | null {
+  const config = MCP_SERVERS[server];
+  if (!config?.oauthConfig) {
+    return null;
+  }
+
+  // Generate state token for CSRF protection
+  const state = crypto.randomBytes(32).toString("hex");
+  pendingStates.set(state, { server, createdAt: Date.now() });
+
+  const { authUrl, clientId, scope } = config.oauthConfig;
+  const callbackUrl = getCallbackUrl();
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: callbackUrl,
+    response_type: "code",
+    state,
+  });
+
+  if (scope) {
+    params.set("scope", scope);
+  }
+
+  return `${authUrl}?${params.toString()}`;
+}
+
+/**
+ * Validate OAuth state token
+ */
+export function validateState(state: string): string | null {
+  cleanupExpiredStates();
+  const data = pendingStates.get(state);
+
+  if (!data) {
+    return null;
+  }
+
+  // Check if state is expired
+  if (Date.now() - data.createdAt > STATE_EXPIRY_MS) {
+    pendingStates.delete(state);
+    return null;
+  }
+
+  // Delete state after validation (one-time use)
+  pendingStates.delete(state);
+  return data.server;
+}
+
+/**
+ * Exchange authorization code for access token
+ */
+export async function exchangeCodeForToken(
+  server: string,
+  code: string,
+): Promise<MCPOAuthToken | null> {
+  const config = MCP_SERVERS[server];
+  if (!config?.oauthConfig) {
+    console.error(`[MCP-OAuth] No OAuth config for server: ${server}`);
+    return null;
+  }
+
+  const { tokenUrl, clientId, clientSecret } = config.oauthConfig;
+  const callbackUrl = getCallbackUrl();
+
+  try {
+    const params = new URLSearchParams({
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: callbackUrl,
+      client_id: clientId,
+    });
+
+    if (clientSecret) {
+      params.set("client_secret", clientSecret);
+    }
+
+    const response = await fetch(tokenUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+      },
+      body: params.toString(),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[MCP-OAuth] Token exchange failed for ${server}:`, errorText);
+      return null;
+    }
+
+    const data = await response.json();
+
+    const token: MCPOAuthToken = {
+      server,
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      tokenType: data.token_type || "Bearer",
+      scope: data.scope,
+      authenticatedAt: new Date().toISOString(),
+    };
+
+    // Calculate expiry if expires_in is provided
+    if (data.expires_in) {
+      const expiresAt = new Date(Date.now() + data.expires_in * 1000);
+      token.expiresAt = expiresAt.toISOString();
+    }
+
+    // Save token to storage
+    saveToken(token);
+
+    return token;
+  } catch (err) {
+    console.error(`[MCP-OAuth] Error exchanging code for token:`, err);
+    return null;
+  }
+}
+
+/**
+ * Refresh an expired token
+ */
+export async function refreshAccessToken(server: string): Promise<MCPOAuthToken | null> {
+  const storedToken = loadToken(server);
+  if (!storedToken?.refreshToken) {
+    console.warn(`[MCP-OAuth] No refresh token available for ${server}`);
+    return null;
+  }
+
+  const config = MCP_SERVERS[server];
+  if (!config?.oauthConfig) {
+    return null;
+  }
+
+  const { tokenUrl, clientId, clientSecret } = config.oauthConfig;
+
+  try {
+    const params = new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: storedToken.refreshToken,
+      client_id: clientId,
+    });
+
+    if (clientSecret) {
+      params.set("client_secret", clientSecret);
+    }
+
+    const response = await fetch(tokenUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+      },
+      body: params.toString(),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[MCP-OAuth] Token refresh failed for ${server}:`, errorText);
+      // Delete invalid token
+      deleteToken(server);
+      return null;
+    }
+
+    const data = await response.json();
+
+    const token: MCPOAuthToken = {
+      server,
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token || storedToken.refreshToken,
+      tokenType: data.token_type || "Bearer",
+      scope: data.scope || storedToken.scope,
+      authenticatedAt: new Date().toISOString(),
+    };
+
+    if (data.expires_in) {
+      const expiresAt = new Date(Date.now() + data.expires_in * 1000);
+      token.expiresAt = expiresAt.toISOString();
+    }
+
+    saveToken(token);
+    return token;
+  } catch (err) {
+    console.error(`[MCP-OAuth] Error refreshing token:`, err);
+    return null;
+  }
+}
+
+/**
+ * Get valid token for a server (refreshes if needed)
+ */
+export async function getValidToken(server: string): Promise<MCPOAuthToken | null> {
+  const token = loadToken(server);
+  if (!token) {
+    return null;
+  }
+
+  if (isTokenExpired(token)) {
+    console.log(`[MCP-OAuth] Token expired for ${server}, attempting refresh`);
+    return refreshAccessToken(server);
+  }
+
+  return token;
+}
+
+/**
+ * Revoke OAuth token for a server
+ */
+export async function revokeToken(server: string): Promise<boolean> {
+  const token = loadToken(server);
+  if (!token) {
+    return false;
+  }
+
+  // Delete from storage
+  deleteToken(server);
+
+  // Optionally call revocation endpoint if server supports it
+  // This is not implemented as it varies per server
+
+  console.log(`[MCP-OAuth] Revoked token for ${server}`);
+  return true;
+}
