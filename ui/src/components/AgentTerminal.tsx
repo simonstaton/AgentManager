@@ -17,6 +17,7 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const eventsRef = useRef(events);
+  const isResetRef = useRef(false);
 
   // Incremental parsing: only parse new events since last render
   const parsedRef = useRef<{ upTo: number; blocks: TerminalBlock[] }>({ upTo: 0, blocks: [] });
@@ -25,6 +26,8 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
     // Events array was reset (e.g. agent switched) — reparse from scratch
     cached.upTo = 0;
     cached.blocks = [];
+    // Mark that we've reset so we don't auto-scroll on agent switch
+    isResetRef.current = true;
   }
   if (events.length > cached.upTo) {
     const newBlocks = parseEvents(events, cached.upTo);
@@ -54,6 +57,11 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
   }, [events]);
 
   useEffect(() => {
+    // Skip auto-scroll immediately after a reset (agent switch)
+    if (isResetRef.current) {
+      isResetRef.current = false;
+      return;
+    }
     if (autoScroll && containerRef.current && blocks.length > 0) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
