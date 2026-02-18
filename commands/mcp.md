@@ -84,16 +84,27 @@ for (const [name, config] of Object.entries(mcpServers)) {
 
 ## OAuth Authentication Flow
 
-For **Figma** and **Linear**, if they are configured without tokens, Claude Code will automatically prompt you to authenticate via browser when you first try to use them.
+For **Figma** and **Linear**, you can authenticate via the platform's OAuth API:
 
-**Example:**
-```
-User: "Show me my Linear issues"
-Claude: To use Linear, you need to authenticate. Please visit this URL...
-[OAuth URL will be provided by Claude Code's MCP handler]
+**To initiate OAuth authentication:**
+
+```bash
+# Check authentication status first
+curl -H "Authorization: Bearer $AGENT_AUTH_TOKEN" \
+  http://localhost:8080/api/mcp/servers
+
+# Start OAuth flow for a specific server
+curl -X POST -H "Authorization: Bearer $AGENT_AUTH_TOKEN" \
+  http://localhost:8080/api/mcp/auth/figma
+
+# Or for Linear:
+curl -X POST -H "Authorization: Bearer $AGENT_AUTH_TOKEN" \
+  http://localhost:8080/api/mcp/auth/linear
 ```
 
-The authentication happens automatically through Claude Code's built-in MCP OAuth support — no additional setup needed.
+The response will include an `authUrl` - open that URL in your browser to authenticate. After authentication, the token will be stored and available to all agents automatically.
+
+**Alternatively**, when you use Figma/Linear tools for the first time without authentication, Claude Code will automatically prompt you to authenticate via browser.
 
 ## Getting API Tokens (Optional)
 
