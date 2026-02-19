@@ -103,3 +103,10 @@ variable "terraform_state_bucket" {
   type        = string
   default     = ""
 }
+
+# Cloud Monitoring alerts
+variable "alert_notification_email" {
+  description = "Email address for Cloud Monitoring alert notifications. Leave empty to disable alert policies."
+  type        = string
+  default     = ""
+}

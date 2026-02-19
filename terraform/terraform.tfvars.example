@@ -12,6 +12,10 @@ cloud_run_invokers = ["allUsers"]
 # GitHub Actions CI/CD — set to enable Workload Identity Federation
 # github_repo = "your-org/your-repo"
 
+# Cloud Monitoring alerts — set an email to enable all alert policies
+# Alerts: high error rate, high latency, crashes, memory >80%, CPU >80%
+# alert_notification_email = "ops@example.com"
+
 # Optional MCP credentials — uncomment and fill in to enable
 # github_token        = "ghp_..."
 # notion_api_key      = "ntn_..."
