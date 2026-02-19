@@ -16,8 +16,9 @@ jobs:
     name: Trivy Container Scan
     runs-on: ubuntu-latest
     permissions:
+      actions: read            # Required by codeql-action to read workflow run info
       contents: read
-      security-events: write  # Required for SARIF upload to GitHub Security tab
+      security-events: write   # Required for SARIF upload to GitHub Security tab
 
     steps:
       - name: Checkout

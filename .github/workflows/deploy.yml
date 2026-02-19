@@ -14,9 +14,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
+      actions: read            # Required by codeql-action to read workflow run info
       contents: read
-      id-token: write  # Required for Workload Identity Federation
-      security-events: write  # Required for SARIF upload to GitHub Security tab
+      id-token: write          # Required for Workload Identity Federation
+      security-events: write   # Required for SARIF upload to GitHub Security tab
 
     steps:
       - name: Checkout
