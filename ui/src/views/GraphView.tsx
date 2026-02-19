@@ -10,7 +10,7 @@ import { useKillSwitchContext } from "../killSwitch";
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 const NODE_W = 200;
-const NODE_H = 80;
+const NODE_H = 96;
 const H_GAP = 60; // horizontal gap between siblings
 const V_GAP = 100; // vertical gap between depth levels
 const PADDING = 40;
@@ -114,12 +114,25 @@ function edgePath(sx: number, sy: number, tx: number, ty: number): string {
 }
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
+}
+
+function formatCost(n: number): string {
+  if (n >= 1) return `$${n.toFixed(2)}`;
+  if (n >= 0.01) return `$${n.toFixed(3)}`;
+  return `$${n.toFixed(4)}`;
+}
+
 function Tooltip({ node }: { node: TopologyNode }) {
   const lines: string[] = [
     node.name,
     node.role ? `role: ${node.role}` : "",
     `model: ${node.model.split("-").slice(0, 3).join("-")}`,
     `depth: ${node.depth}`,
+    `tokens: ${formatTokens(node.tokensUsed)} · cost: ${formatCost(node.estimatedCost)}`,
     node.currentTask ? node.currentTask.slice(0, 36) : "",
   ].filter(Boolean);
 
@@ -342,9 +355,12 @@ export function GraphView() {
                     <text x={12} y={48} fontSize={10} fill="#71717a" fontFamily="sans-serif">
                       {taskLabel}
                     </text>
-                    {/* Depth badge */}
-                    <text x={12} y={68} fontSize={9} fill="#52525b" fontFamily="monospace">
-                      depth {node.depth}
+                    {/* Cost / tokens */}
+                    <text x={12} y={66} fontSize={9} fill="#52525b" fontFamily="monospace">
+                      {formatTokens(node.tokensUsed)} tokens
+                    </text>
+                    <text x={12} y={82} fontSize={9} fill="#52525b" fontFamily="monospace">
+                      {formatCost(node.estimatedCost)}
                     </text>
 
                     {/* Tooltip on hover */}

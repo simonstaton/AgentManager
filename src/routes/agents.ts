@@ -59,6 +59,8 @@ export function createAgentsRouter(
       currentTask: a.currentTask,
       parentId: a.parentId,
       lastActivity: a.lastActivity,
+      tokensUsed: (a.usage?.tokensIn ?? 0) + (a.usage?.tokensOut ?? 0),
+      estimatedCost: a.usage?.estimatedCost ?? 0,
     }));
     const edges = agents.filter((a) => a.parentId).map((a) => ({ source: a.parentId as string, target: a.id }));
     res.json({ nodes, edges });

@@ -54,6 +54,8 @@ export interface TopologyNode {
   currentTask?: string;
   parentId?: string;
   lastActivity: string;
+  tokensUsed: number;
+  estimatedCost: number;
 }
 
 export interface TopologyEdge {
