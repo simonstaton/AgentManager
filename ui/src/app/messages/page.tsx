@@ -1,12 +1,12 @@
 "use client";
 
-import { Settings } from "../../views/Settings";
+import { Messages } from "../../views/Messages";
 import { ProtectedShell } from "../protected-shell";
 
-export default function SettingsPage() {
+export default function MessagesPage() {
   return (
     <ProtectedShell>
-      <Settings />
+      <Messages />
     </ProtectedShell>
   );
 }

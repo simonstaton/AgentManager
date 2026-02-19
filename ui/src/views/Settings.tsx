@@ -2,14 +2,10 @@
 
 import { Alert, Button, PasswordField, Tabs, TabsContent, TabsList, TabsTrigger, TextField } from "@fanvue/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Agent, ClaudeConfigFile, ContextFile, createApi } from "../api";
+import type { ClaudeConfigFile, ContextFile, createApi } from "../api";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { Header } from "../components/Header";
-import { MessageFeed } from "../components/MessageFeed";
-import { Sidebar } from "../components/Sidebar";
 import { Skeleton, TreeListSkeleton } from "../components/Skeleton";
 import { useApi } from "../hooks/useApi";
-import { useKillSwitchContext } from "../killSwitch";
 
 // ── Generic file tree utilities ─────────────────────────────────────────────
 
@@ -227,62 +223,73 @@ function useFolderToggle(initial: Set<string> = new Set()) {
   return { expanded, setExpanded, toggle };
 }
 
-// ── Main Settings page ───────────────────────────────────────────────────────
+// ── Settings Dialog ──────────────────────────────────────────────────────────
 
-export function Settings() {
+export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const api = useApi();
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const killSwitch = useKillSwitchContext();
 
   useEffect(() => {
-    document.title = "Settings \u2014 ClaudeSwarm";
-  }, []);
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [open, onClose]);
 
-  useEffect(() => {
-    api
-      .fetchAgents()
-      .then(setAgents)
-      .catch((err) => {
-        console.error("[Settings] fetchAgents failed", err);
-      });
-  }, [api]);
+  if (!open) return null;
 
   return (
-    <div className="h-screen flex flex-col">
-      <Header agentCount={agents.length} killSwitch={killSwitch} />
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar agents={agents} activeId={null} />
-        <main id="main-content" className="flex-1 overflow-y-auto">
-          <Tabs defaultValue="context" className="pt-6">
-            <TabsList className="px-6 border-b border-zinc-800">
-              <TabsTrigger value="context">Shared Context</TabsTrigger>
-              <TabsTrigger value="messages">Messages</TabsTrigger>
-              <TabsTrigger value="config">Claude Config</TabsTrigger>
-              <TabsTrigger value="guardrails">Guardrails</TabsTrigger>
-              <TabsTrigger value="apikey">API Key</TabsTrigger>
-            </TabsList>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Settings"
+        className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl flex flex-col"
+        style={{ width: "min(92vw, 1100px)", height: "85vh" }}
+      >
+        {/* Dialog header */}
+        <div className="flex items-center justify-between px-6 py-3 border-b border-zinc-800 flex-shrink-0">
+          <h2 className="text-sm font-semibold text-zinc-200">Settings</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close settings"
+            className="text-zinc-500 hover:text-zinc-200 transition-colors w-6 h-6 flex items-center justify-center rounded hover:bg-zinc-800"
+          >
+            ✕
+          </button>
+        </div>
 
-            <div className="p-6">
-              <TabsContent value="context">
-                <ContextPanel api={api} />
-              </TabsContent>
-              <TabsContent value="messages">
-                <div className="h-[calc(100vh-12rem)]">
-                  <MessageFeed api={api} agents={agents} />
-                </div>
-              </TabsContent>
-              <TabsContent value="config">
-                <ConfigPanel api={api} />
-              </TabsContent>
-              <TabsContent value="guardrails">
-                <GuardrailsPanel api={api} />
-              </TabsContent>
-              <TabsContent value="apikey">
-                <ApiKeyPanel api={api} />
-              </TabsContent>
-            </div>
-          </Tabs>
-        </main>
+        {/* Tabs */}
+        <Tabs defaultValue="context" className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="px-6 border-b border-zinc-800 flex-shrink-0">
+            <TabsTrigger value="context">Shared Context</TabsTrigger>
+            <TabsTrigger value="config">Claude Config</TabsTrigger>
+            <TabsTrigger value="guardrails">Guardrails</TabsTrigger>
+            <TabsTrigger value="apikey">API Key</TabsTrigger>
+          </TabsList>
+
+          <div className="flex-1 overflow-y-auto p-6">
+            <TabsContent value="context">
+              <ContextPanel api={api} />
+            </TabsContent>
+            <TabsContent value="config">
+              <ConfigPanel api={api} />
+            </TabsContent>
+            <TabsContent value="guardrails">
+              <GuardrailsPanel api={api} />
+            </TabsContent>
+            <TabsContent value="apikey">
+              <ApiKeyPanel api={api} />
+            </TabsContent>
+          </div>
+        </Tabs>
       </div>
     </div>
   );
@@ -382,7 +389,7 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
   const tree = buildTree(files.map((f) => ({ key: f.name })));
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-12rem)]">
+    <div className="flex gap-4 h-[600px]">
       {/* Navigation blocker dialog */}
       <ConfirmDialog
         open={editor.blocker.state === "blocked"}
@@ -609,7 +616,7 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
   })).filter((g) => g.files.length > 0 || g.category === "skills");
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-12rem)]">
+    <div className="flex gap-4 h-[600px]">
       {/* Navigation blocker dialog */}
       <ConfirmDialog
         open={editor.blocker.state === "blocked"}
@@ -985,7 +992,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Spawn Limits</p>
 
             <div>
-              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesnt support htmlFor pattern */}
+              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesn't support htmlFor pattern */}
               <label className="text-sm text-zinc-400 mb-1 block">
                 Max Batch Size
                 <span className="text-xs text-zinc-400 ml-2">(agents spawned at once)</span>
@@ -1001,7 +1008,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             </div>
 
             <div>
-              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesnt support htmlFor pattern */}
+              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesn't support htmlFor pattern */}
               <label className="text-sm text-zinc-400 mb-1 block">
                 Max Total Agents
                 <span className="text-xs text-zinc-400 ml-2">(concurrent limit)</span>
@@ -1017,7 +1024,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             </div>
 
             <div>
-              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesnt support htmlFor pattern */}
+              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesn't support htmlFor pattern */}
               <label className="text-sm text-zinc-400 mb-1 block">
                 Max Agent Depth
                 <span className="text-xs text-zinc-400 ml-2">(spawning hierarchy)</span>
@@ -1033,7 +1040,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             </div>
 
             <div>
-              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesnt support htmlFor pattern */}
+              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesn't support htmlFor pattern */}
               <label className="text-sm text-zinc-400 mb-1 block">
                 Max Children Per Agent
                 <span className="text-xs text-zinc-400 ml-2">(sub-agents)</span>
@@ -1054,7 +1061,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Session Limits</p>
 
             <div>
-              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesnt support htmlFor pattern */}
+              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesn't support htmlFor pattern */}
               <label className="text-sm text-zinc-400 mb-1 block">
                 Max Prompt Length
                 <span className="text-xs text-zinc-400 ml-2">(characters)</span>
@@ -1070,7 +1077,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             </div>
 
             <div>
-              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesnt support htmlFor pattern */}
+              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesn't support htmlFor pattern */}
               <label className="text-sm text-zinc-400 mb-1 block">
                 Max Turns
                 <span className="text-xs text-zinc-400 ml-2">(conversation rounds)</span>
@@ -1086,7 +1093,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             </div>
 
             <div>
-              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesnt support htmlFor pattern */}
+              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesn't support htmlFor pattern */}
               <label className="text-sm text-zinc-400 mb-1 block">
                 Session TTL
                 <span className="text-xs text-zinc-400 ml-2">(milliseconds)</span>

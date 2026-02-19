@@ -365,12 +365,20 @@ export function GraphView() {
                     <text x={12} y={82} fontSize={9} fill="#52525b" fontFamily="monospace">
                       {formatCost(node.estimatedCost)}
                     </text>
-
-                    {/* Tooltip on hover */}
-                    {isHovered && <Tooltip node={node} />}
                   </g>
                 );
               })}
+
+              {/* Tooltips layer - rendered last to appear on top */}
+              {hoveredId && (() => {
+                const hoveredNode = layout.find((n) => n.id === hoveredId);
+                if (!hoveredNode) return null;
+                return (
+                  <g transform={`translate(${hoveredNode.x},${hoveredNode.y})`}>
+                    <Tooltip node={hoveredNode} />
+                  </g>
+                );
+              })()}
             </g>
           </svg>
         </div>
