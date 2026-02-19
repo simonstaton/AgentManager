@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useKillSwitchContext } from "../App";
 import type { Agent } from "../api";
 import { AgentTerminal } from "../components/AgentTerminal";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Header } from "../components/Header";
 import { type Attachment, PromptInput } from "../components/PromptInput";
 import { Sidebar } from "../components/Sidebar";
@@ -20,6 +21,9 @@ export function AgentView() {
   const { agents } = useAgentPolling();
   const visible = usePageVisible();
   const [agent, setAgent] = useState<Agent | null>(null);
+  const [showStopConfirm, setShowStopConfirm] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
+  const [stopError, setStopError] = useState<string | null>(null);
   const { events, isStreaming, error, sendMessage, reconnect, clearEvents, injectEvent } = useAgentStream(id || null);
   const killSwitch = useKillSwitchContext();
 
@@ -78,16 +82,21 @@ export function AgentView() {
     return () => clearInterval(interval);
   }, [id, api, visible]);
 
-  const handleDestroy = async () => {
+  const handleStopAgent = async () => {
     if (!id) return;
-    if (!confirm("Destroy this agent?")) return;
+    setShowStopConfirm(false);
+    setIsStopping(true);
+    setStopError(null);
     try {
       await api.destroyAgent(id);
       navigate("/");
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to destroy agent");
+      setStopError(err instanceof Error ? err.message : "Failed to stop agent");
+      setIsStopping(false);
     }
   };
+
+  const canStop = agent && ["running", "idle", "restored"].includes(agent.status);
 
   const handleSendMessage = (prompt: string, attachments?: Attachment[]) => {
     sendMessage(prompt, undefined, undefined, attachments);
@@ -183,6 +192,15 @@ export function AgentView() {
   return (
     <div className="h-screen flex flex-col">
       <Header agentCount={agents.length} killSwitch={killSwitch} />
+      <ConfirmDialog
+        open={showStopConfirm}
+        onConfirm={handleStopAgent}
+        onCancel={() => setShowStopConfirm(false)}
+        title="Stop this agent?"
+        description="The agent process will be terminated. Any in-progress work may be lost."
+        confirmLabel="Stop Agent"
+        variant="destructive"
+      />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar agents={agents} activeId={id || null} onSelect={(agentId) => navigate(`/agents/${agentId}`)} />
 
@@ -196,12 +214,22 @@ export function AgentView() {
               {error && <span className="text-xs text-red-400">{error}</span>}
             </div>
             <div className="flex items-center gap-2">
+              {stopError && (
+                <span className="text-xs text-red-400 mr-1">{stopError}</span>
+              )}
               <Button variant="tertiary" size="24" onClick={reconnect}>
                 Reconnect
               </Button>
-              <Button variant="tertiaryDestructive" size="24" onClick={handleDestroy}>
-                Destroy
-              </Button>
+              {canStop && (
+                <Button
+                  variant="tertiaryDestructive"
+                  size="24"
+                  onClick={() => setShowStopConfirm(true)}
+                  disabled={isStopping}
+                >
+                  {isStopping ? "Stopping..." : "Stop Agent"}
+                </Button>
+              )}
             </div>
           </div>
 
