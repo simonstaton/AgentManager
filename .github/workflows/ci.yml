@@ -4,10 +4,13 @@ on:
   pull_request:
     branches:
       - main
+  push:
+    branches:
+      - main
 
 jobs:
   ci:
-    name: Lint, Typecheck & Test
+    name: Lint, Typecheck, Test & Build
     runs-on: ubuntu-latest
 
     steps:
@@ -27,8 +30,14 @@ jobs:
         working-directory: ui
         run: npm ci
 
-      - name: Run lint and typecheck
-        run: npm run lint && npm run typecheck
+      - name: Lint
+        run: npm run lint
 
-      - name: Run tests
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
         run: npm test
+
+      - name: Build
+        run: npm run build
