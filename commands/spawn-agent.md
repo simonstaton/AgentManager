@@ -9,8 +9,9 @@ Create sub-agent(s) using the **Platform API**. This ensures agents are visible 
 When spawning **2 or more** agents, use the **batch endpoint** (`POST /api/agents/batch`) with a single request containing all agents at once. Each agent in the batch MUST have a different `name`, `role`, and `prompt` tailored to its specific role.
 
 ```
+WORKSPACE=$(grep 'Workspace:' CLAUDE.md | head -1 | sed 's/.*`\(.*\)`.*/\1/')
 curl -s -X POST http://localhost:8080/api/agents/batch \
-  -H "Authorization: Bearer $AGENT_AUTH_TOKEN" \
+  -H "Authorization: Bearer $(cat "$WORKSPACE/.agent-token" 2>/dev/null || cat .agent-token)" \
   -H "Content-Type: application/json" \
   -d '{
     "agents": [

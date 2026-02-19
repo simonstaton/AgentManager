@@ -46,9 +46,12 @@ ${opts.skillsList}
 - **Platform:** Cloud Claude Swarm — GCP Cloud Run, TS/Express + React/Vite
 
 ## API Access
-**Base:** \`http://localhost:${opts.port}\` | **Auth:** \`Bearer $AGENT_AUTH_TOKEN\`
+**Base:** \`http://localhost:${opts.port}\` | **Auth:** \`Bearer $(cat ${opts.workspaceDir}/.agent-token)\`
 
-> **Note:** The token is available as the \`AGENT_AUTH_TOKEN\` environment variable. Always reference it as \`$AGENT_AUTH_TOKEN\` in curl commands to avoid leaking the token in terminal output.
+> **Auth token:** The file \`.agent-token\` in your workspace root is managed by the platform and refreshed automatically. Always use \`$(cat ${opts.workspaceDir}/.agent-token)\` in curl commands — never hardcode the token value. The \`$AGENT_AUTH_TOKEN\` env var is also set at startup as a fallback but may go stale; prefer the file.
+
+### Auth errors
+If an API call returns **401 Unauthorized**: re-read the token file (it may have just been refreshed) and retry the request **once**. If still 401, stop retrying — your session may have been terminated.
 
 Endpoints (all require auth header):
 - \`GET  /api/messages?to={id}&unreadBy={id}\` — get messages

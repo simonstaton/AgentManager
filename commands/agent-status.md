@@ -5,9 +5,10 @@ Get a quick overview of all agents in the swarm — their status, roles, current
 Run the following bash script (adjust the variables from your CLAUDE.md if needed):
 
 ```bash
-# Read agent ID and auth token from CLAUDE.md
+# Read agent ID and workspace path from CLAUDE.md, then read token from platform-managed file
 AGENT_ID=$(grep 'Agent ID' CLAUDE.md | head -1 | sed 's/.*`\(.*\)`.*/\1/')
-AUTH_TOKEN=$(grep 'Authorization: Bearer' CLAUDE.md | head -1 | sed 's/.*Bearer //' | sed 's/`.*//')
+WORKSPACE=$(grep 'Workspace:' CLAUDE.md | head -1 | sed 's/.*`\(.*\)`.*/\1/')
+AUTH_TOKEN=$(cat "$WORKSPACE/.agent-token" 2>/dev/null || cat .agent-token 2>/dev/null || echo "$AGENT_AUTH_TOKEN")
 PORT=8080
 
 echo "=== AGENT REGISTRY ==="

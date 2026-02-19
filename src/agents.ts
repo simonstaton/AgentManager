@@ -5,6 +5,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -33,6 +34,7 @@ import { scanCommands, walkMdFiles } from "./utils/files";
 import { cleanupWorktreesForWorkspace } from "./worktrees";
 
 const SHARED_CONTEXT_DIR = getContextDir();
+const AGENT_TOKEN_FILENAME = ".agent-token";
 
 /** Harmless stderr noise from Claude CLI startup that should not surface as errors. */
 const STDERR_NOISE_RE = /apiKeyHelper did not return a valid value|Error getting API key from apiKeyHelper/;
@@ -191,8 +193,8 @@ export class AgentManager {
       // Skip if already in memory (shouldn't happen on fresh start, but be safe)
       if (this.agents.has(agent.id)) continue;
 
-      // Recreate workspace directory and symlinks if missing after container restart
-      this.ensureWorkspace(agent.workspaceDir, agent.name);
+      // Recreate workspace directory, symlinks, and token file after container restart
+      this.ensureWorkspace(agent.workspaceDir, agent.name, agent.id);
 
       agent.status = "restored";
       const agentProc: AgentProcess = {
@@ -281,7 +283,7 @@ export class AgentManager {
     }
 
     const args = this.buildClaudeArgs({ ...opts, prompt: finalPrompt }, model);
-    const env = this.buildEnv();
+    const env = this.buildEnv(id);
 
     const proc = spawn("claude", args, {
       env,
@@ -371,7 +373,7 @@ export class AgentManager {
 
     const model = agentProc.agent.model;
     const args = this.buildClaudeArgs({ prompt, maxTurns, model }, model, resumeId);
-    const env = this.buildEnv();
+    const env = this.buildEnv(id);
 
     // Kill old process and await its exit before spawning new one.
     // This prevents event interleaving from the old process's close handler
@@ -1009,6 +1011,9 @@ export class AgentManager {
 
     // Write workspace CLAUDE.md so agents know about shared context and working memory
     this.writeWorkspaceClaudeMd(workspaceDir, agentName, agentId);
+
+    // Write fresh auth token file — agents read this before each API call
+    this.writeAgentTokenFile(workspaceDir, agentId);
   }
 
   private buildClaudeArgs(opts: CreateAgentRequest, model: string, resumeSessionId?: string): string[] {
@@ -1061,7 +1066,7 @@ export class AgentManager {
 
     const skillsList = skillFiles.length > 0 ? skillFiles.map((f) => `- \`${f}\``).join("\n") : "(none yet)";
 
-    // Gather agent list (no currentTask — CRIT-1 fix; token passed via AGENT_AUTH_TOKEN env var)
+    // Gather agent list (no currentTask — CRIT-1 fix)
     const PORT = process.env.PORT ?? "8080";
     const otherAgents = this.list()
       .filter((a) => a.id !== agentId)
@@ -1084,6 +1089,35 @@ export class AgentManager {
     });
 
     writeFileSync(path.join(workspaceDir, "CLAUDE.md"), claudeMd);
+  }
+
+  /** Write a fresh auth token to the agent's workspace for file-based token reading.
+   *  Agents read this via $(cat .agent-token) in curl commands, ensuring they always
+   *  use the latest token even after periodic refresh. Uses atomic write-then-rename
+   *  to prevent agents from reading a partially-written file. */
+  private writeAgentTokenFile(workspaceDir: string, agentId?: string): void {
+    const tokenPath = path.join(workspaceDir, AGENT_TOKEN_FILENAME);
+    const tmpPath = `${tokenPath}.tmp.${process.pid}`;
+    writeFileSync(tmpPath, generateServiceToken(agentId), { mode: 0o600 });
+    renameSync(tmpPath, tokenPath);
+  }
+
+  /** Refresh auth token files for all active agents. Called periodically (every 60 min)
+   *  to ensure tokens never expire (4h TTL). Bails out when kill switch is active. */
+  refreshAllAgentTokens(): void {
+    if (this.killed) return;
+    let refreshed = 0;
+    for (const [id, agentProc] of this.agents) {
+      try {
+        this.writeAgentTokenFile(agentProc.agent.workspaceDir, id);
+        refreshed++;
+      } catch (err: unknown) {
+        console.warn(`[agents] Failed to refresh token for ${id.slice(0, 8)}:`, errorMessage(err));
+      }
+    }
+    if (refreshed > 0) {
+      console.log(`[agents] Refreshed auth tokens for ${refreshed} agent(s)`);
+    }
   }
 
   /** Save attachments to the agent workspace and return a prompt suffix referencing them. */
@@ -1116,7 +1150,7 @@ export class AgentManager {
     return refs.length > 0 ? `\n\n${refs.join("\n")}` : "";
   }
 
-  private buildEnv(): NodeJS.ProcessEnv {
+  private buildEnv(agentId?: string): NodeJS.ProcessEnv {
     // Layer 0: Whitelist approach — only forward env vars agents actually need.
     // Previous denylist approach cloned all of process.env and deleted a few secrets,
     // which leaked OAuth client secrets, GCS bucket names, and other server internals.
@@ -1151,7 +1185,7 @@ export class AgentManager {
     const env: NodeJS.ProcessEnv = {
       SHELL: "/bin/sh",
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
-      AGENT_AUTH_TOKEN: generateServiceToken(),
+      AGENT_AUTH_TOKEN: generateServiceToken(agentId),
     };
 
     for (const key of ALLOWED_ENV_KEYS) {

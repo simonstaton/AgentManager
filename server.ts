@@ -426,6 +426,15 @@ async function start() {
   const { ensureTokenDir } = await import("./src/mcp-oauth-storage");
   ensureTokenDir();
 
+  // Periodic token refresh — regenerate agent auth token files every 60 minutes
+  // so they never expire (tokens have a 4h TTL, 60min refresh gives ~3h buffer)
+  const tokenRefreshInterval = setInterval(() => {
+    if (!isKilled()) {
+      agentManager.refreshAllAgentTokens();
+    }
+  }, 60 * 60_000);
+  tokenRefreshInterval.unref();
+
   // Start worktree garbage collection (prunes orphaned worktrees from dead agents)
   const worktreeGCInterval = startWorktreeGC(() => agentManager.getActiveWorkspaceDirs());
 
@@ -446,6 +455,7 @@ async function start() {
   const shutdown = async () => {
     console.log("Shutting down...");
     stopGcsPoll();
+    clearInterval(tokenRefreshInterval);
     clearInterval(worktreeGCInterval);
     clearInterval(memoryMonitorInterval);
     agentManager.dispose();

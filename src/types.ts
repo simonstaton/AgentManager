@@ -96,6 +96,7 @@ export interface AuthPayload {
   sub: string;
   iat: number;
   exp: number;
+  agentId?: string;
 }
 
 /** Express Request with authenticated user context attached by authMiddleware */

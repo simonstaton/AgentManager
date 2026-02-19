@@ -90,11 +90,13 @@ export function verifyToken(token: string): AuthPayload | null {
 }
 
 /** Generate a short-lived service token for agents to call the platform API.
- *  Layer 3: Reduced from 7 days to 4 hours to limit blast radius if a token leaks. */
-export function generateServiceToken(): string {
+ *  Layer 3: Reduced from 7 days to 4 hours to limit blast radius if a token leaks.
+ *  Optionally binds the token to a specific agent ID for audit attribution. */
+export function generateServiceToken(agentId?: string): string {
   const now = Math.floor(Date.now() / 1000);
   return signJwt({
     sub: "agent-service",
+    ...(agentId && { agentId }),
     iat: now,
     exp: now + 4 * 3600, // 4 hours (was: 7 days)
   });
