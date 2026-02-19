@@ -144,7 +144,9 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
                 &#9888;
               </span>
               <div>
-                <h2 id="kill-switch-dialog-title" className="text-base font-semibold text-red-400">Activate Emergency Kill Switch?</h2>
+                <h2 id="kill-switch-dialog-title" className="text-base font-semibold text-red-400">
+                  Activate Emergency Kill Switch?
+                </h2>
                 <p className="text-sm text-zinc-400 mt-1">
                   This action is immediate and cannot be undone without manual re-authentication.
                 </p>

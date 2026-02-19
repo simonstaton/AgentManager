@@ -486,7 +486,6 @@ export function PromptInput({
   // ── Render ─────────────────────────────────────────────────────────────
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: drop zone for file attachments
     <section
       aria-label="Message input"
       className={`relative border-t border-zinc-800 bg-zinc-900/50 ${isDragOver ? "ring-2 ring-blue-500/50 ring-inset" : ""}`}

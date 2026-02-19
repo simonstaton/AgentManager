@@ -56,7 +56,7 @@ resource "google_monitoring_alert_policy" "high_error_rate" {
       ])
 
       comparison      = "COMPARISON_GT"
-      threshold_value = 5 # errors per minute (after ALIGN_RATE * 60s)
+      threshold_value = 5 # errors per second (ALIGN_RATE computes count/sec over the alignment_period)
       duration        = "300s"
 
       aggregations {

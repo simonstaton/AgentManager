@@ -1,7 +1,7 @@
 "use client";
 
 import { Alert, Button, PasswordField, Tabs, TabsContent, TabsList, TabsTrigger, TextField } from "@fanvue/ui";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import type { ClaudeConfigFile, ContextFile, createApi } from "../api";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Skeleton, TreeListSkeleton } from "../components/Skeleton";
@@ -227,30 +227,57 @@ function useFolderToggle(initial: Set<string> = new Set()) {
 
 export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const api = useApi();
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [open, onClose]);
+    dialogRef.current?.focus();
+  }, [open]);
+
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key === "Tab" && dialogRef.current) {
+        const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    },
+    [onClose],
+  );
 
   if (!open) return null;
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: modal backdrop click-to-dismiss
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      role="presentation"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Settings"
-        className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl flex flex-col"
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
+        className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl flex flex-col focus:outline-none"
         style={{ width: "min(92vw, 1100px)", height: "85vh" }}
       >
         {/* Dialog header */}
