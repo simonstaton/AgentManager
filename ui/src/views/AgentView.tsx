@@ -99,7 +99,8 @@ export function AgentView({ agentId }: { agentId: string }) {
     }
   };
 
-  const canStop = agent && ["running", "idle", "restored"].includes(agent.status);
+  const canStop = agent && ["running", "idle", "restored", "error"].includes(agent.status);
+  const isErrored = agent?.status === "error";
 
   const handleSendMessage = (prompt: string, attachments?: Attachment[]) => {
     sendMessage(prompt, undefined, undefined, attachments);
@@ -199,17 +200,13 @@ export function AgentView({ agentId }: { agentId: string }) {
         open={showStopConfirm}
         onConfirm={handleStopAgent}
         onCancel={() => setShowStopConfirm(false)}
-        title="Stop this agent?"
-        description="The agent process will be terminated. Any in-progress work may be lost."
-        confirmLabel="Stop Agent"
+        title={isErrored ? "Destroy this agent?" : "Stop this agent?"}
+        description={isErrored ? "The errored agent will be cleaned up and removed." : "The agent process will be terminated. Any in-progress work may be lost."}
+        confirmLabel={isErrored ? "Destroy Agent" : "Stop Agent"}
         variant="destructive"
       />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar
-          agents={agents}
-          activeId={id || null}
-          onSelect={(agentId) => (window.location.href = `/agents/${agentId}/`)}
-        />
+        <Sidebar agents={agents} activeId={id || null} />
 
         <main id="main-content" className="flex-1 flex flex-col overflow-hidden">
           {/* Agent header */}
@@ -238,7 +235,7 @@ export function AgentView({ agentId }: { agentId: string }) {
                   onClick={() => setShowStopConfirm(true)}
                   disabled={isStopping}
                 >
-                  {isStopping ? "Stopping..." : "Stop Agent"}
+                  {isStopping ? "Stopping..." : isErrored ? "Destroy Agent" : "Stop Agent"}
                 </Button>
               )}
             </div>

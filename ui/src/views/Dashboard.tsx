@@ -77,7 +77,7 @@ export function Dashboard() {
     <div className="h-screen flex flex-col">
       <Header agentCount={agents.length} killSwitch={killSwitch} />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar agents={agents} activeId={null} onSelect={(id) => (window.location.href = `/agents/${id}/`)} />
+        <Sidebar agents={agents} activeId={null} />
         <div className="flex-1 flex flex-col overflow-hidden">
           <main id="main-content" className="flex-1 overflow-y-auto p-6">
             <h2 className="text-lg font-medium mb-6">Agents</h2>

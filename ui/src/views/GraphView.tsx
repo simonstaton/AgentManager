@@ -232,7 +232,7 @@ export function GraphView() {
     <div className="flex flex-col h-screen bg-zinc-950 text-zinc-100 overflow-hidden">
       <Header agentCount={agents.length} killSwitch={killSwitch} />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar agents={agents} activeId={null} onSelect={(id) => (window.location.href = `/agents/${id}/`)} />
+        <Sidebar agents={agents} activeId={null} />
         <div className="flex-1 relative overflow-hidden">
           {/* Toolbar */}
           <div className="absolute top-3 right-3 z-10 flex gap-2">
