@@ -8,3 +8,7 @@ CVE-2026-26960
 # minimatch ReDoS — transitive dep of globally installed npm tools.
 # Our application does not use minimatch with untrusted input.
 CVE-2026-26996
+
+# glob command injection — transitive dep of globally installed npm tools.
+# Our application does not shell out via glob with untrusted input.
+CVE-2025-64756
