@@ -183,8 +183,8 @@ resource "google_cloud_run_v2_service" "swarm" {
           port = 8080
         }
         period_seconds    = 30
-        failure_threshold = 3
-        timeout_seconds   = 5
+        failure_threshold = 5
+        timeout_seconds   = 10
       }
     }
 

@@ -20,8 +20,14 @@ let contextSyncTimeout: ReturnType<typeof setTimeout> | null = null;
 // biome-ignore lint/suspicious/noExplicitAny: GCS Storage is dynamically imported
 let storage: any = null;
 let syncInProgress = false;
+let debouncedSyncTimer: ReturnType<typeof setTimeout> | null = null;
+let debouncedSyncResolvers: Array<() => void> = [];
 
 const RETRY_DELAYS = [100, 200, 400];
+const DEBOUNCE_MS = 5_000;
+
+/** Yield to the event loop so health checks and other handlers can run between file uploads. */
+const yieldToEventLoop = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
 async function retryWithBackoff<T>(fn: () => Promise<T>, label: string): Promise<T> {
   let lastErr: unknown;
@@ -74,6 +80,7 @@ async function downloadDir(prefix: string, localDir: string): Promise<void> {
 
         const [contents] = await file.download();
         writeFileSync(localPath, contents);
+        await yieldToEventLoop();
       }
       console.log(`Synced from GCS: ${prefix} → ${localDir} (${files.length} files)`);
     }, `downloadDir(${prefix})`);
@@ -97,6 +104,7 @@ async function uploadDir(localDir: string, prefix: string): Promise<void> {
         const relativePath = path.relative(localDir, filePath);
         const gcsPath = `${prefix}${relativePath}`;
         await bucket.upload(filePath, { destination: gcsPath });
+        await yieldToEventLoop();
       }
       console.log(`Synced to GCS: ${localDir} → ${prefix} (${files.length} files)`);
     }, `uploadDir(${localDir})`);
@@ -215,6 +223,28 @@ export async function syncToGCS(): Promise<void> {
   } finally {
     syncInProgress = false;
   }
+}
+
+/**
+ * Debounced version of syncToGCS that coalesces rapid-fire calls (e.g. from
+ * multiple agents finishing close together) into a single sync after a delay.
+ */
+export function debouncedSyncToGCS(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    debouncedSyncResolvers.push(resolve);
+    if (debouncedSyncTimer) clearTimeout(debouncedSyncTimer);
+    debouncedSyncTimer = setTimeout(async () => {
+      debouncedSyncTimer = null;
+      const resolvers = debouncedSyncResolvers;
+      debouncedSyncResolvers = [];
+      try {
+        await syncToGCS();
+      } catch (err: unknown) {
+        console.warn("[sync] Debounced syncToGCS failed:", errorMessage(err));
+      }
+      for (const r of resolvers) r();
+    }, DEBOUNCE_MS);
+  });
 }
 
 const ABOUT_YOU_CONTENT = `<!-- summary: Agent identity, communication methods, collaboration protocol, capabilities, platform context -->
@@ -395,5 +425,12 @@ export function stopPeriodicSync(): void {
   if (contextSyncTimeout) {
     clearTimeout(contextSyncTimeout);
     contextSyncTimeout = null;
+  }
+  if (debouncedSyncTimer) {
+    clearTimeout(debouncedSyncTimer);
+    debouncedSyncTimer = null;
+    // Resolve pending callers — shutdown will run syncToGCS() directly, so they don't need to wait
+    for (const r of debouncedSyncResolvers) r();
+    debouncedSyncResolvers = [];
   }
 }

@@ -24,7 +24,7 @@ import {
 } from "./guardrails";
 import { EVENTS_DIR, loadAllAgentStates, removeAgentState, saveAgentState, writeTombstone } from "./persistence";
 import { sanitizeEvent } from "./sanitize";
-import { syncToGCS } from "./storage";
+import { debouncedSyncToGCS } from "./storage";
 import { generateWorkspaceClaudeMd } from "./templates/workspace-claude-md";
 import type { Agent, AgentProcess, CreateAgentRequest, PromptAttachment, StreamEvent } from "./types";
 import { errorMessage } from "./types";
@@ -793,7 +793,7 @@ export class AgentManager {
         ap.agent.lastActivity = new Date().toISOString();
         saveAgentState(ap.agent);
       }
-      syncToGCS().catch(() => {});
+      debouncedSyncToGCS().catch(() => {});
 
       // Notify idle listeners so queued messages can be delivered
       if (code === 0) {
