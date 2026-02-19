@@ -76,7 +76,7 @@ export function Dashboard() {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar agents={agents} activeId={null} onSelect={(id) => navigate(`/agents/${id}`)} />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <main className="flex-1 overflow-y-auto p-6">
+          <main id="main-content" className="flex-1 overflow-y-auto p-6">
             <h2 className="text-lg font-medium mb-6">Agents</h2>
 
             {loading && agents.length === 0 ? (

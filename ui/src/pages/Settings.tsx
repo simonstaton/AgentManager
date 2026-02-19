@@ -242,7 +242,7 @@ export function Settings() {
       <Header agentCount={agents.length} killSwitch={killSwitch} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar agents={agents} activeId={null} onSelect={(id) => navigate(`/agents/${id}`)} />
-        <main className="flex-1 overflow-y-auto">
+        <main id="main-content" className="flex-1 overflow-y-auto">
           <Tabs defaultValue="context" className="pt-6">
             <TabsList className="px-6 border-b border-zinc-800">
               <TabsTrigger value="context">Shared Context</TabsTrigger>
