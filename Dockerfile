@@ -1,7 +1,22 @@
 # syntax=docker/dockerfile:1
 
+# Base image is pinned to a specific SHA256 digest for reproducible builds.
+# Floating tags (e.g. node:22-alpine) can silently change, breaking builds or
+# introducing unexpected changes. Pinning ensures every build uses the exact
+# same image layers regardless of when it runs.
+#
+# To update: run the following and replace all three digests below:
+#   docker pull node:22-alpine
+#   docker inspect --format='{{index .RepoDigests 0}}' node:22-alpine
+# Or via the registry API (no Docker required):
+#   TOKEN=$(curl -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/node:pull" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+#   curl -sI -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.oci.image.index.v1+json" \
+#     "https://registry-1.docker.io/v2/library/node/manifests/22-alpine" | grep docker-content-digest
+# Last updated: 2026-02-19 — node:22-alpine (Node.js 22 on Alpine 3.23)
+ARG NODE_IMAGE=node:22-alpine@sha256:e4bf2a82ad0a4037d28035ae71529873c069b13eb0455466ae0bc13363826e34
+
 # ── Stage 1: Build React UI ─────────────────────────────────────────────────
-FROM node:22-alpine AS ui-build
+FROM ${NODE_IMAGE} AS ui-build
 WORKDIR /app/ui
 COPY ui/package*.json ui/.npmrc ./
 RUN npm ci
@@ -9,13 +24,13 @@ COPY ui/ .
 RUN npm run build
 
 # ── Stage 2: Server dependencies ────────────────────────────────────────────
-FROM node:22-alpine AS deps
+FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
 
 # ── Stage 3: Runtime ────────────────────────────────────────────────────────
-FROM node:22-alpine
+FROM ${NODE_IMAGE}
 WORKDIR /app
 
 # Install system deps: git, gh CLI
