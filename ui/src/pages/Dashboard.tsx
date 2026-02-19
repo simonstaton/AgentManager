@@ -103,7 +103,7 @@ export function Dashboard() {
                   ))}
                 </div>
                 <details className="group">
-                  <summary className="text-xs text-zinc-600 cursor-pointer hover:text-zinc-400 transition-colors select-none mb-3">
+                  <summary className="text-xs text-zinc-400 cursor-pointer hover:text-zinc-400 transition-colors select-none mb-3">
                     Templates
                   </summary>
                   <AgentTemplates onSelect={handleTemplateSelect} />

@@ -192,7 +192,7 @@ export function AgentView() {
             <div className="flex items-center gap-3">
               <h2 className="text-sm font-medium">{agent?.name || "Loading..."}</h2>
               {agent && <StatusBadge status={agent.status} />}
-              {isStreaming && <span className="text-xs text-zinc-600">streaming...</span>}
+              {isStreaming && <span className="text-xs text-zinc-400">streaming...</span>}
               {error && <span className="text-xs text-red-400">{error}</span>}
             </div>
             <div className="flex items-center gap-2">

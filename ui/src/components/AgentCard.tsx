@@ -27,7 +27,7 @@ export function AgentCard({ agent, onClick, parentName }: AgentCardProps) {
 
       {agent.currentTask && <p className="text-xs text-zinc-400 mb-2 truncate">{agent.currentTask}</p>}
 
-      <div className="flex items-center gap-2 text-xs text-zinc-600 flex-wrap">
+      <div className="flex items-center gap-2 text-xs text-zinc-400 flex-wrap">
         <span>{agent.model.replace("claude-", "").split("-202")[0]}</span>
         <span>·</span>
         <span>{timeAgo(agent.lastActivity)}</span>

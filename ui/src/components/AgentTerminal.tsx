@@ -99,7 +99,7 @@ function Block({ block }: { block: TerminalBlock }) {
         );
       }
       return (
-        <div className="terminal-line text-zinc-600 italic text-xs mb-2 pb-1 border-b border-zinc-800/50">
+        <div className="terminal-line text-zinc-400 italic text-xs mb-2 pb-1 border-b border-zinc-800/50">
           {block.content}
         </div>
       );
@@ -140,7 +140,7 @@ function Block({ block }: { block: TerminalBlock }) {
           <button
             type="button"
             onClick={() => setCollapsed(!collapsed)}
-            className="text-zinc-600 hover:text-zinc-400 text-xs transition-colors flex items-center gap-1"
+            className="text-zinc-400 hover:text-zinc-400 text-xs transition-colors flex items-center gap-1"
           >
             <span className="text-[10px]">{collapsed ? "▶" : "▼"}</span>
             <span>
@@ -164,7 +164,7 @@ function Block({ block }: { block: TerminalBlock }) {
       return (
         <div className="mt-3 mb-2 pt-2 border-t border-zinc-800">
           <div className="text-emerald-400 terminal-line leading-relaxed mb-1">{block.content}</div>
-          <div className="flex gap-3 text-xs text-zinc-600 mt-1">
+          <div className="flex gap-3 text-xs text-zinc-400 mt-1">
             {duration != null && <span>{(Number(duration) / 1000).toFixed(1)}s</span>}
             {turns != null && (
               <span>
@@ -181,7 +181,7 @@ function Block({ block }: { block: TerminalBlock }) {
       return <div className="terminal-line text-red-400/80 text-xs mb-1">{block.content}</div>;
 
     case "raw":
-      return <div className="terminal-line text-zinc-600 text-xs mb-0.5">{block.content}</div>;
+      return <div className="terminal-line text-zinc-400 text-xs mb-0.5">{block.content}</div>;
   }
 }
 

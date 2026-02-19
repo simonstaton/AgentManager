@@ -531,10 +531,10 @@ export function PromptInput({
         <div className="absolute bottom-full left-3 mb-1 w-80 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden z-20">
           <div className="px-3 py-1.5 border-b border-zinc-700/50 flex items-center justify-between">
             <span className="text-xs text-zinc-500">Files in workspace</span>
-            {fileSearching && <span className="text-xs text-zinc-600 animate-pulse">searching...</span>}
+            {fileSearching && <span className="text-xs text-zinc-400 animate-pulse">searching...</span>}
           </div>
           {fileResults.length === 0 ? (
-            <div className="px-3 py-3 text-xs text-zinc-600">
+            <div className="px-3 py-3 text-xs text-zinc-400">
               {fileSearching ? "Searching..." : fileFilter ? "No files match" : "Type to search files..."}
             </div>
           ) : (
@@ -567,7 +567,7 @@ export function PromptInput({
       {createMode && showCreateConfig && (
         <div className="px-3 pt-3 pb-1 flex items-end gap-3 border-b border-zinc-800/50">
           <div className="flex-1 min-w-0">
-            <label htmlFor="create-agent-name" className="block text-[10px] text-zinc-600 mb-0.5">
+            <label htmlFor="create-agent-name" className="block text-[10px] text-zinc-400 mb-0.5">
               Name
             </label>
             <input
@@ -580,7 +580,7 @@ export function PromptInput({
             />
           </div>
           <div className="w-40 shrink-0">
-            <label htmlFor="create-agent-model" className="block text-[10px] text-zinc-600 mb-0.5">
+            <label htmlFor="create-agent-model" className="block text-[10px] text-zinc-400 mb-0.5">
               Model
             </label>
             <select
@@ -596,7 +596,7 @@ export function PromptInput({
             </select>
           </div>
           <div className="w-20 shrink-0">
-            <label htmlFor="create-agent-turns" className="block text-[10px] text-zinc-600 mb-0.5">
+            <label htmlFor="create-agent-turns" className="block text-[10px] text-zinc-400 mb-0.5">
               Max turns
             </label>
             <input
@@ -626,11 +626,11 @@ export function PromptInput({
                 <FileIcon filename={att.name} />
               )}
               <span className="text-xs text-zinc-400 max-w-[120px] truncate">{att.name}</span>
-              <span className="text-[10px] text-zinc-600">{formatSize(att.size)}</span>
+              <span className="text-[10px] text-zinc-400">{formatSize(att.size)}</span>
               <button
                 type="button"
                 onClick={() => removeAttachment(att.id)}
-                className="ml-1 text-zinc-600 hover:text-red-400 transition-colors"
+                className="ml-1 text-zinc-400 hover:text-red-400 transition-colors"
                 title="Remove"
               >
                 <svg
@@ -722,21 +722,21 @@ export function PromptInput({
       <div className="px-3 pb-1.5 flex items-center gap-3 text-[10px] text-zinc-700">
         {!createMode && (
           <span>
-            <kbd className="px-1 bg-zinc-800 rounded text-zinc-600">/</kbd> commands
+            <kbd className="px-1 bg-zinc-800 rounded text-zinc-400">/</kbd> commands
           </span>
         )}
         {onSearchFiles && !createMode && (
           <span>
-            <kbd className="px-1 bg-zinc-800 rounded text-zinc-600">@</kbd> reference file
+            <kbd className="px-1 bg-zinc-800 rounded text-zinc-400">@</kbd> reference file
           </span>
         )}
         <span>
-          <kbd className="px-1 bg-zinc-800 rounded text-zinc-600">Shift+Enter</kbd> newline
+          <kbd className="px-1 bg-zinc-800 rounded text-zinc-400">Shift+Enter</kbd> newline
         </span>
         <span>paste or drag images/files</span>
         {createMode && (
           <span>
-            <kbd className="px-1 bg-zinc-800 rounded text-zinc-600">
+            <kbd className="px-1 bg-zinc-800 rounded text-zinc-400">
               <GearIcon className="w-2.5 h-2.5 inline" />
             </kbd>{" "}
             agent settings

@@ -89,7 +89,7 @@ export function MessageFeed({ api, agents }: MessageFeedProps) {
       <div className="flex items-center justify-between mb-3">
         <div>
           <p className="text-xs font-medium text-zinc-400">
-            Messages <span className="text-zinc-600">({messages.length})</span>
+            Messages <span className="text-zinc-400">({messages.length})</span>
           </p>
         </div>
         <Button variant="secondary" size="24" onClick={() => setComposerOpen(!composerOpen)}>
@@ -147,7 +147,7 @@ export function MessageFeed({ api, agents }: MessageFeedProps) {
       {/* Messages list */}
       <div ref={feedRef} className="flex-1 overflow-y-auto space-y-2">
         {messages.length === 0 ? (
-          <div className="text-center text-zinc-600 text-xs py-8">
+          <div className="text-center text-zinc-400 text-xs py-8">
             No messages yet. Agents communicate here when they coordinate tasks.
           </div>
         ) : (
@@ -157,14 +157,14 @@ export function MessageFeed({ api, agents }: MessageFeedProps) {
                 <span className="font-medium text-zinc-300">{msg.fromName || agentName(msg.from, agents)}</span>
                 {msg.to && (
                   <>
-                    <span className="text-zinc-600">→</span>
+                    <span className="text-zinc-400">→</span>
                     <span className="text-zinc-400">{agentName(msg.to, agents)}</span>
                   </>
                 )}
                 <Badge variant={TYPE_BADGE[msg.type] || "default"} className="text-[10px]">
                   {TYPE_LABELS[msg.type] || msg.type}
                 </Badge>
-                <span className="text-zinc-600 ml-auto">{timeAgo(msg.createdAt)}</span>
+                <span className="text-zinc-400 ml-auto">{timeAgo(msg.createdAt)}</span>
               </div>
               <p className="text-zinc-400 whitespace-pre-wrap break-words leading-relaxed">{msg.content}</p>
             </div>

@@ -376,9 +376,9 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
       {/* File list */}
       <div className="w-56 flex-shrink-0 space-y-2">
         <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Context files</p>
-        <p className="text-xs text-zinc-600 mb-3">Shared .md files accessible to all agents</p>
+        <p className="text-xs text-zinc-400 mb-3">Shared .md files accessible to all agents</p>
         {loading ? (
-          <p className="text-xs text-zinc-600">Loading...</p>
+          <p className="text-xs text-zinc-400">Loading...</p>
         ) : (
           <TreeList
             nodes={tree}
@@ -396,7 +396,7 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
                     e.stopPropagation();
                     deleteFile(node.fullPath);
                   }}
-                  className="text-zinc-600 hover:text-red-400"
+                  className="text-zinc-400 hover:text-red-400"
                 >
                   x
                 </Button>
@@ -441,7 +441,7 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
             />
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-zinc-600 text-sm">
+          <div className="flex-1 flex items-center justify-center text-zinc-400 text-sm">
             Select a file or create a new one
           </div>
         )}
@@ -577,12 +577,12 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
     <div className="flex gap-4 h-[calc(100vh-12rem)]">
       {/* File list */}
       <div className="w-64 flex-shrink-0 overflow-y-auto space-y-4">
-        <p className="text-xs text-zinc-600">
+        <p className="text-xs text-zinc-400">
           Edit Claude config, skills, and memory. Changes are synced to GCS and persist across Cloud Run reloads.
         </p>
 
         {loading ? (
-          <p className="text-xs text-zinc-600">Loading...</p>
+          <p className="text-xs text-zinc-400">Loading...</p>
         ) : (
           grouped.map((group) => {
             const stripPrefix = TREE_CATEGORIES[group.category];
@@ -591,7 +591,7 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
             return (
               <div key={group.category}>
                 <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">{group.label}</p>
-                <p className="text-[11px] text-zinc-600 mb-2">{group.description}</p>
+                <p className="text-[11px] text-zinc-400 mb-2">{group.description}</p>
 
                 <div className="space-y-0.5">
                   {useTree ? (
@@ -643,7 +643,7 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
                       >
                         <div className="min-w-0 flex-1">
                           <div className="font-mono text-xs truncate">{f.name}</div>
-                          <div className="text-[11px] text-zinc-600 truncate">{f.description}</div>
+                          <div className="text-[11px] text-zinc-400 truncate">{f.description}</div>
                         </div>
                         {f.deletable && (
                           <Button
@@ -697,7 +697,7 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
             <div className="flex items-center justify-between mb-2">
               <div className="min-w-0">
                 <span className="text-sm text-zinc-300 font-mono">{selected.name}</span>
-                <span className="text-xs text-zinc-600 ml-3 truncate">{selected.path}</span>
+                <span className="text-xs text-zinc-400 ml-3 truncate">{selected.path}</span>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {editor.message && (
@@ -758,7 +758,7 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
             />
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-zinc-600 text-sm">
+          <div className="flex-1 flex items-center justify-center text-zinc-400 text-sm">
             <div className="text-center space-y-2">
               <p>Select a config file to view or edit</p>
               <p className="text-[11px] text-zinc-700">
@@ -899,13 +899,13 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
   };
 
   if (loading) {
-    return <div className="text-zinc-600 text-sm">Loading...</div>;
+    return <div className="text-zinc-400 text-sm">Loading...</div>;
   }
 
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <p className="text-xs text-zinc-600 mb-4">
+        <p className="text-xs text-zinc-400 mb-4">
           Configure spawn limits and resource constraints for agent creation and operations. Changes take effect
           immediately for new operations.
         </p>
@@ -920,7 +920,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             <div>
               <label className="text-sm text-zinc-400 mb-1 block">
                 Max Batch Size
-                <span className="text-xs text-zinc-600 ml-2">(agents spawned at once)</span>
+                <span className="text-xs text-zinc-400 ml-2">(agents spawned at once)</span>
               </label>
               <TextField
                 type="number"
@@ -935,7 +935,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             <div>
               <label className="text-sm text-zinc-400 mb-1 block">
                 Max Total Agents
-                <span className="text-xs text-zinc-600 ml-2">(concurrent limit)</span>
+                <span className="text-xs text-zinc-400 ml-2">(concurrent limit)</span>
               </label>
               <TextField
                 type="number"
@@ -950,7 +950,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             <div>
               <label className="text-sm text-zinc-400 mb-1 block">
                 Max Agent Depth
-                <span className="text-xs text-zinc-600 ml-2">(spawning hierarchy)</span>
+                <span className="text-xs text-zinc-400 ml-2">(spawning hierarchy)</span>
               </label>
               <TextField
                 type="number"
@@ -965,7 +965,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             <div>
               <label className="text-sm text-zinc-400 mb-1 block">
                 Max Children Per Agent
-                <span className="text-xs text-zinc-600 ml-2">(sub-agents)</span>
+                <span className="text-xs text-zinc-400 ml-2">(sub-agents)</span>
               </label>
               <TextField
                 type="number"
@@ -985,7 +985,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             <div>
               <label className="text-sm text-zinc-400 mb-1 block">
                 Max Prompt Length
-                <span className="text-xs text-zinc-600 ml-2">(characters)</span>
+                <span className="text-xs text-zinc-400 ml-2">(characters)</span>
               </label>
               <TextField
                 type="number"
@@ -1000,7 +1000,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             <div>
               <label className="text-sm text-zinc-400 mb-1 block">
                 Max Turns
-                <span className="text-xs text-zinc-600 ml-2">(conversation rounds)</span>
+                <span className="text-xs text-zinc-400 ml-2">(conversation rounds)</span>
               </label>
               <TextField
                 type="number"
@@ -1015,7 +1015,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             <div>
               <label className="text-sm text-zinc-400 mb-1 block">
                 Session TTL
-                <span className="text-xs text-zinc-600 ml-2">(milliseconds)</span>
+                <span className="text-xs text-zinc-400 ml-2">(milliseconds)</span>
               </label>
               <TextField
                 type="number"
