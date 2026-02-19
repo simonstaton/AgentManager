@@ -82,7 +82,6 @@ function computeLayout(topology: SwarmTopology): LayoutNode[] {
   }
 
   // Merge positions with node data; fall back to grid for disconnected nodes
-  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
   return nodes.map((n) => {
     const pos = positions.get(n.id);
     return { ...n, x: pos?.x ?? PADDING, y: pos?.y ?? PADDING } as LayoutNode;
@@ -145,6 +144,7 @@ function Tooltip({ node }: { node: TopologyNode }) {
     <g pointerEvents="none">
       <rect x={tx} y={ty} width={tw} height={th} rx={6} fill="#18181b" stroke="#3f3f46" strokeWidth={1} />
       {lines.map((line, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: static tooltip lines with fixed order
         <text
           key={i}
           x={tx + 10}
@@ -238,8 +238,8 @@ export function GraphView() {
   const nodeMap = new Map(layout.map((n) => [n.id, n]));
 
   // SVG canvas size
-  const maxX = layout.reduce((m, n) => Math.max(m, n.x + NODE_W + PADDING), 600);
-  const maxY = layout.reduce((m, n) => Math.max(m, n.y + NODE_H + PADDING), 400);
+  const _maxX = layout.reduce((m, n) => Math.max(m, n.x + NODE_W + PADDING), 600);
+  const _maxY = layout.reduce((m, n) => Math.max(m, n.y + NODE_H + PADDING), 400);
 
   return (
     <div className="flex flex-col h-screen bg-zinc-950 text-zinc-100 overflow-hidden">
@@ -294,6 +294,7 @@ export function GraphView() {
             onMouseLeave={onMouseUp}
             onWheel={onWheel}
           >
+            <title>Agent dependency graph</title>
             <g transform={`translate(${offset.x},${offset.y}) scale(${scale})`}>
               {/* Edges */}
               {topology?.edges.map((edge) => {
@@ -330,6 +331,8 @@ export function GraphView() {
                   <g
                     key={node.id}
                     data-node="true"
+                    role="button"
+                    tabIndex={0}
                     transform={`translate(${node.x},${node.y})`}
                     style={{ cursor: "pointer" }}
                     onClick={() => (window.location.href = `/agents/${node.id}/`)}

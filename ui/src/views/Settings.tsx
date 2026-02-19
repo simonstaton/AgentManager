@@ -985,6 +985,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Spawn Limits</p>
 
             <div>
+              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesnt support htmlFor pattern */}
               <label className="text-sm text-zinc-400 mb-1 block">
                 Max Batch Size
                 <span className="text-xs text-zinc-400 ml-2">(agents spawned at once)</span>
@@ -1000,6 +1001,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             </div>
 
             <div>
+              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesnt support htmlFor pattern */}
               <label className="text-sm text-zinc-400 mb-1 block">
                 Max Total Agents
                 <span className="text-xs text-zinc-400 ml-2">(concurrent limit)</span>
@@ -1015,6 +1017,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             </div>
 
             <div>
+              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesnt support htmlFor pattern */}
               <label className="text-sm text-zinc-400 mb-1 block">
                 Max Agent Depth
                 <span className="text-xs text-zinc-400 ml-2">(spawning hierarchy)</span>
@@ -1030,6 +1033,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             </div>
 
             <div>
+              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesnt support htmlFor pattern */}
               <label className="text-sm text-zinc-400 mb-1 block">
                 Max Children Per Agent
                 <span className="text-xs text-zinc-400 ml-2">(sub-agents)</span>
@@ -1050,6 +1054,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Session Limits</p>
 
             <div>
+              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesnt support htmlFor pattern */}
               <label className="text-sm text-zinc-400 mb-1 block">
                 Max Prompt Length
                 <span className="text-xs text-zinc-400 ml-2">(characters)</span>
@@ -1065,6 +1070,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             </div>
 
             <div>
+              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesnt support htmlFor pattern */}
               <label className="text-sm text-zinc-400 mb-1 block">
                 Max Turns
                 <span className="text-xs text-zinc-400 ml-2">(conversation rounds)</span>
@@ -1080,6 +1086,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
             </div>
 
             <div>
+              {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesnt support htmlFor pattern */}
               <label className="text-sm text-zinc-400 mb-1 block">
                 Session TTL
                 <span className="text-xs text-zinc-400 ml-2">(milliseconds)</span>
