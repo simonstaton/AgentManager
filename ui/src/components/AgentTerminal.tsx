@@ -140,13 +140,9 @@ function Block({ block }: { block: TerminalBlock }) {
           <button
             type="button"
             onClick={() => setCollapsed(!collapsed)}
-<<<<<<< HEAD
-            className="text-zinc-400 hover:text-zinc-400 text-xs transition-colors flex items-center gap-1"
-=======
             aria-expanded={!collapsed}
             aria-label={collapsed ? "Expand tool output" : "Collapse tool output"}
-            className="text-zinc-600 hover:text-zinc-400 text-xs transition-colors flex items-center gap-1"
->>>>>>> 298fead (feat: add ARIA roles and landmarks to AgentTerminal and Sidebar)
+            className="text-zinc-400 hover:text-zinc-400 text-xs transition-colors flex items-center gap-1"
           >
             <span className="text-[10px]">{collapsed ? "▶" : "▼"}</span>
             <span>

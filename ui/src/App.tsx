@@ -2,6 +2,7 @@ import { Component, createContext, type ErrorInfo, type ReactNode, useContext } 
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth";
 import { KillSwitchBanner } from "./components/KillSwitchBanner";
+import { ToastProvider } from "./components/Toast";
 import { type KillSwitchState, useKillSwitch } from "./hooks/useKillSwitch";
 import { AgentView } from "./pages/AgentView";
 import { Dashboard } from "./pages/Dashboard";
@@ -150,7 +151,9 @@ export function App() {
     <ErrorBoundary>
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <ToastProvider>
+            <AppRoutes />
+          </ToastProvider>
         </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>

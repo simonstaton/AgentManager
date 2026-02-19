@@ -6,7 +6,9 @@ import { AgentCard } from "../components/AgentCard";
 import { AgentTemplates } from "../components/AgentTemplates";
 import { Header } from "../components/Header";
 import { type Attachment, PromptInput, type PromptInputDefaultValues } from "../components/PromptInput";
+import { AgentCardSkeleton } from "../components/Skeleton";
 import { Sidebar } from "../components/Sidebar";
+import { useToast } from "../components/Toast";
 import { useAgentPolling } from "../hooks/useAgentPolling";
 import { useApi } from "../hooks/useApi";
 
@@ -16,6 +18,7 @@ export function Dashboard() {
   const { agents, loading, refreshAgents } = useAgentPolling();
   const [creating, setCreating] = useState(false);
   const killSwitch = useKillSwitchContext();
+  const { toast } = useToast();
   const [selectedTemplate, setSelectedTemplate] = useState<AgentTemplate | null>(null);
 
   useEffect(() => {
@@ -55,7 +58,7 @@ export function Dashboard() {
           navigate(`/agents/${newest.id}`);
         }
       } catch (err: unknown) {
-        alert(err instanceof Error ? err.message : "Failed to create agent");
+        toast(err instanceof Error ? err.message : "Failed to create agent", "error");
       } finally {
         setCreating(false);
       }
@@ -82,7 +85,7 @@ export function Dashboard() {
             {loading && agents.length === 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-28 rounded-lg bg-zinc-800/50 animate-pulse" />
+                  <AgentCardSkeleton key={i} />
                 ))}
               </div>
             ) : agents.length === 0 ? (

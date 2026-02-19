@@ -6,6 +6,7 @@ import type { Agent, ClaudeConfigFile, ContextFile, createApi } from "../api";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Header } from "../components/Header";
 import { MessageFeed } from "../components/MessageFeed";
+import { Skeleton, TreeListSkeleton } from "../components/Skeleton";
 import { Sidebar } from "../components/Sidebar";
 import { useApi } from "../hooks/useApi";
 
@@ -408,7 +409,7 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
         <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Context files</p>
         <p className="text-xs text-zinc-400 mb-3">Shared .md files accessible to all agents</p>
         {loading ? (
-          <p className="text-xs text-zinc-400">Loading...</p>
+          <TreeListSkeleton rows={5} />
         ) : (
           <TreeList
             nodes={tree}
@@ -637,7 +638,7 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
         </p>
 
         {loading ? (
-          <p className="text-xs text-zinc-400">Loading...</p>
+          <TreeListSkeleton rows={6} />
         ) : (
           grouped.map((group) => {
             const stripPrefix = TREE_CATEGORIES[group.category];
@@ -877,7 +878,7 @@ function ApiKeyPanel({ api }: { api: ReturnType<typeof createApi> }) {
           </span>
         </p>
         <div className="px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-800 font-mono text-sm text-zinc-300">
-          {hint || "Loading..."}
+          {hint || <Skeleton className="h-4 w-48" />}
         </div>
       </div>
 
@@ -954,7 +955,14 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
   };
 
   if (loading) {
-    return <div className="text-zinc-400 text-sm">Loading...</div>;
+    return (
+      <div className="max-w-2xl space-y-6">
+        <Skeleton className="h-4 w-64 mb-4" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+      </div>
+    );
   }
 
   return (

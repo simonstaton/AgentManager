@@ -7,7 +7,9 @@ import { AgentTerminal } from "../components/AgentTerminal";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Header } from "../components/Header";
 import { type Attachment, PromptInput } from "../components/PromptInput";
+import { AgentHeaderSkeleton } from "../components/Skeleton";
 import { Sidebar } from "../components/Sidebar";
+import { useToast } from "../components/Toast";
 import { STATUS_BADGE_VARIANT } from "../constants";
 import { useAgentPolling } from "../hooks/useAgentPolling";
 import { useAgentStream } from "../hooks/useAgentStream";
@@ -26,6 +28,7 @@ export function AgentView() {
   const [stopError, setStopError] = useState<string | null>(null);
   const { events, isStreaming, error, sendMessage, reconnect, clearEvents, injectEvent } = useAgentStream(id || null);
   const killSwitch = useKillSwitchContext();
+  const { toast } = useToast();
 
   // Set page title based on agent name
   useEffect(() => {
@@ -91,7 +94,7 @@ export function AgentView() {
       await api.destroyAgent(id);
       navigate("/");
     } catch (err: unknown) {
-      setStopError(err instanceof Error ? err.message : "Failed to stop agent");
+      toast(err instanceof Error ? err.message : "Failed to stop agent", "error");
       setIsStopping(false);
     }
   };
@@ -208,8 +211,14 @@ export function AgentView() {
           {/* Agent header */}
           <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-zinc-900/30">
             <div className="flex items-center gap-3">
-              <h2 className="text-sm font-medium">{agent?.name || "Loading..."}</h2>
-              {agent && <StatusBadge status={agent.status} />}
+              {agent ? (
+                <>
+                  <h2 className="text-sm font-medium">{agent.name}</h2>
+                  <StatusBadge status={agent.status} />
+                </>
+              ) : (
+                <AgentHeaderSkeleton />
+              )}
               {isStreaming && <span className="text-xs text-zinc-400">streaming...</span>}
               {error && <span className="text-xs text-red-400">{error}</span>}
             </div>
