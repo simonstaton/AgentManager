@@ -390,6 +390,12 @@ export function createApi(authFetch: AuthFetch) {
       if (!res.ok) throw new Error("Failed to delete message");
     },
 
+    async clearAllMessages(): Promise<{ ok: boolean; deleted: number }> {
+      const res = await authFetch("/api/messages", { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to clear messages");
+      return res.json();
+    },
+
     // Kill switch
     async getKillSwitchState(): Promise<{ killed: boolean; reason?: string; activatedAt?: string }> {
       const res = await authFetch("/api/kill-switch");

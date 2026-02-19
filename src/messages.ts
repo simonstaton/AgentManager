@@ -150,6 +150,14 @@ export class MessageBus {
     return true;
   }
 
+  /** Delete all messages and persist. Returns count of deleted messages. */
+  clearAll(): number {
+    const count = this.messages.length;
+    this.messages = [];
+    this.saveToDisk();
+    return count;
+  }
+
   /** Subscribe to real-time messages. Returns unsubscribe function. */
   subscribe(listener: (msg: AgentMessage) => void): () => void {
     this.listeners.add(listener);

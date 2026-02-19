@@ -115,6 +115,12 @@ export function createMessagesRouter(messageBus: MessageBus) {
     res.json({ ok: true, markedRead: count });
   });
 
+  // Clear all messages
+  router.delete("/api/messages", (_req: Request, res: Response) => {
+    const count = messageBus.clearAll();
+    res.json({ ok: true, deleted: count });
+  });
+
   // Delete a message
   router.delete("/api/messages/:id", (req: Request, res: Response) => {
     if (messageBus.deleteMessage(param(req.params.id))) {

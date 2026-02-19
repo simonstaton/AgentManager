@@ -39,6 +39,7 @@ export function MessageFeed({ api, agents }: MessageFeedProps) {
   const [msgType, setMsgType] = useState<MessageType>("info");
   const [msgTo, setMsgTo] = useState("");
   const [sending, setSending] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const feedRef = useRef<HTMLDivElement>(null);
 
   const refresh = useCallback(async () => {
@@ -85,6 +86,18 @@ export function MessageFeed({ api, agents }: MessageFeedProps) {
     setSending(false);
   };
 
+  const clearAll = async () => {
+    if (!window.confirm("Clear all messages? This cannot be undone.")) return;
+    setClearing(true);
+    try {
+      await api.clearAllMessages();
+      setMessages([]);
+    } catch (err) {
+      console.error("[MessageFeed] clear failed", err);
+    }
+    setClearing(false);
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -94,9 +107,16 @@ export function MessageFeed({ api, agents }: MessageFeedProps) {
             Messages <span className="text-zinc-400">({messages.length})</span>
           </p>
         </div>
-        <Button variant="secondary" size="24" onClick={() => setComposerOpen(!composerOpen)}>
-          {composerOpen ? "Cancel" : "New"}
-        </Button>
+        <div className="flex items-center gap-2">
+          {messages.length > 0 && (
+            <Button variant="secondary" size="24" onClick={clearAll} disabled={clearing} loading={clearing}>
+              Clear All
+            </Button>
+          )}
+          <Button variant="secondary" size="24" onClick={() => setComposerOpen(!composerOpen)}>
+            {composerOpen ? "Cancel" : "New"}
+          </Button>
+        </div>
       </div>
 
       {/* Composer */}
