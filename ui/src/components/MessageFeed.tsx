@@ -1,3 +1,5 @@
+"use client";
+
 import { Badge, type BadgeVariant, Button, TextField } from "@fanvue/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentMessage, createApi, MessageType } from "../api";

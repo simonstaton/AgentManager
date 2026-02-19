@@ -1,7 +1,9 @@
+"use client";
+
 import { Alert, Button, PasswordField, Tabs, TabsContent, TabsList, TabsTrigger, TextField } from "@fanvue/ui";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useBlocker, useNavigate } from "react-router-dom";
-import { useKillSwitchContext } from "../App";
+import { useKillSwitchContext } from "../killSwitch";
 import type { Agent, ClaudeConfigFile, ContextFile, createApi } from "../api";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Header } from "../components/Header";
@@ -157,8 +159,12 @@ function useFileEditor() {
   const [message, setMessage] = useState("");
   const isDirty = content !== savedContentRef.current;
 
-  // Block in-app navigation when dirty (React Router)
-  const blocker = useBlocker(isDirty);
+  // No in-app navigation blocker in Next.js App Router — browser tab close is handled below
+  const blocker: { state: "unblocked" | "blocked" | "proceeding"; proceed?: () => void; reset?: () => void } = {
+    state: "unblocked",
+    proceed: undefined,
+    reset: undefined,
+  };
 
   // Warn on browser tab close when dirty
   useEffect(() => {
@@ -225,7 +231,7 @@ function useFolderToggle(initial: Set<string> = new Set()) {
 // ── Main Settings page ───────────────────────────────────────────────────────
 
 export function Settings() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const api = useApi();
   const [agents, setAgents] = useState<Agent[]>([]);
   const killSwitch = useKillSwitchContext();
@@ -247,7 +253,7 @@ export function Settings() {
     <div className="h-screen flex flex-col">
       <Header agentCount={agents.length} killSwitch={killSwitch} />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar agents={agents} activeId={null} onSelect={(id) => navigate(`/agents/${id}`)} />
+        <Sidebar agents={agents} activeId={null} onSelect={(id) => router.push(`/agents/${id}`)} />
         <main id="main-content" className="flex-1 overflow-y-auto">
           <Tabs defaultValue="context" className="pt-6">
             <TabsList className="px-6 border-b border-zinc-800">

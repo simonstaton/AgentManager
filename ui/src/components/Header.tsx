@@ -1,5 +1,7 @@
+"use client";
+
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";
 import type { KillSwitchState } from "../hooks/useKillSwitch";
 
@@ -15,8 +17,8 @@ interface HeaderProps {
 
 export function Header({ agentCount, killSwitch }: HeaderProps) {
   const { logout } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const router = useRouter();
+  const pathname = usePathname();
   const [confirming, setConfirming] = useState(false);
 
   const handlePanicClick = () => {
@@ -35,7 +37,7 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
         <div className="flex items-center gap-4">
           <button
             type="button"
-            onClick={() => navigate("/")}
+            onClick={() => router.push("/")}
             className="text-lg font-semibold tracking-tight hover:text-white transition-colors"
           >
             Swarm
@@ -63,9 +65,9 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
 
           <button
             type="button"
-            onClick={() => navigate("/graph")}
+            onClick={() => router.push("/graph")}
             className={`px-3 py-1.5 text-sm rounded transition-colors ${
-              location.pathname === "/graph"
+              pathname === "/graph"
                 ? "bg-zinc-700 text-zinc-100"
                 : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
             }`}
@@ -74,9 +76,9 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
           </button>
           <button
             type="button"
-            onClick={() => navigate("/costs")}
+            onClick={() => router.push("/costs")}
             className={`px-3 py-1.5 text-sm rounded transition-colors ${
-              location.pathname === "/costs"
+              pathname === "/costs"
                 ? "bg-zinc-700 text-zinc-100"
                 : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
             }`}
@@ -85,9 +87,9 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
           </button>
           <button
             type="button"
-            onClick={() => navigate("/settings")}
+            onClick={() => router.push("/settings")}
             className={`px-3 py-1.5 text-sm rounded transition-colors ${
-              location.pathname === "/settings"
+              pathname === "/settings"
                 ? "bg-zinc-700 text-zinc-100"
                 : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
             }`}

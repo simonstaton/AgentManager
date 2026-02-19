@@ -1,3 +1,5 @@
+"use client";
+
 import type { BadgeVariant } from "@fanvue/ui";
 
 export const STATUS_BADGE_VARIANT: Record<string, BadgeVariant> = {

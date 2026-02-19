@@ -1,10 +1,12 @@
+"use client";
+
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Header } from "../components/Header";
 import { Sidebar } from "../components/Sidebar";
 import { useAgentPolling } from "../hooks/useAgentPolling";
+import { useKillSwitchContext } from "../killSwitch";
 import { useApi } from "../hooks/useApi";
-import { useKillSwitchContext } from "../App";
 import type { SwarmTopology, TopologyNode } from "../api";
 
 // ── Layout constants ──────────────────────────────────────────────────────────
@@ -142,7 +144,7 @@ function Tooltip({ node }: { node: TopologyNode }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export function GraphView() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const api = useApi();
   const { agents } = useAgentPolling();
   const killSwitch = useKillSwitchContext();
@@ -221,7 +223,7 @@ export function GraphView() {
     <div className="flex flex-col h-screen bg-zinc-950 text-zinc-100 overflow-hidden">
       <Header agentCount={agents.length} killSwitch={killSwitch} />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar agents={agents} activeId={null} onSelect={(id) => navigate(`/agents/${id}`)} />
+        <Sidebar agents={agents} activeId={null} onSelect={(id) => router.push(`/agents/${id}`)} />
         <div className="flex-1 relative overflow-hidden">
           {/* Toolbar */}
           <div className="absolute top-3 right-3 z-10 flex gap-2">
@@ -306,7 +308,7 @@ export function GraphView() {
                     data-node="true"
                     transform={`translate(${node.x},${node.y})`}
                     style={{ cursor: "pointer" }}
-                    onClick={() => navigate(`/agents/${node.id}`)}
+                    onClick={() => router.push(`/agents/${node.id}`)}
                     onMouseEnter={() => setHoveredId(node.id)}
                     onMouseLeave={() => setHoveredId(null)}
                   >

@@ -1,3 +1,5 @@
+"use client";
+
 export interface AgentTemplate {
   id: string;
   name: string;

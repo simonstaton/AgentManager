@@ -1,9 +1,11 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import { Header } from "../components/Header";
 import { Sidebar } from "../components/Sidebar";
 import { useAgentPolling } from "../hooks/useAgentPolling";
 import { useApi } from "../hooks/useApi";
-import { useKillSwitchContext } from "../App";
+import { useKillSwitchContext } from "../killSwitch";
 
 interface AgentCost {
   agentId: string;

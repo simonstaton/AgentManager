@@ -5,6 +5,8 @@ ui/node_modules/
 # Build outputs
 dist/
 ui/dist/
+ui/.next/
+ui/next-env.d.ts
 *.tsbuildinfo
 
 # Environment

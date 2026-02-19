@@ -1,3 +1,5 @@
+"use client";
+
 import { Alert, Button, PasswordField } from "@fanvue/ui";
 import { type FormEvent, useEffect, useState } from "react";
 import { useAuth } from "../auth";

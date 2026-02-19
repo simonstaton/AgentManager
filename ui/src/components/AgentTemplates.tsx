@@ -1,3 +1,5 @@
+"use client";
+
 import { type AgentTemplate, agentTemplates } from "../agentTemplates";
 
 interface AgentTemplatesProps {

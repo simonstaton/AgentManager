@@ -1,3 +1,5 @@
+"use client";
+
 /** Reusable skeleton/shimmer components for loading states. */
 
 interface SkeletonProps {

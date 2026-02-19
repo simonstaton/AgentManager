@@ -1,3 +1,5 @@
+"use client";
+
 import { createContext, type ReactNode, useCallback, useContext, useRef, useState } from "react";
 
 interface AuthContextType {
@@ -10,7 +12,9 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => sessionStorage.getItem("jwt"));
+  const [token, setToken] = useState<string | null>(() =>
+    typeof window !== "undefined" ? sessionStorage.getItem("jwt") : null,
+  );
   const tokenRef = useRef(token);
 
   const login = useCallback(async (apiKey: string) => {

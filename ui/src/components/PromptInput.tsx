@@ -1,3 +1,5 @@
+"use client";
+
 import { Button } from "@fanvue/ui";
 import {
   type ChangeEvent,

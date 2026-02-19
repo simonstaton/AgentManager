@@ -1,7 +1,9 @@
+"use client";
+
 import { Badge, Button } from "@fanvue/ui";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { useKillSwitchContext } from "../App";
+import { useKillSwitchContext } from "../killSwitch";
 import type { Agent } from "../api";
 import { AgentTerminal } from "../components/AgentTerminal";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -17,8 +19,9 @@ import { useApi } from "../hooks/useApi";
 import { usePageVisible } from "../hooks/usePageVisible";
 
 export function AgentView() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const params = useParams();
+  const id = params?.id as string | undefined;
+  const router = useRouter();
   const api = useApi();
   const { agents } = useAgentPolling();
   const visible = usePageVisible();
@@ -59,7 +62,7 @@ export function AgentView() {
         reconnectRef.current();
       } catch (err) {
         console.error("[AgentView] load failed", err);
-        if (!cancelled) navigate("/");
+        if (!cancelled) router.push("/");
       }
     };
     load();
@@ -69,7 +72,7 @@ export function AgentView() {
       cancelled = true;
       setAgent(null);
     };
-  }, [id, api, navigate]);
+  }, [id, api, router]);
 
   // Refresh agent details periodically (paused when tab is hidden)
   useEffect(() => {
@@ -92,7 +95,7 @@ export function AgentView() {
     setStopError(null);
     try {
       await api.destroyAgent(id);
-      navigate("/");
+      router.push("/");
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : "Failed to stop agent", "error");
       setIsStopping(false);
@@ -205,7 +208,7 @@ export function AgentView() {
         variant="destructive"
       />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar agents={agents} activeId={id || null} onSelect={(agentId) => navigate(`/agents/${agentId}`)} />
+        <Sidebar agents={agents} activeId={id || null} onSelect={(agentId) => router.push(`/agents/${agentId}`)} />
 
         <main id="main-content" className="flex-1 flex flex-col overflow-hidden">
           {/* Agent header */}

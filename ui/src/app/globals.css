@@ -1,5 +1,6 @@
 @import "tailwindcss";
-@source "../node_modules/@fanvue/ui";
+@source "../../node_modules/@fanvue/ui";
+@source "..";
 @import "@fanvue/ui/styles/theme.css";
 
 :root {

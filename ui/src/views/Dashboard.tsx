@@ -1,6 +1,8 @@
+"use client";
+
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useKillSwitchContext } from "../App";
+import { useKillSwitchContext } from "../killSwitch";
 import type { AgentTemplate } from "../agentTemplates";
 import { AgentCard } from "../components/AgentCard";
 import { AgentTemplates } from "../components/AgentTemplates";
@@ -13,7 +15,7 @@ import { useAgentPolling } from "../hooks/useAgentPolling";
 import { useApi } from "../hooks/useApi";
 
 export function Dashboard() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const api = useApi();
   const { agents, loading, refreshAgents } = useAgentPolling();
   const [creating, setCreating] = useState(false);
@@ -55,7 +57,7 @@ export function Dashboard() {
         if (updated.length > 0) {
           // Navigate to the most recently created agent
           const newest = updated.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-          navigate(`/agents/${newest.id}`);
+          router.push(`/agents/${newest.id}`);
         }
       } catch (err: unknown) {
         toast(err instanceof Error ? err.message : "Failed to create agent", "error");
@@ -63,7 +65,7 @@ export function Dashboard() {
         setCreating(false);
       }
     },
-    [navigate, refreshAgents, api],
+    [router, refreshAgents, api],
   );
 
   const createModeConfig = useMemo(
@@ -77,7 +79,7 @@ export function Dashboard() {
     <div className="h-screen flex flex-col">
       <Header agentCount={agents.length} killSwitch={killSwitch} />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar agents={agents} activeId={null} onSelect={(id) => navigate(`/agents/${id}`)} />
+        <Sidebar agents={agents} activeId={null} onSelect={(id) => router.push(`/agents/${id}`)} />
         <div className="flex-1 flex flex-col overflow-hidden">
           <main id="main-content" className="flex-1 overflow-y-auto p-6">
             <h2 className="text-lg font-medium mb-6">Agents</h2>
@@ -100,7 +102,7 @@ export function Dashboard() {
                     <AgentCard
                       key={agent.id}
                       agent={agent}
-                      onClick={() => navigate(`/agents/${agent.id}`)}
+                      onClick={() => router.push(`/agents/${agent.id}`)}
                       parentName={agent.parentId ? agents.find((a) => a.id === agent.parentId)?.name : undefined}
                     />
                   ))}

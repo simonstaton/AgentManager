@@ -1,3 +1,5 @@
+"use client";
+
 import { useCallback, useEffect, useState } from "react";
 import type { Agent } from "../api";
 import { useApi } from "./useApi";

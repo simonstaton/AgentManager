@@ -1,3 +1,5 @@
+"use client";
+
 import { Badge } from "@fanvue/ui";
 import type { Agent } from "../api";
 import { STATUS_BADGE_VARIANT } from "../constants";

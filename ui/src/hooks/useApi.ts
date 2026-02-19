@@ -1,3 +1,5 @@
+"use client";
+
 import { useMemo } from "react";
 import { createApi } from "../api";
 import { useAuth } from "../auth";
