@@ -113,15 +113,23 @@ export function validateCreateAgent(req: Request, res: Response, next: NextFunct
 }
 
 export function validateMessage(req: Request, res: Response, next: NextFunction): void {
-  const { prompt, maxTurns } = req.body ?? {};
-  if (typeof prompt !== "string" || !prompt.trim()) {
-    res.status(400).json({ error: "prompt is required and must be a non-empty string" });
+  const { prompt, maxTurns, attachments } = req.body ?? {};
+
+  // Allow empty prompt only if attachments are present (issue #56)
+  const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
+  const promptText = typeof prompt === "string" ? prompt : "";
+  const hasPrompt = promptText.trim().length > 0;
+
+  if (!hasPrompt && !hasAttachments) {
+    res.status(400).json({ error: "prompt or attachments are required" });
     return;
   }
-  if ((prompt as string).length > MAX_PROMPT_LENGTH) {
+
+  if (hasPrompt && promptText.length > MAX_PROMPT_LENGTH) {
     res.status(400).json({ error: `prompt exceeds max length of ${MAX_PROMPT_LENGTH}` });
     return;
   }
+
   if (maxTurns !== undefined) {
     const turns = Number(maxTurns);
     if (Number.isNaN(turns) || turns < 1 || turns > MAX_TURNS) {
@@ -130,14 +138,18 @@ export function validateMessage(req: Request, res: Response, next: NextFunction)
     }
     req.body.maxTurns = turns;
   }
+
   // Layer 5: Apply blocked patterns on message() too, not just create().
   // Closes the gap where an agent gets an innocent initial prompt, then receives
   // blocked content via follow-up messages.
-  for (const pattern of BLOCKED_COMMAND_PATTERNS) {
-    if (pattern.test(prompt as string)) {
-      res.status(400).json({ error: "Message contains blocked content" });
-      return;
+  if (hasPrompt) {
+    for (const pattern of BLOCKED_COMMAND_PATTERNS) {
+      if (pattern.test(promptText)) {
+        res.status(400).json({ error: "Message contains blocked content" });
+        return;
+      }
     }
   }
+
   next();
 }
