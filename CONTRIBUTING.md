@@ -64,8 +64,8 @@ This installs dependencies, creates the shared context directory, and starts the
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start the server with hot reload (tsx watch) |
-| `npm run dev:ui` | Start the Vite dev server for the React UI |
+| `npm run dev` | Start the server and Vite UI dev server concurrently |
+| `npm run dev:server` | Start the server only (without the UI) |
 | `npm test` | Run all tests once |
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run lint` | Lint with Biome |
