@@ -11,6 +11,7 @@ import { cleanupStaleState, hasTombstone } from "./src/persistence";
 import { createAgentsRouter } from "./src/routes/agents";
 import { createConfigRouter } from "./src/routes/config";
 import { createContextRouter } from "./src/routes/context";
+import { createCostRouter } from "./src/routes/cost";
 import { createHealthRouter } from "./src/routes/health";
 import { createKillSwitchRouter } from "./src/routes/kill-switch";
 import { createMcpRouter } from "./src/routes/mcp";
@@ -141,6 +142,7 @@ app.use(createUsageRouter(agentManager));
 app.use(createConfigRouter());
 app.use(createContextRouter());
 app.use(createMcpRouter());
+app.use(createCostRouter(agentManager));
 // Layer 1: Kill switch endpoint (no extra auth beyond authMiddleware above)
 app.use(createKillSwitchRouter(agentManager));
 

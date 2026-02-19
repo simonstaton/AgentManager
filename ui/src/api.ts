@@ -388,6 +388,25 @@ export function createApi(authFetch: AuthFetch) {
         throw new Error((data as { error?: string }).error || "Failed to deactivate kill switch");
       }
     },
+
+    // Cost / usage
+    async fetchCostSummary(): Promise<{
+      totalTokens: number;
+      totalCost: number;
+      agentCount: number;
+      agents: Array<{
+        agentId: string;
+        agentName: string;
+        tokensUsed: number;
+        estimatedCost: number;
+        createdAt: string;
+        status: string;
+      }>;
+    }> {
+      const res = await authFetch("/api/cost/summary");
+      if (!res.ok) throw new Error(`Failed to fetch cost data: ${res.statusText}`);
+      return res.json();
+    },
   };
 }
 

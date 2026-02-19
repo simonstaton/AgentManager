@@ -5,6 +5,7 @@ import { KillSwitchBanner } from "./components/KillSwitchBanner";
 import { ToastProvider } from "./components/Toast";
 import { type KillSwitchState, useKillSwitch } from "./hooks/useKillSwitch";
 import { AgentView } from "./pages/AgentView";
+import { CostDashboard } from "./pages/CostDashboard";
 import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { Settings } from "./pages/Settings";
@@ -137,6 +138,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <AppLayout>
               <Settings />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/costs"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <CostDashboard />
             </AppLayout>
           </ProtectedRoute>
         }
