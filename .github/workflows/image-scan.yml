@@ -63,6 +63,9 @@ jobs:
       # Table report — human-readable output; exits 1 if CRITICAL or HIGH found → fails the build
       - name: Run Trivy scan (fail on CRITICAL/HIGH)
         uses: aquasecurity/trivy-action@0.28.0
+        env:
+          TRIVY_FORMAT: table
+          TRIVY_OUTPUT: ""
         with:
           image-ref: claude-swarm:${{ github.sha }}
           format: table
