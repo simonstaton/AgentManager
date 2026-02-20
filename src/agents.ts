@@ -795,12 +795,21 @@ export class AgentManager {
 
       const tokensCleared = (agent.usage?.tokensIn ?? 0) + (agent.usage?.tokensOut ?? 0);
 
-      // Backfill totalTokensSpent for pre-existing agents that lack the field
-      if (agent.usage && agent.usage.totalTokensSpent == null) {
-        agent.usage.totalTokensSpent = (agent.usage.tokensIn ?? 0) + (agent.usage.tokensOut ?? 0);
+      // Backfill cumulative counters for pre-existing agents that lack these fields
+      if (agent.usage) {
+        if (agent.usage.totalTokensSpent == null) {
+          agent.usage.totalTokensSpent = (agent.usage.tokensIn ?? 0) + (agent.usage.tokensOut ?? 0);
+        }
+        if (agent.usage.totalTokensIn == null) {
+          agent.usage.totalTokensIn = agent.usage.tokensIn ?? 0;
+        }
+        if (agent.usage.totalTokensOut == null) {
+          agent.usage.totalTokensOut = agent.usage.tokensOut ?? 0;
+        }
       }
 
-      // Reset context window counters (but NOT totalTokensSpent or estimatedCost)
+      // Reset context window counters (but NOT cumulative billing fields:
+      // totalTokensSpent, totalTokensIn, totalTokensOut, estimatedCost)
       if (agent.usage) {
         agent.usage.tokensIn = 0;
         agent.usage.tokensOut = 0;
@@ -810,7 +819,9 @@ export class AgentManager {
       agent.claudeSessionId = undefined;
       agent.lastActivity = new Date().toISOString();
       saveAgentState(agent);
-      this.upsertCostTracker(agentProc);
+      // NOTE: Do NOT call upsertCostTracker here — the session tokens are now 0 but
+      // the cost tracker should retain the cumulative billing values. The next usage
+      // event will update the cost tracker with accurate cumulative totals.
 
       // Clear persisted events (old context is irrelevant after reset)
       try {
@@ -959,7 +970,14 @@ export class AgentManager {
    *  responsible for clearing SQLite via costTracker.reset() if needed. */
   resetAllUsage(): void {
     for (const agentProc of this.agents.values()) {
-      agentProc.agent.usage = { tokensIn: 0, tokensOut: 0, estimatedCost: 0, totalTokensSpent: 0 };
+      agentProc.agent.usage = {
+        tokensIn: 0,
+        tokensOut: 0,
+        estimatedCost: 0,
+        totalTokensSpent: 0,
+        totalTokensIn: 0,
+        totalTokensOut: 0,
+      };
       saveAgentState(agentProc.agent);
     }
   }
@@ -1393,6 +1411,8 @@ export class AgentManager {
             tokensOut: prev.tokensOut + tokensOut,
             estimatedCost: prev.estimatedCost + cost,
             totalTokensSpent: (prev.totalTokensSpent ?? 0) + tokensIn + tokensOut,
+            totalTokensIn: (prev.totalTokensIn ?? prev.tokensIn) + tokensIn,
+            totalTokensOut: (prev.totalTokensOut ?? prev.tokensOut) + tokensOut,
           };
           saveAgentState(agentProc.agent);
           this.upsertCostTracker(agentProc);
@@ -1419,6 +1439,8 @@ export class AgentManager {
           tokensOut: prev.tokensOut + tokensOut,
           estimatedCost: prev.estimatedCost + totalCost,
           totalTokensSpent: (prev.totalTokensSpent ?? 0) + inputDelta + tokensOut,
+          totalTokensIn: (prev.totalTokensIn ?? prev.tokensIn) + inputDelta,
+          totalTokensOut: (prev.totalTokensOut ?? prev.tokensOut) + tokensOut,
         };
         saveAgentState(agentProc.agent);
         this.upsertCostTracker(agentProc);
@@ -1450,16 +1472,18 @@ export class AgentManager {
     }
   }
 
-  /** Persist usage snapshot to SQLite cost tracker. Only called when usage actually changes. */
+  /** Persist usage snapshot to SQLite cost tracker. Only called when usage actually changes.
+   *  Uses cumulative token values (totalTokensIn/Out) so billing data survives context clears. */
   private upsertCostTracker(agentProc: AgentProcess): void {
     if (!this.costTracker || !agentProc.agent.usage) return;
+    const usage = agentProc.agent.usage;
     this.costTracker.upsert({
       agentId: agentProc.agent.id,
       agentName: agentProc.agent.name,
       model: agentProc.agent.model,
-      tokensIn: agentProc.agent.usage.tokensIn,
-      tokensOut: agentProc.agent.usage.tokensOut,
-      estimatedCost: agentProc.agent.usage.estimatedCost,
+      tokensIn: usage.totalTokensIn ?? usage.tokensIn,
+      tokensOut: usage.totalTokensOut ?? usage.tokensOut,
+      estimatedCost: usage.estimatedCost,
       createdAt: agentProc.agent.createdAt,
     });
   }

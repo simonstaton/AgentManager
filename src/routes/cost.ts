@@ -24,7 +24,9 @@ export function createCostRouter(agentManager: AgentManager, costTracker?: CostT
     let totalCost = 0;
 
     const agentCosts = agents.map((agent) => {
-      const tokensUsed = (agent.usage?.tokensIn ?? 0) + (agent.usage?.tokensOut ?? 0);
+      // Use cumulative billing tokens (totalTokensSpent) so cost data survives context clears.
+      // Falls back to session tokens for agents that predate the cumulative tracking.
+      const tokensUsed = agent.usage?.totalTokensSpent ?? (agent.usage?.tokensIn ?? 0) + (agent.usage?.tokensOut ?? 0);
       const estimatedCost = agent.usage?.estimatedCost ?? 0;
 
       totalTokens += tokensUsed;
@@ -105,14 +107,14 @@ export function createCostRouter(agentManager: AgentManager, costTracker?: CostT
       return;
     }
 
-    const tokensUsed = (agent.usage?.tokensIn ?? 0) + (agent.usage?.tokensOut ?? 0);
+    const tokensUsed = agent.usage?.totalTokensSpent ?? (agent.usage?.tokensIn ?? 0) + (agent.usage?.tokensOut ?? 0);
     const estimatedCost = agent.usage?.estimatedCost ?? 0;
 
     res.json({
       agentId: agent.id,
       agentName: agent.name,
-      tokensIn: agent.usage?.tokensIn ?? 0,
-      tokensOut: agent.usage?.tokensOut ?? 0,
+      tokensIn: agent.usage?.totalTokensIn ?? agent.usage?.tokensIn ?? 0,
+      tokensOut: agent.usage?.totalTokensOut ?? agent.usage?.tokensOut ?? 0,
       tokensUsed,
       estimatedCost: Math.round(estimatedCost * 1e6) / 1e6,
       createdAt: agent.createdAt,
