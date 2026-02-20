@@ -104,5 +104,11 @@ Your working memory file is \`shared-context/working-memory-${opts.agentName}.md
 ${reposSection}${skillsSection}
 ## Workspace
 - Files you create here are ephemeral - only \`shared-context/\` and \`repos/\` persist
+- **Write tool limitation:** The Write tool silently submits empty parameters when \`content\` exceeds ~2 KB, causing "required parameter file_path is missing" errors. For any file larger than ~2 KB use Bash with a heredoc instead:
+  \`\`\`bash
+  cat > /path/to/file << 'EOF'
+  ...content...
+  EOF
+  \`\`\`
 `;
 }

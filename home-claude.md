@@ -46,6 +46,7 @@ Use your agent name (from your workspace directory or the name you were given) a
 3. **Update at the END of work** - when you finish or get interrupted, record the outcome.
 4. **Keep it concise** - this is a status board, not a journal. Overwrite previous entries rather than appending indefinitely.
 5. **Clear on completion** - when your session ends or you have no active task, set status to `idle` and clear the current task.
+6. **Use Bash for large writes** - the Write tool silently fails with empty parameters when content exceeds ~2 KB. For any file larger than ~2 KB (including large working memory entries), use Bash with a heredoc: `cat > /path/to/file << 'EOF'` ... `EOF`
 
 ### Example
 
