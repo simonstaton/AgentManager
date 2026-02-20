@@ -1,7 +1,8 @@
 "use client";
 
 import { Badge } from "@fanvue/ui";
-import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { OrchestratorEvent, TaskNode, TaskPriority, TaskStatus, TaskSummary } from "../api";
 import { Header } from "../components/Header";
 import { Sidebar } from "../components/Sidebar";
@@ -15,8 +16,19 @@ const ALL_STATUSES: TaskStatus[] = ["pending", "assigned", "running", "completed
 function Tooltip({ text, children }: { text: string; children: React.ReactNode }) {
   const [visible, setVisible] = useState(false);
   const tooltipId = useId();
+  const triggerRef = useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+
+  useLayoutEffect(() => {
+    if (visible && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPos({ top: rect.top - 8, left: rect.left + rect.width / 2 });
+    }
+  }, [visible]);
+
   return (
     <span
+      ref={triggerRef}
       className="relative inline-flex"
       role="none"
       onMouseEnter={() => setVisible(true)}
@@ -25,17 +37,21 @@ function Tooltip({ text, children }: { text: string; children: React.ReactNode }
       onBlur={() => setVisible(false)}
     >
       {children}
-      <span
-        id={tooltipId}
-        role="tooltip"
-        className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs text-zinc-200 bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg w-56 text-center whitespace-normal z-50 transition-opacity ${visible ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-      >
-        {text}
+      {createPortal(
         <span
-          className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-800"
-          aria-hidden="true"
-        />
-      </span>
+          id={tooltipId}
+          role="tooltip"
+          style={{ position: "fixed", top: pos.top, left: pos.left, transform: "translate(-50%, -100%)" }}
+          className={`px-3 py-2 text-xs text-zinc-200 bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg w-56 text-center whitespace-normal z-[9999] transition-opacity ${visible ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        >
+          {text}
+          <span
+            className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-800"
+            aria-hidden="true"
+          />
+        </span>,
+        document.body,
+      )}
     </span>
   );
 }
@@ -43,8 +59,18 @@ function Tooltip({ text, children }: { text: string; children: React.ReactNode }
 function InfoTooltip({ text }: { text: string }) {
   const tooltipId = useId();
   const [visible, setVisible] = useState(false);
+  const triggerRef = useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+
+  useLayoutEffect(() => {
+    if (visible && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPos({ top: rect.top - 8, left: rect.left + rect.width / 2 });
+    }
+  }, [visible]);
+
   return (
-    <span className="relative inline-flex items-center ml-1">
+    <span ref={triggerRef} className="relative inline-flex items-center ml-1">
       <button
         type="button"
         aria-label="More information"
@@ -57,17 +83,21 @@ function InfoTooltip({ text }: { text: string }) {
       >
         i
       </button>
-      <span
-        id={tooltipId}
-        role="tooltip"
-        className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs text-zinc-200 bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg w-56 text-center whitespace-normal z-50 transition-opacity ${visible ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-      >
-        {text}
+      {createPortal(
         <span
-          className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-800"
-          aria-hidden="true"
-        />
-      </span>
+          id={tooltipId}
+          role="tooltip"
+          style={{ position: "fixed", top: pos.top, left: pos.left, transform: "translate(-50%, -100%)" }}
+          className={`px-3 py-2 text-xs text-zinc-200 bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg w-56 text-center whitespace-normal z-[9999] transition-opacity ${visible ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        >
+          {text}
+          <span
+            className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-800"
+            aria-hidden="true"
+          />
+        </span>,
+        document.body,
+      )}
     </span>
   );
 }
