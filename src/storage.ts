@@ -11,7 +11,7 @@ const CLAUDE_HOME = process.env.CLAUDE_HOME || path.join(HOME, ".claude");
 const SHARED_CONTEXT_DIR = getContextDir();
 const GITCONFIG = path.join(HOME, ".gitconfig");
 
-// When FUSE is mounted, shared-context is directly on GCS — no sync needed
+// When FUSE is mounted, shared-context is directly on GCS - no sync needed
 const FUSE_ACTIVE = SHARED_CONTEXT_DIR.startsWith("/persistent");
 
 let periodicSyncInterval: ReturnType<typeof setInterval> | null = null;
@@ -82,7 +82,7 @@ async function downloadDir(prefix: string, localDir: string): Promise<void> {
         writeFileSync(localPath, contents);
         await yieldToEventLoop();
       }
-      console.log(`Synced from GCS: ${prefix} → ${localDir} (${files.length} files)`);
+      console.log(`Synced from GCS: ${prefix} -> ${localDir} (${files.length} files)`);
     }, `downloadDir(${prefix})`);
   } catch (err: unknown) {
     console.warn(`GCS download failed for ${prefix}:`, errorMessage(err));
@@ -106,7 +106,7 @@ async function uploadDir(localDir: string, prefix: string): Promise<void> {
         await bucket.upload(filePath, { destination: gcsPath });
         await yieldToEventLoop();
       }
-      console.log(`Synced to GCS: ${localDir} → ${prefix} (${files.length} files)`);
+      console.log(`Synced to GCS: ${localDir} -> ${prefix} (${files.length} files)`);
     }, `uploadDir(${localDir})`);
   } catch (err: unknown) {
     console.warn(`GCS upload failed for ${localDir}:`, errorMessage(err));
@@ -124,7 +124,7 @@ async function downloadFile(gcsPath: string, localPath: string): Promise<void> {
       const [contents] = await bucket.file(gcsPath).download();
       mkdirSync(path.dirname(localPath), { recursive: true });
       writeFileSync(localPath, contents);
-      console.log(`Synced from GCS: ${gcsPath} → ${localPath}`);
+      console.log(`Synced from GCS: ${gcsPath} -> ${localPath}`);
     }, `downloadFile(${gcsPath})`);
   } catch (err: unknown) {
     console.warn(`GCS download failed for ${gcsPath}:`, errorMessage(err));
@@ -139,7 +139,7 @@ async function uploadFile(localPath: string, gcsPath: string): Promise<void> {
     await retryWithBackoff(async () => {
       const bucket = gcs.bucket(GCS_BUCKET);
       await bucket.upload(localPath, { destination: gcsPath });
-      console.log(`Synced to GCS: ${localPath} → ${gcsPath}`);
+      console.log(`Synced to GCS: ${localPath} -> ${gcsPath}`);
     }, `uploadFile(${localPath})`);
   } catch (err: unknown) {
     console.warn(`GCS upload failed for ${localPath}:`, errorMessage(err));
@@ -185,7 +185,7 @@ export async function cleanupClaudeHome(activeWorkspaceDirs: Set<string>): Promi
   let localCleaned = 0;
   const gcsPrefixesToDelete: string[] = [];
 
-  // Clean projects/ — each subdir is named like `-tmp-workspace-{uuid}`
+  // Clean projects/ - each subdir is named like `-tmp-workspace-{uuid}`
   const projectsDir = path.join(CLAUDE_HOME, "projects");
   if (existsSync(projectsDir)) {
     try {
@@ -203,7 +203,7 @@ export async function cleanupClaudeHome(activeWorkspaceDirs: Set<string>): Promi
     } catch {}
   }
 
-  // Clean todos/ — files/dirs named like `-tmp-workspace-{uuid}...`
+  // Clean todos/ - files/dirs named like `-tmp-workspace-{uuid}...`
   const todosDir = path.join(CLAUDE_HOME, "todos");
   if (existsSync(todosDir)) {
     try {
@@ -313,7 +313,7 @@ export async function cleanupAgentClaudeData(workspaceDir: string): Promise<void
     cleaned++;
     gcsToDelete.push(`claude-home/projects/${slug}/`);
   } catch {
-    // Directory may not exist — that's fine
+    // Directory may not exist - that's fine
   }
 
   const todosDir = path.join(CLAUDE_HOME, "todos");
@@ -329,7 +329,7 @@ export async function cleanupAgentClaudeData(workspaceDir: string): Promise<void
       }
     }
   } catch {
-    // Directory may not exist — that's fine
+    // Directory may not exist - that's fine
   }
 
   if (cleaned > 0) {
@@ -350,7 +350,7 @@ export async function syncFromGCS(): Promise<void> {
   if (!FUSE_ACTIVE) {
     await downloadDir("shared-context/", SHARED_CONTEXT_DIR);
   }
-  // SSH keys are excluded from GCS sync — they must not be stored in plaintext.
+  // SSH keys are excluded from GCS sync - they must not be stored in plaintext.
   // Provision SSH keys via Secret Manager or build-time injection instead.
   await downloadFile("gitconfig", GITCONFIG);
 }
@@ -392,7 +392,7 @@ export async function syncToGCS(): Promise<void> {
     if (!FUSE_ACTIVE) {
       await uploadDir(SHARED_CONTEXT_DIR, "shared-context/");
     }
-    // SSH keys are excluded from GCS sync — they must not be stored in plaintext.
+    // SSH keys are excluded from GCS sync - they must not be stored in plaintext.
     await uploadFile(GITCONFIG, "gitconfig");
   } finally {
     syncInProgress = false;
@@ -444,7 +444,7 @@ You are a **Claude agent** running on the **Claude Swarm** platform. You are par
 
 ## Your capabilities
 - Full access to Bash, file tools (Read/Write/Edit/Glob/Grep), web tools (WebFetch/WebSearch)
-- **MCP tools for Figma and Linear** (token auth pre-configured) — use MCP tools directly; fall back to \`/figma\` or \`/linear\` slash commands if tools don't load
+- **MCP tools for Figma and Linear** (token auth pre-configured) - use MCP tools directly; fall back to \`/figma\` or \`/linear\` slash commands if tools don't load
 - Can clone and work with git repositories via persistent bare clones
 - Can install tools to \`/persistent/tools/\` (persists across restarts)
 - Can create slash command skills shared across all agents
@@ -459,13 +459,13 @@ const BACKLOG_CONTENT = `<!-- summary: Project backlog -->
 > Sources: 
 > Prioritization: 
 
-## Open — Prioritized
+## Open - Prioritized
 
 ---
 `;
 
 const REPOSITORY_CONTENT = `<!-- summary: Claude Swarm repo structure, stack (TS/Express/React/Vite/GCP), and dev commands -->
-Claude Swarm Platform — manages and orchestrates Claude agent workspaces.
+Claude Swarm Platform - manages and orchestrates Claude agent workspaces.
 
 ## Stack
 
@@ -473,7 +473,7 @@ Claude Swarm Platform — manages and orchestrates Claude agent workspaces.
 |-------|------|
 | Backend | TypeScript, Express 5, Node (tsx) |
 | Frontend | React, Vite, Tailwind, React Router |
-| Infra | Terraform → GCP Cloud Run, GCS |
+| Infra | Terraform -> GCP Cloud Run, GCS |
 | Container | Dockerfile + entrypoint.sh |
 | MCP | Claude Code MCP server config (\`mcp/\`) |
 
@@ -506,7 +506,7 @@ npm start          # Production server
 
 ## Notes
 - Env config via \`.env\` (see \`.env.example\`)
-- This repo IS the platform running the agents — modifying it modifies the system itself
+- This repo IS the platform running the agents - modifying it modifies the system itself
 `;
 
 const UX_ROADMAP_CONTENT = `<!-- summary: UX improvement roadmap -->
@@ -549,7 +549,7 @@ export function startPeriodicSync(): void {
   if (!GCS_BUCKET) return;
 
   // Watch shared-context for changes and sync immediately (debounced 3s)
-  // Skip when FUSE is active — files are already on GCS
+  // Skip when FUSE is active - files are already on GCS
   if (!FUSE_ACTIVE) {
     mkdirSync(SHARED_CONTEXT_DIR, { recursive: true });
     try {
@@ -603,7 +603,7 @@ export function stopPeriodicSync(): void {
   if (debouncedSyncTimer) {
     clearTimeout(debouncedSyncTimer);
     debouncedSyncTimer = null;
-    // Resolve pending callers — shutdown will run syncToGCS() directly, so they don't need to wait
+    // Resolve pending callers - shutdown will run syncToGCS() directly, so they don't need to wait
     for (const r of debouncedSyncResolvers) r();
     debouncedSyncResolvers = [];
   }

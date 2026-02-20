@@ -44,7 +44,7 @@ export function setupSSE(
       res.write(`id: ${eventId}\n`);
       res.write(`data: ${JSON.stringify(event)}\n\n`);
     } catch {
-      // Client disconnected — clean up silently
+      // Client disconnected - clean up silently
       scheduleCleanup();
     }
   };
@@ -69,7 +69,7 @@ export function setupSSE(
     }
   }, 15_000);
 
-  // Maximum listener lifetime (30 min) — force cleanup even if proxy
+  // Maximum listener lifetime (30 min) - force cleanup even if proxy
   // disconnect was never detected (half-open socket leak, issue #21)
   const maxLifetime = setTimeout(
     () => {
@@ -88,7 +88,7 @@ export function setupSSE(
       closed = true;
       clearInterval(heartbeat);
       clearTimeout(maxLifetime);
-      // Defer unsubscribe — we're inside the listener callback during Set iteration
+      // Defer unsubscribe - we're inside the listener callback during Set iteration
       setImmediate(() => unsubscribe());
       try {
         res.end();

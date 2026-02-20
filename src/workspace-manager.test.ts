@@ -47,7 +47,7 @@ describe("WorkspaceManager", () => {
       const wmPath = path.join(TEST_CONTEXT_DIR, "working-memory-test-agent.md");
       expect(existsSync(wmPath)).toBe(true);
       const content = readFileSync(wmPath, "utf-8");
-      expect(content).toContain("Working Memory — test-agent");
+      expect(content).toContain("Working Memory - test-agent");
       expect(content).toContain("summary: Working memory for test-agent");
     });
 
@@ -83,7 +83,7 @@ describe("WorkspaceManager", () => {
       expect(content).toBe(existingContent);
     });
 
-    it("is idempotent — calling twice does not fail", () => {
+    it("is idempotent - calling twice does not fail", () => {
       wm.ensureWorkspace(TEST_WORKSPACE, "test-agent", "agent-123");
       expect(() => wm.ensureWorkspace(TEST_WORKSPACE, "test-agent", "agent-123")).not.toThrow();
     });
@@ -104,7 +104,7 @@ describe("WorkspaceManager", () => {
       const token1 = readFileSync(path.join(TEST_WORKSPACE, ".agent-token"), "utf-8");
 
       // Tokens include iat, so a new token should differ
-      // (unless generated in the same second — sleep briefly)
+      // (unless generated in the same second - sleep briefly)
       wm.writeAgentTokenFile(TEST_WORKSPACE, "agent-789");
       const token2 = readFileSync(path.join(TEST_WORKSPACE, ".agent-token"), "utf-8");
 

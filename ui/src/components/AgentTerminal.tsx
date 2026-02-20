@@ -4,7 +4,7 @@ import { memo, useCallback, useRef, useState } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import type { StreamEvent } from "../api";
 
-// Stable component refs for Virtuoso — extracted outside the component to
+// Stable component refs for Virtuoso - extracted outside the component to
 // prevent creating new objects on every render (which defeats Virtuoso's
 // internal memoization and causes unnecessary re-renders).
 const VirtuosoSpacer = () => <div className="h-4" />;
@@ -29,7 +29,7 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
   const parsedRef = useRef<{ upTo: number; blocks: TerminalBlock[] }>({ upTo: 0, blocks: [] });
   const cached = parsedRef.current;
   if (events.length < cached.upTo) {
-    // Events array was reset (e.g. agent switched) — reparse from scratch
+    // Events array was reset (e.g. agent switched) - reparse from scratch
     cached.upTo = 0;
     cached.blocks = [];
   }
@@ -80,7 +80,7 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
   );
 }
 
-// Stable itemContent callback for Virtuoso — defined at module level so the
+// Stable itemContent callback for Virtuoso - defined at module level so the
 // function reference never changes between renders (avoids Virtuoso re-rendering
 // every visible row on each parent render).
 function renderBlock(_index: number, block: TerminalBlock) {

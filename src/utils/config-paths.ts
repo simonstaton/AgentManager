@@ -13,7 +13,7 @@ function safeRealpath(filePath: string): string {
   try {
     return fs.realpathSync(filePath);
   } catch {
-    // File doesn't exist yet — resolve without symlink expansion
+    // File doesn't exist yet - resolve without symlink expansion
     return path.resolve(filePath);
   }
 }
@@ -37,7 +37,7 @@ export function isAllowedConfigPath(filePath: string): boolean {
 }
 
 /**
- * Reject symlinks on write operations — callers should use this before writing
+ * Reject symlinks on write operations - callers should use this before writing
  * to any config path to prevent symlink-based write attacks.
  */
 export function isSymlink(filePath: string): boolean {

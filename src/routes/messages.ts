@@ -34,7 +34,7 @@ export function createMessagesRouter(messageBus: MessageBus) {
     res.json(msg);
   });
 
-  // Post multiple messages in a single round-trip — useful for fan-out to N agents
+  // Post multiple messages in a single round-trip - useful for fan-out to N agents
   // without N serial API calls. Each message is validated independently.
   router.post("/api/messages/batch", (req: Request, res: Response) => {
     const { messages } = req.body ?? {};
@@ -157,7 +157,7 @@ export function createMessagesRouter(messageBus: MessageBus) {
       try {
         res.write(`data: ${JSON.stringify(msg)}\n\n`);
       } catch {
-        // Defer cleanup — we may be inside the subscriber iteration
+        // Defer cleanup - we may be inside the subscriber iteration
         setImmediate(() => cleanup());
       }
     });

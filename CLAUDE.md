@@ -4,21 +4,21 @@
 A platform for running Claude agent swarms via a web UI backed by Cloud Run. Agents run Claude CLI processes with `--dangerously-skip-permissions` in isolated workspaces.
 
 ## Project structure
-- `server.ts` — Express server: API + static React SPA serving
-- `src/` — Server modules: agents, auth, messages, persistence, storage, validation, guardrails, sanitize, cors, worktrees, types
-- `src/routes/` — Express route handlers: agents, messages, config, context, health
-- `src/utils/` — Utilities: SSE, Express helpers, file listing, config paths, context
-- `src/templates/` — Workspace CLAUDE.md template generation
-- `ui/` — React SPA (Vite, Tailwind v4, @fanvue/ui)
-- `terraform/` — GCP infrastructure (Cloud Run, GCS, Secret Manager, IAM, Cloud Monitoring alerts)
-- `mcp/` — MCP server configuration templates
-- `commands/` — Slash command skills for agents
-- `docs/` — Design documents, incident runbook
-- `plans/` — Implementation plans (agent teams, kill switch)
-- `home-claude.md` — Agent guidance file (copied to `~/.claude/CLAUDE.md` in container)
-- `Dockerfile` — Multi-stage Docker build
-- `entrypoint.sh` — Docker entrypoint (key injection, GitHub auth, MCP merge, server start)
-- `vitest.config.ts` — Test configuration
+- `server.ts` - Express server: API + static React SPA serving
+- `src/` - Server modules: agents, auth, messages, persistence, storage, validation, guardrails, sanitize, cors, worktrees, types
+- `src/routes/` - Express route handlers: agents, messages, config, context, health
+- `src/utils/` - Utilities: SSE, Express helpers, file listing, config paths, context
+- `src/templates/` - Workspace CLAUDE.md template generation
+- `ui/` - React SPA (Vite, Tailwind v4, @fanvue/ui)
+- `terraform/` - GCP infrastructure (Cloud Run, GCS, Secret Manager, IAM, Cloud Monitoring alerts)
+- `mcp/` - MCP server configuration templates
+- `commands/` - Slash command skills for agents
+- `docs/` - Design documents, incident runbook
+- `plans/` - Implementation plans (agent teams, V3 plan)
+- `home-claude.md` - Agent guidance file (copied to `~/.claude/CLAUDE.md` in container)
+- `Dockerfile` - Multi-stage Docker build
+- `entrypoint.sh` - Docker entrypoint (key injection, GitHub auth, MCP merge, server start)
+- `vitest.config.ts` - Test configuration
 
 ## Local development
 ```bash
@@ -27,7 +27,7 @@ npm install && cd ui && npm install && cd ..
 npm run dev           # starts server + Vite dev server
 ```
 
-## Quality checks — run before committing
+## Quality checks - run before committing
 ```bash
 npm run check         # runs lint + typecheck + tests (all three)
 npm run lint          # biome lint (errors + warnings)
@@ -41,7 +41,7 @@ npm run test:watch    # vitest in watch mode
 ## Coding standards
 - **Linting/formatting**: Biome (configured in `biome.json`). No ESLint/Prettier.
 - **Error handling**: Use `err: unknown` in catch blocks, never `err: any`. Use `errorMessage()` from `src/types.ts` to safely extract messages.
-- **Types**: Avoid `any` — use proper types or `unknown` with type guards. Use `AuthenticatedRequest` for typed Express requests with user context.
+- **Types**: Avoid `any` - use proper types or `unknown` with type guards. Use `AuthenticatedRequest` for typed Express requests with user context.
 - **Testing**: Vitest. Test files live alongside source as `*.test.ts`. Run `npm test` before pushing.
 - **Imports**: Use `node:` prefix for Node.js built-ins (e.g. `import fs from "node:fs"`).
 - **Formatting**: 2-space indentation, double quotes, semicolons, 120-char line width.
@@ -52,7 +52,7 @@ npm run test:watch    # vitest in watch mode
 - SSE streaming: events use `id:` fields and heartbeats for robustness
 - Agents: each gets an isolated `/tmp/workspace-{uuid}` directory
 - Shared context: `.md` files in `/shared-context/` (GCS-synced), symlinked into workspaces
-- Terraform manages all GCP infrastructure — no manual resource creation
+- Terraform manages all GCP infrastructure - no manual resource creation
 - Request body limits: 10 MB for `/api/agents` (file attachments), 1 MB for all other routes
 - UI routes: `/` (home), `/agents/[id]` (agent view), `/graph`, `/costs`, `/messages`; Settings is a dialog opened from the header
 - Docker base image is pinned to SHA256 digest for reproducible builds (see `Dockerfile` for update instructions)
@@ -70,7 +70,7 @@ Agents have a `shared-context/` directory symlinked into their workspace. All `.
 
 **Conventions:**
 - Use descriptive filenames: `standup-2026-02-15.md`, `project-decisions.md`, `todo.md`
-- Keep files focused — one topic per file
+- Keep files focused - one topic per file
 - Use markdown formatting
 
 ## Deployment
@@ -98,17 +98,17 @@ gcloud run services update claude-swarm \
 
 ### Configuration
 All secrets and config are in `terraform/terraform.tfvars` (gitignored). Required vars:
-- `project_id`, `region`, `image` — GCP config
-- `openrouter_api_key` — OpenRouter API key (used as `ANTHROPIC_AUTH_TOKEN`)
-- `agent_api_key` — login key for the web UI
+- `project_id`, `region`, `image` - GCP config
+- `openrouter_api_key` - OpenRouter API key (used as `ANTHROPIC_AUTH_TOKEN`)
+- `agent_api_key` - login key for the web UI
 
 Optional MCP integrations (see `mcp/README.md`):
-- `github_token` — enables `gh` CLI, `git push`, and GitHub MCP server for agents
-- `notion_api_key`, `slack_token` — enables respective MCP servers
-- `alert_notification_email` — enables Cloud Monitoring alert policies (error rate, latency, crashes, memory, CPU)
+- `github_token` - enables `gh` CLI, `git push`, and GitHub MCP server for agents
+- `notion_api_key`, `slack_token` - enables respective MCP servers
+- `alert_notification_email` - enables Cloud Monitoring alert policies (error rate, latency, crashes, memory, CPU)
 
 ### Scale-to-zero
-Cloud Run scales to 0 instances after ~15 min of inactivity. The URL is permanent — first request after idle has a ~5-10s cold start.
+Cloud Run scales to 0 instances after ~15 min of inactivity. The URL is permanent - first request after idle has a ~5-10s cold start.
 
 ## Git worktrees (persistent repos)
 Agents can use bare repos in `/persistent/repos/` with git worktrees for fast checkouts. Worktree lifecycle is managed automatically:
@@ -123,7 +123,7 @@ Agents can use bare repos in `/persistent/repos/` with git worktrees for fast ch
 - On agent destroy: worktrees owned by that agent are removed from the bare repo
 - On container startup: `git worktree prune` runs on all bare repos (catches orphans from crashes)
 - Every 10 minutes: periodic GC prunes worktrees pointing to dead agent workspaces
-- Agents do NOT need to manually clean up worktrees — the platform handles it
+- Agents do NOT need to manually clean up worktrees - the platform handles it
 
 **Best practices:**
 - Always create worktrees inside your workspace dir (this happens by default with `../repo-workdir`)
@@ -163,7 +163,7 @@ npm start &
 
 **Notes:**
 - The `ANTHROPIC_AUTH_TOKEN` env var is already available in the agent environment
-- Use `API_KEY=dev-test-key` for local testing — exchange it for a JWT via `POST /api/auth/token`
+- Use `API_KEY=dev-test-key` for local testing - exchange it for a JWT via `POST /api/auth/token`
 - The dev server (`npm run dev`) runs Vite on port 5173 with HMR, proxying API calls to port 8080
 - For headless UI testing, agents can use `curl` against the API endpoints directly
 

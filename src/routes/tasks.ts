@@ -269,7 +269,7 @@ export function createTasksRouter(taskGraph: TaskGraph, orchestrator: Orchestrat
     if (taskGraph.assignTask(id, agentId, task.version)) {
       res.json(taskGraph.getTask(id));
     } else {
-      res.status(409).json({ error: "Assignment failed — task may have been modified concurrently" });
+      res.status(409).json({ error: "Assignment failed - task may have been modified concurrently" });
     }
   });
 
@@ -285,7 +285,7 @@ export function createTasksRouter(taskGraph: TaskGraph, orchestrator: Orchestrat
     if (taskGraph.startTask(id, task.version)) {
       res.json(taskGraph.getTask(id));
     } else {
-      res.status(409).json({ error: "Failed to start task — check current status and version" });
+      res.status(409).json({ error: "Failed to start task - check current status and version" });
     }
   });
 
@@ -333,7 +333,7 @@ export function createTasksRouter(taskGraph: TaskGraph, orchestrator: Orchestrat
     if (taskGraph.cancelTask(id, task.version)) {
       res.json(taskGraph.getTask(id));
     } else {
-      res.status(409).json({ error: "Cannot cancel task — it may already be completed or cancelled" });
+      res.status(409).json({ error: "Cannot cancel task - it may already be completed or cancelled" });
     }
   });
 
@@ -345,7 +345,7 @@ export function createTasksRouter(taskGraph: TaskGraph, orchestrator: Orchestrat
     if (taskGraph.retryTask(id, agentId)) {
       res.json(taskGraph.getTask(id));
     } else {
-      res.status(400).json({ error: "Cannot retry task — check status and retry count" });
+      res.status(400).json({ error: "Cannot retry task - check status and retry count" });
     }
   });
 

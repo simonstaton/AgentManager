@@ -1,6 +1,6 @@
 # Agent Status
 
-Get a quick overview of all agents in the swarm — their status, roles, current tasks, and recent activity. This runs a single script that gathers everything in one go.
+Get a quick overview of all agents in the swarm - their status, roles, current tasks, and recent activity. This runs a single script that gathers everything in one go.
 
 Run the following bash script (adjust the variables from your CLAUDE.md if needed):
 
@@ -26,8 +26,8 @@ try:
             role = a.get('role', 'general')
             task = a.get('currentTask', '')
             model = a.get('model', '?')
-            task_str = f' — working on: {task}' if task else ''
-            print(f'  {name} ({aid}) [{model}] — {role} — {status}{task_str}')
+            task_str = f' - working on: {task}' if task else ''
+            print(f'  {name} ({aid}) [{model}] - {role} - {status}{task_str}')
 except: print('  (failed to parse registry)')
 "
 
@@ -46,7 +46,7 @@ try:
             content = m.get('content', '')[:120]
             to = m.get('to', 'broadcast')
             if to != 'broadcast': to = to[:8]
-            print(f'  [{mtype}] {frm} → {to}: {content}')
+            print(f'  [{mtype}] {frm} -> {to}: {content}')
 except: print('  (failed to parse messages)')
 "
 
@@ -60,6 +60,6 @@ for f in shared-context/working-memory-*.md; do
 done
 ```
 
-Summarise what you find concisely. Do NOT send any messages to other agents — this is read-only.
+Summarise what you find concisely. Do NOT send any messages to other agents - this is read-only.
 
 $ARGUMENTS

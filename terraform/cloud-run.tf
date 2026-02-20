@@ -35,7 +35,7 @@ resource "google_cloud_run_v2_service" "swarm" {
         container_port = 8080
       }
 
-      # OpenRouter — replaces direct Anthropic API access
+      # OpenRouter - replaces direct Anthropic API access
       env {
         name  = "ANTHROPIC_BASE_URL"
         value = "https://openrouter.ai/api"
@@ -172,6 +172,6 @@ resource "google_cloud_run_v2_service" "swarm" {
     }
   }
 
-  # No public access — require IAM authentication
+  # No public access - require IAM authentication
   # To grant access: gcloud run services add-iam-policy-binding claude-swarm --member=user:you@email.com --role=roles/run.invoker
 }

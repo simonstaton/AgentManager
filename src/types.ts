@@ -109,7 +109,7 @@ export interface AgentProcess {
   persistTimer: ReturnType<typeof setTimeout> | null;
   /** WI-1: Events buffered for coalesced listener notification. */
   listenerBatch: StreamEvent[];
-  /** WI-4: Consecutive stall detection count — escalates to error after threshold. */
+  /** WI-4: Consecutive stall detection count - escalates to error after threshold. */
   stallCount: number;
   /** Ring buffer of recent events for fast reconnect replay (avoids disk reads). */
   eventBuffer: StreamEvent[];

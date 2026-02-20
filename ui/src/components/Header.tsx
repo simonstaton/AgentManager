@@ -50,13 +50,13 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Panic button — only shown when kill switch is not already active */}
+          {/* Panic button - only shown when kill switch is not already active */}
           {!killSwitch.state.killed && (
             <button
               type="button"
               onClick={handlePanicClick}
               disabled={killSwitch.loading}
-              title="Emergency kill switch — stops all agents immediately"
+              title="Emergency kill switch - stops all agents immediately"
               aria-label="Activate emergency kill switch"
               className="px-3 py-1.5 text-sm font-medium bg-red-900/60 hover:bg-red-800 border border-red-700 hover:border-red-500 text-red-300 hover:text-red-100 rounded transition-colors disabled:opacity-50"
             >
@@ -136,7 +136,7 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
         </div>
       </header>
 
-      {/* Full-screen confirmation modal — rendered outside the header so it covers the whole page */}
+      {/* Full-screen confirmation modal - rendered outside the header so it covers the whole page */}
       {confirming && (
         <div
           role="dialog"
@@ -176,20 +176,20 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
                   <span className="text-red-500 mt-0.5 flex-shrink-0">&#8226;</span>
                   <span>
                     All {agentCount > 0 ? agentCount : ""} running agent{agentCount !== 1 ? "s" : ""} will be{" "}
-                    <strong className="text-red-400">force-killed</strong> (SIGKILL) — any in-progress work is lost
+                    <strong className="text-red-400">force-killed</strong> (SIGKILL) - any in-progress work is lost
                   </span>
                 </li>
                 <li className="flex items-start gap-2 text-sm text-zinc-300">
                   <span className="text-red-500 mt-0.5 flex-shrink-0">&#8226;</span>
                   <span>
-                    All agent state files are <strong className="text-red-400">permanently deleted</strong> — agents
+                    All agent state files are <strong className="text-red-400">permanently deleted</strong> - agents
                     cannot be restored
                   </span>
                 </li>
                 <li className="flex items-start gap-2 text-sm text-zinc-300">
                   <span className="text-red-500 mt-0.5 flex-shrink-0">&#8226;</span>
                   <span>
-                    All API tokens are <strong className="text-red-400">invalidated</strong> — every session (including
+                    All API tokens are <strong className="text-red-400">invalidated</strong> - every session (including
                     this one) will require re-login
                   </span>
                 </li>
@@ -203,7 +203,7 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
                 <li className="flex items-start gap-2 text-sm text-zinc-300">
                   <span className="text-red-500 mt-0.5 flex-shrink-0">&#8226;</span>
                   <span>
-                    Kill switch state is <strong className="text-red-400">persisted to GCS</strong> — it survives
+                    Kill switch state is <strong className="text-red-400">persisted to GCS</strong> - it survives
                     container restarts
                   </span>
                 </li>

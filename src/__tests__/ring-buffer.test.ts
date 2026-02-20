@@ -163,7 +163,7 @@ describe("ring buffer", () => {
     });
   });
 
-  describe("getEvents (hot path — ring buffer)", () => {
+  describe("getEvents (hot path - ring buffer)", () => {
     it("returns events from ring buffer when agent has events in memory", async () => {
       const proc = makeAgentProc();
       for (let i = 0; i < 3; i++) {
@@ -184,10 +184,10 @@ describe("ring buffer", () => {
     });
   });
 
-  describe("getEvents (cold path — disk streaming)", () => {
+  describe("getEvents (cold path - disk streaming)", () => {
     it("reads events from .jsonl file when ring buffer is empty", async () => {
       const proc = makeAgentProc();
-      // Ring buffer is empty (eventBufferTotal = 0) — forces cold path
+      // Ring buffer is empty (eventBufferTotal = 0) - forces cold path
       injectAgent(proc);
 
       // Write a .jsonl file for this agent
@@ -249,7 +249,7 @@ describe("ring buffer", () => {
     it("returns empty array when .jsonl file does not exist", async () => {
       const proc = makeAgentProc();
       injectAgent(proc);
-      // No file written — cold path should return []
+      // No file written - cold path should return []
       const events = await manager.getEvents(TEST_AGENT_ID);
       expect(events).toEqual([]);
     });

@@ -4,7 +4,7 @@
 
 MCP (Model Context Protocol) tools are **automatically available** to all agents spawned in the ClaudeSwarm platform. The Claude CLI loads these tools from `~/.claude/settings.json`, which is configured at container startup.
 
-**Token auth is pre-configured for Figma and Linear — just use the MCP tools directly.** Do NOT attempt OAuth flows.
+**Token auth is pre-configured for Figma and Linear - just use the MCP tools directly.** Do NOT attempt OAuth flows.
 
 ## Currently Available MCP Tools
 
@@ -31,11 +31,11 @@ MCP (Model Context Protocol) tools are **automatically available** to all agents
 ## How MCP Tools Work
 
 ### Automatic Loading
-1. Container starts → `entrypoint.sh` runs
+1. Container starts -> `entrypoint.sh` runs
 2. Script reads `mcp/settings-template.json`
 3. For each MCP server:
-   - **HTTP servers with tokens** → Added with Authorization headers
-   - **Stdio servers** → Only added if required env vars are present
+   - **HTTP servers with tokens** -> Added with Authorization headers
+   - **Stdio servers** -> Only added if required env vars are present
 4. Merged config written to `~/.claude/settings.json`
 5. All agent `claude` CLI processes automatically load from this file
 
@@ -45,8 +45,8 @@ MCP tools appear alongside built-in Claude Code tools (Bash, Read, Write, etc.).
 Example:
 ```
 User: "What are my assigned Linear issues?"
-→ Claude automatically calls Linear MCP tools to query issues
-→ Returns formatted results
+-> Claude automatically calls Linear MCP tools to query issues
+-> Returns formatted results
 ```
 
 ## Authentication
@@ -58,13 +58,13 @@ User: "What are my assigned Linear issues?"
 - `FIGMA_TOKEN` and `LINEAR_API_KEY` are set as environment variables at container startup
 - Tokens are injected as `Authorization: Bearer <token>` headers to MCP HTTP requests
 - All agents share the same authentication automatically
-- No setup required by agents — it just works
+- No setup required by agents - it just works
 
 **If MCP tools don't appear in your session**, use the fallback slash commands:
-- `/linear` — Direct GraphQL API access
-- `/figma` — Direct REST API access
+- `/linear` - Direct GraphQL API access
+- `/figma` - Direct REST API access
 
-**Do NOT attempt OAuth or browser-based authentication** — agents run in headless environments without browser access.
+**Do NOT attempt OAuth or browser-based authentication** - agents run in headless environments without browser access.
 
 ### Operator Setup (for admins, not agents)
 
@@ -148,7 +148,7 @@ gcloud run services update claude-swarm \
 **Cause**: Token may not be configured or settings.json wasn't generated correctly
 **Fix**:
 1. Run `/mcp` to check MCP server status
-2. If status shows "Token auth", tools should work — try again
+2. If status shows "Token auth", tools should work - try again
 3. If no token configured, use `/linear` or `/figma` slash commands as fallback
 
 ## Implementation Details

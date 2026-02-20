@@ -22,7 +22,7 @@ Run persistent Claude agent swarms from a single self-hosted UI. Spawn agents, w
 ClaudeSwarm runs [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI processes. Each agent is a real Claude Code session with full tool access (file editing, bash, git, MCP integrations) running in an isolated workspace. The platform handles the operational side:
 
 - **Agents persist across restarts.** State syncs to GCS. Cloud Run scales to zero, agents resume on wake.
-- **6-layer emergency kill switch.** Process kill → token rotation → GCS remote kill. [Built because I needed it](#kill-switch).
+- **6-layer emergency kill switch.** Process kill -> token rotation -> GCS remote kill. [Built because I needed it](#kill-switch).
 - **cgroup v2 memory monitoring.** Tracks container memory via cgroup, rejects new agents at 85%. No OOM surprises.
 - **Process group lifecycle management.** Negative PID signals kill entire process trees. No orphaned processes.
 - **Git worktree GC.** Persistent bare repos with per-agent worktrees. Automatic cleanup on destroy, startup and every 10 minutes.
@@ -192,7 +192,7 @@ All three agents spawn in parallel and start immediately.
 ## Architecture
 
 ```
-Browser (React SPA)  →  Express API (/api/*)  →  Claude CLI processes
+Browser (React SPA)  ->  Express API (/api/*)  ->  Claude CLI processes
                          Static serving (/*)       per-agent workspaces
                          JWT auth                  GCS-synced shared context
 ```
@@ -356,12 +356,12 @@ Done. Agents persist across container restarts. Shared context syncs to GCS ever
 
 | Setting | Default | How to change |
 |---------|---------|---------------|
-| Max instances | 1 | `terraform/cloud-run.tf` → `max_instance_count` |
-| Concurrency | 500 | `terraform/cloud-run.tf` → `max_instance_request_concurrency` |
-| CPU/Memory | 8 CPU / 32GB | `terraform/cloud-run.tf` → `resources.limits` |
-| Max agents per container | 100 | `src/guardrails.ts` → `MAX_AGENTS` |
-| Session TTL | 4 hours | `src/guardrails.ts` → `SESSION_TTL_MS` |
-| Request timeout | 1 hour | `terraform/cloud-run.tf` → `timeout` |
+| Max instances | 1 | `terraform/cloud-run.tf` > `max_instance_count` |
+| Concurrency | 500 | `terraform/cloud-run.tf` > `max_instance_request_concurrency` |
+| CPU/Memory | 8 CPU / 32GB | `terraform/cloud-run.tf` > `resources.limits` |
+| Max agents per container | 100 | `src/guardrails.ts` > `MAX_AGENTS` |
+| Session TTL | 4 hours | `src/guardrails.ts` > `SESSION_TTL_MS` |
+| Request timeout | 1 hour | `terraform/cloud-run.tf` > `timeout` |
 
 Each agent is a Claude CLI process (~50-150MB RSS). With 8 CPU and 32GB RAM, the container supports up to 100 concurrent agents. Memory pressure monitoring (cgroup v2) rejects new agents at 85% container memory.
 
@@ -403,10 +403,10 @@ Setting `GITHUB_TOKEN` enables three things for agents:
 
 **Option A: Fine-grained token (recommended)**
 
-Go to [GitHub Settings → Fine-grained tokens](https://github.com/settings/personal-access-tokens/new):
+Go to [GitHub Settings > Fine-grained tokens](https://github.com/settings/personal-access-tokens/new):
 - **Token name:** `claude-swarm`
 - **Expiration:** 90 days (or custom)
-- **Repository access:** "Only select repositories" → pick the repos agents should access
+- **Repository access:** "Only select repositories" and pick the repos agents should access
 - **Permissions:**
   - Contents - Read and write
   - Pull requests - Read and write
@@ -414,7 +414,7 @@ Go to [GitHub Settings → Fine-grained tokens](https://github.com/settings/pers
 
 **Option B: Classic PAT**
 
-Go to [GitHub Settings → Tokens (classic)](https://github.com/settings/tokens/new):
+Go to [GitHub Settings > Tokens (classic)](https://github.com/settings/tokens/new):
 - **Scopes:** `repo` (required), `workflow` (optional)
 
 #### Configuring the token

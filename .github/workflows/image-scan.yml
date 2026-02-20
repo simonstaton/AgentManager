@@ -25,7 +25,7 @@ jobs:
       - name: Build Docker image
         run: docker build -t claude-swarm:${{ github.sha }} .
 
-      # JSON report — full severity range, saved as CI artifact
+      # JSON report - full severity range, saved as CI artifact
       - name: Run Trivy scan (JSON report)
         uses: aquasecurity/trivy-action@0.28.0
         with:
@@ -37,7 +37,7 @@ jobs:
           severity: CRITICAL,HIGH,MEDIUM,LOW
           trivyignores: .trivyignore
 
-      # Table report — human-readable output; exits 1 if CRITICAL or HIGH found → fails the build
+      # Table report - human-readable output; exits 1 if CRITICAL or HIGH found -> fails the build
       - name: Run Trivy scan (fail on CRITICAL/HIGH)
         uses: aquasecurity/trivy-action@0.28.0
         env:

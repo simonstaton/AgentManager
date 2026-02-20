@@ -261,7 +261,7 @@ export function createApi(authFetch: AuthFetch) {
         signal: controller.signal,
       }).then((res) => {
         if (!res.ok) throw new Error("Failed to reconnect");
-        // Don't close on `done` — the reconnect stream replays historical events
+        // Don't close on `done` - the reconnect stream replays historical events
         // which include `done` events from previous turns. Closing early would
         // truncate the history and lose subsequent conversation turns.
         return parseSSEStream(res, { closeOnDone: false });
@@ -769,7 +769,7 @@ function parseSSEStream(res: Response, options: ParseSSEOptions = {}): ReadableS
       } catch (err: unknown) {
         // Always release the underlying reader on error to prevent leaks
         reader.cancel().catch(() => {});
-        // Stream aborted (e.g. user sent a new message) — close gracefully
+        // Stream aborted (e.g. user sent a new message) - close gracefully
         if (err instanceof DOMException && err.name === "AbortError") {
           controller.close();
         } else {

@@ -1,4 +1,4 @@
-# Incident Response Runbook — Claude Swarm
+# Incident Response Runbook - Claude Swarm
 
 **Platform:** GCP Cloud Run · TypeScript/Express · React/Vite · Google Cloud Storage
 **Last Updated:** 2026-02-19
@@ -63,13 +63,13 @@ curl -sf https://<SERVICE_URL>/api/health || echo "HEALTH CHECK FAILED"
 
 ### Remediation
 
-**Step 1 — Confirm crash scope**
+**Step 1 - Confirm crash scope**
 ```bash
 # Check if Cloud Run auto-restarted successfully
 gcloud run revisions list --service=claude-swarm --region=us-central1
 ```
 
-**Step 2 — Rollback to last known-good revision**
+**Step 2 - Rollback to last known-good revision**
 ```bash
 # List recent revisions and their traffic allocation
 gcloud run revisions list --service=claude-swarm --region=us-central1
@@ -80,7 +80,7 @@ gcloud run services update-traffic claude-swarm \
   --to-revisions=<PREVIOUS_REVISION>=100
 ```
 
-**Step 3 — Force new deployment if rollback not viable**
+**Step 3 - Force new deployment if rollback not viable**
 ```bash
 # Re-deploy from container registry (Cloud Build or manual)
 gcloud run deploy claude-swarm \
@@ -90,7 +90,7 @@ gcloud run deploy claude-swarm \
   --max-instances=10
 ```
 
-**Step 4 — Verify recovery**
+**Step 4 - Verify recovery**
 ```bash
 # Confirm healthy response
 curl -sf https://<SERVICE_URL>/api/health && echo "OK"
@@ -100,7 +100,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
   https://<SERVICE_URL>/api/agents/registry
 ```
 
-**Step 5 — Check GCS state integrity post-crash**
+**Step 5 - Check GCS state integrity post-crash**
 ```bash
 # Confirm shared-context files are intact
 gsutil ls gs://<BUCKET>/shared-context/
@@ -111,9 +111,9 @@ gsutil ls -l gs://<BUCKET>/shared-context/ | awk '$1 < 100 {print $3, "SUSPECT"}
 
 ### Escalation
 
-- If crash recurs within 30 minutes → P0 escalation to on-call engineer
-- If OOM is the cause → escalate to review memory limits in Cloud Run config
-- If data corruption detected in GCS → escalate to data integrity review
+- If crash recurs within 30 minutes -> P0 escalation to on-call engineer
+- If OOM is the cause -> escalate to review memory limits in Cloud Run config
+- If data corruption detected in GCS -> escalate to data integrity review
 
 ---
 
@@ -160,7 +160,7 @@ gcloud monitoring read \
 
 ### Remediation
 
-**Step 1 — Send interrupt message**
+**Step 1 - Send interrupt message**
 ```bash
 # Send an interrupt to attempt graceful recovery
 curl -X POST \
@@ -170,7 +170,7 @@ curl -X POST \
   http://localhost:8080/api/messages
 ```
 
-**Step 2 — Force-destroy the stuck agent**
+**Step 2 - Force-destroy the stuck agent**
 ```bash
 # Destroy the agent via API (platform will clean up its process)
 curl -X DELETE \
@@ -178,7 +178,7 @@ curl -X DELETE \
   http://localhost:8080/api/agents/<STUCK_AGENT_ID>
 ```
 
-**Step 3 — Re-spawn the agent with original task**
+**Step 3 - Re-spawn the agent with original task**
 ```bash
 # Spawn a replacement agent
 curl -X POST \
@@ -194,7 +194,7 @@ curl -X POST \
   http://localhost:8080/api/agents
 ```
 
-**Step 4 — Clear stale messages**
+**Step 4 - Clear stale messages**
 ```bash
 # If message queue is polluted, clear messages for the agent
 # (use the clear-messages API if available)
@@ -205,7 +205,7 @@ curl -X POST \
   http://localhost:8080/api/messages/<MSG_ID>/read
 ```
 
-**Step 5 — Update working memory to reflect resolution**
+**Step 5 - Update working memory to reflect resolution**
 ```bash
 # Edit shared-context/working-memory-<AGENT_SHORT_ID>.md
 # Mark task as failed and document what happened
@@ -213,9 +213,9 @@ curl -X POST \
 
 ### Escalation
 
-- If multiple agents stuck simultaneously → suspect platform-level issue → P0 escalation
-- If agent repeatedly gets stuck on same task → P1 escalation to review task complexity / prompt
-- If destroy API fails → escalate to check Cloud Run subprocess management
+- If multiple agents stuck simultaneously -> suspect platform-level issue -> P0 escalation
+- If agent repeatedly gets stuck on same task -> P1 escalation to review task complexity / prompt
+- If destroy API fails -> escalate to check Cloud Run subprocess management
 
 ---
 
@@ -225,7 +225,7 @@ curl -X POST \
 
 ### Symptoms
 
-- Cloud Run container hitting memory limit → OOM kills → automatic restarts
+- Cloud Run container hitting memory limit -> OOM kills -> automatic restarts
 - Increased response latency (> 2s for simple API calls)
 - `gcloud monitoring` shows CPU utilization consistently > 80%
 - Memory utilization consistently > 85% of configured limit
@@ -262,7 +262,7 @@ gsutil ls -l gs://<BUCKET>/shared-context/ | sort -n | tail -20
 
 ### Remediation
 
-**Immediate — Reduce active agent count**
+**Immediate - Reduce active agent count**
 ```bash
 # List all running agents
 curl -H "Authorization: Bearer $(cat /tmp/workspace-*/.agent-token)" \
@@ -316,9 +316,9 @@ curl -sf https://<SERVICE_URL>/api/health && echo "OK"
 
 ### Escalation
 
-- If OOM kills persist after scaling → P0 escalation to review memory leak in agent processes
-- If CPU stays at 100% with no load increase → suspect runaway agent loop → P1
-- If scaling is blocked by quota → escalate to GCP quota increase request
+- If OOM kills persist after scaling -> P0 escalation to review memory leak in agent processes
+- If CPU stays at 100% with no load increase -> suspect runaway agent loop -> P1
+- If scaling is blocked by quota -> escalate to GCP quota increase request
 
 ---
 
@@ -376,7 +376,7 @@ gcloud logging read \
 
 ### Remediation
 
-**Step 1 — Force new instance deployment**
+**Step 1 - Force new instance deployment**
 ```bash
 # Force a new revision to deploy (clears any instance-level hangs)
 gcloud run deploy claude-swarm \
@@ -393,7 +393,7 @@ gcloud run services update-traffic claude-swarm \
   --to-latest
 ```
 
-**Step 2 — Check and clear concurrency limits**
+**Step 2 - Check and clear concurrency limits**
 ```bash
 # Increase concurrency if requests are queuing
 gcloud run services update claude-swarm \
@@ -402,14 +402,14 @@ gcloud run services update claude-swarm \
   --max-instances=20
 ```
 
-**Step 3 — Bypass auth middleware to isolate issue**
+**Step 3 - Bypass auth middleware to isolate issue**
 ```bash
 # If auth middleware is suspect, check internal health
 gcloud run services proxy claude-swarm --region=us-central1 &
 curl http://localhost:8080/api/health
 ```
 
-**Step 4 — Restart with minimum instances to force cold start**
+**Step 4 - Restart with minimum instances to force cold start**
 ```bash
 # Scale to 0 then back to 1 (forces clean restart)
 gcloud run services update claude-swarm \
@@ -423,7 +423,7 @@ gcloud run services update claude-swarm \
   --min-instances=1
 ```
 
-**Step 5 — Verify full recovery**
+**Step 5 - Verify full recovery**
 ```bash
 # Check API endpoints are responsive
 curl -sf https://<SERVICE_URL>/api/health && echo "HEALTH: OK"
@@ -434,9 +434,9 @@ curl -H "Authorization: Bearer $(cat /tmp/workspace-*/.agent-token)" \
 
 ### Escalation
 
-- If API is unresponsive after 2 deployment attempts → P0 escalation
-- If GCS is blocking startup (logs show GCS timeout before bind) → see [GCS Failures](#5-gcs-failures)
-- If auth service dependency is down → see [Auth Failures](#6-auth-failures)
+- If API is unresponsive after 2 deployment attempts -> P0 escalation
+- If GCS is blocking startup (logs show GCS timeout before bind) -> see [GCS Failures](#5-gcs-failures)
+- If auth service dependency is down -> see [Auth Failures](#6-auth-failures)
 - Check GCP Service Health Dashboard for regional outages
 
 ---
@@ -494,7 +494,7 @@ gsutil retention get gs://<BUCKET>/
 
 ### Remediation
 
-**Step 1 — Fix IAM permissions (most common cause)**
+**Step 1 - Fix IAM permissions (most common cause)**
 ```bash
 # Grant storage admin to the Cloud Run service account
 gcloud projects add-iam-policy-binding <PROJECT_ID> \
@@ -507,7 +507,7 @@ gsutil iam ch \
   gs://<BUCKET>/
 ```
 
-**Step 2 — Check for bucket-level issues**
+**Step 2 - Check for bucket-level issues**
 ```bash
 # If bucket is missing, recreate it
 gsutil mb -l US-CENTRAL1 gs://<BUCKET>/
@@ -517,7 +517,7 @@ gsutil cors get gs://<BUCKET>/
 # Then re-apply correct CORS config from terraform/storage.tf
 ```
 
-**Step 3 — Recover from partial write corruption**
+**Step 3 - Recover from partial write corruption**
 ```bash
 # List potentially corrupt objects (very small files)
 gsutil ls -l gs://<BUCKET>/shared-context/ | awk '$1 < 50 {print $3}'
@@ -530,7 +530,7 @@ gsutil cp gs://<BUCKET>/shared-context/templates/working-memory-template.md \
   gs://<BUCKET>/shared-context/working-memory-<AGENT_ID>.md
 ```
 
-**Step 4 — Force agent re-sync**
+**Step 4 - Force agent re-sync**
 ```bash
 # Restart the service to trigger GCS re-sync on startup
 gcloud run deploy claude-swarm \
@@ -538,7 +538,7 @@ gcloud run deploy claude-swarm \
   --region=us-central1
 ```
 
-**Step 5 — Verify GCS health**
+**Step 5 - Verify GCS health**
 ```bash
 # Confirm operations work end-to-end
 gsutil cp /dev/stdin gs://<BUCKET>/shared-context/health-check.txt <<< "ok"
@@ -549,10 +549,10 @@ echo "GCS: OK"
 
 ### Escalation
 
-- If IAM fix does not resolve within 5 minutes → P1 escalation (Terraform state may be drifted)
-- If bucket is missing → P0 escalation (data loss risk)
-- If GCP Storage service is degraded → check https://status.cloud.google.com and open GCP support ticket
-- If versioned backups are unavailable → escalate for potential data recovery review
+- If IAM fix does not resolve within 5 minutes -> P1 escalation (Terraform state may be drifted)
+- If bucket is missing -> P0 escalation (data loss risk)
+- If GCP Storage service is degraded -> check https://status.cloud.google.com and open GCP support ticket
+- If versioned backups are unavailable -> escalate for potential data recovery review
 
 ---
 
@@ -609,7 +609,7 @@ stat /tmp/workspace-*/.agent-token | grep Modify
 
 ### Remediation
 
-**Step 1 — Re-read token file (most common fix)**
+**Step 1 - Re-read token file (most common fix)**
 ```bash
 # Always read fresh from file, not env var
 TOKEN=$(cat /tmp/workspace-*/.agent-token)
@@ -617,7 +617,7 @@ curl -H "Authorization: Bearer $TOKEN" \
   http://localhost:8080/api/agents/registry
 ```
 
-**Step 2 — Force token refresh via API**
+**Step 2 - Force token refresh via API**
 ```bash
 # Re-authenticate to get a fresh token
 NEW_TOKEN=$(curl -s -X POST \
@@ -633,7 +633,7 @@ curl -H "Authorization: Bearer $NEW_TOKEN" \
   http://localhost:8080/api/agents/registry | jq 'length'
 ```
 
-**Step 3 — Fix Secret Manager access (if secrets are inaccessible)**
+**Step 3 - Fix Secret Manager access (if secrets are inaccessible)**
 ```bash
 # Grant Secret Manager access to Cloud Run service account
 gcloud secrets add-iam-policy-binding claude-swarm-api-key \
@@ -645,7 +645,7 @@ gcloud secrets add-iam-policy-binding claude-swarm-jwt-secret \
   --role="roles/secretmanager.secretAccessor"
 ```
 
-**Step 4 — Rotate API key if compromised**
+**Step 4 - Rotate API key if compromised**
 ```bash
 # Generate new API key
 NEW_KEY=$(openssl rand -base64 32)
@@ -661,7 +661,7 @@ gcloud run deploy claude-swarm \
 # Distribute new key to all active agents via secure channel
 ```
 
-**Step 5 — Rotate JWT signing secret if tokens are being rejected unexpectedly**
+**Step 5 - Rotate JWT signing secret if tokens are being rejected unexpectedly**
 ```bash
 # Generate new JWT secret
 NEW_JWT_SECRET=$(openssl rand -base64 64)
@@ -669,13 +669,13 @@ NEW_JWT_SECRET=$(openssl rand -base64 64)
 # Update Secret Manager
 echo -n "$NEW_JWT_SECRET" | gcloud secrets versions add claude-swarm-jwt-secret --data-file=-
 
-# Redeploy (invalidates all existing tokens — agents must re-authenticate)
+# Redeploy (invalidates all existing tokens - agents must re-authenticate)
 gcloud run deploy claude-swarm \
   --image=gcr.io/<PROJECT_ID>/claude-swarm:latest \
   --region=us-central1
 ```
 
-**Step 6 — Verify recovery**
+**Step 6 - Verify recovery**
 ```bash
 TOKEN=$(cat /tmp/workspace-*/.agent-token)
 curl -H "Authorization: Bearer $TOKEN" \
@@ -685,10 +685,10 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 ### Escalation
 
-- If all tokens are invalid after rotation → P0 escalation (service cannot operate without auth)
-- If Secret Manager is returning 403 → escalate to GCP IAM review
-- If JWT secret rotation invalidated long-running agent sessions → notify all active agents to re-authenticate
-- If API key was externally leaked → security incident: rotate immediately, audit logs, notify stakeholders
+- If all tokens are invalid after rotation -> P0 escalation (service cannot operate without auth)
+- If Secret Manager is returning 403 -> escalate to GCP IAM review
+- If JWT secret rotation invalidated long-running agent sessions -> notify all active agents to re-authenticate
+- If API key was externally leaked -> security incident: rotate immediately, audit logs, notify stakeholders
 
 ---
 
@@ -702,7 +702,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 | P3 | Minor issues, non-blocking, workaround available | File GitHub issue; handle in next sprint |
 
 **Agent Contacts:**
-- Tech Lead: `bef87360` — primary coordination for agent-level incidents
+- Tech Lead: `bef87360` - primary coordination for agent-level incidents
 - Human Operator: message via platform UI or direct communication channel
 
 **External Resources:**
@@ -768,7 +768,7 @@ curl -X DELETE \
 curl -X POST \
   -H "Authorization: Bearer $(cat /tmp/workspace-*/.agent-token)" \
   -H "Content-Type: application/json" \
-  -d '{"from":"ops","fromName":"Ops","type":"status","content":"Incident in progress — standby for instructions"}' \
+  -d '{"from":"ops","fromName":"Ops","type":"status","content":"Incident in progress - standby for instructions"}' \
   http://localhost:8080/api/messages
 ```
 

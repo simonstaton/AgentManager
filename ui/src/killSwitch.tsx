@@ -22,7 +22,7 @@ export function useKillSwitchContext(): KillSwitchContextValue {
 
 /**
  * Provides a single kill switch polling interval for the entire app.
- * All pages consume the shared state via useKillSwitchContext() — no per-page polling.
+ * All pages consume the shared state via useKillSwitchContext() - no per-page polling.
  */
 export function KillSwitchProvider({ children }: { children: React.ReactNode }) {
   const ks = useKillSwitch();

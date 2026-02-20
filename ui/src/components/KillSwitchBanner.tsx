@@ -25,7 +25,7 @@ export function KillSwitchBanner({ state, loading, onDeactivate }: KillSwitchBan
         </span>
         <div className="min-w-0">
           <span className="font-semibold text-red-100">KILL SWITCH ACTIVE</span>
-          {state.reason && <span className="text-red-300 text-sm ml-2 truncate">— {state.reason}</span>}
+          {state.reason && <span className="text-red-300 text-sm ml-2 truncate">- {state.reason}</span>}
           <span className="text-red-400 text-xs ml-2 hidden sm:inline">Activated {activatedAt}</span>
         </div>
       </div>

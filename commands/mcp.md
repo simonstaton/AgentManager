@@ -3,17 +3,17 @@
 Check the authentication status of available MCP servers.
 
 **Available MCP Servers:**
-- **Figma** — Design and prototyping tool (token auth pre-configured)
-- **Linear** — Project management and issue tracking (token auth pre-configured)
-- **GitHub** — Version control and collaboration (token-based via GITHUB_TOKEN)
-- **Notion** — Workspace and documentation (token-based via NOTION_API_KEY)
-- **Slack** — Team communication (token-based via SLACK_TOKEN)
-- **Google Calendar** — Calendar integration (token-based via GOOGLE_CREDENTIALS)
+- **Figma** - Design and prototyping tool (token auth pre-configured)
+- **Linear** - Project management and issue tracking (token auth pre-configured)
+- **GitHub** - Version control and collaboration (token-based via GITHUB_TOKEN)
+- **Notion** - Workspace and documentation (token-based via NOTION_API_KEY)
+- **Slack** - Team communication (token-based via SLACK_TOKEN)
+- **Google Calendar** - Calendar integration (token-based via GOOGLE_CREDENTIALS)
 
 ## How Authentication Works
 
 **Remote HTTP servers (Figma, Linear):**
-- Use **token auth** — API key env vars are set at container startup and injected as Authorization headers
+- Use **token auth** - API key env vars are set at container startup and injected as Authorization headers
 - Token auth is pre-configured; no setup needed by agents
 
 **Stdio servers (GitHub, Notion, Slack, Google Calendar):**
@@ -66,8 +66,8 @@ for (const [name, config] of Object.entries(mcpServers)) {
     console.log(\`  Auth: \${authMode}\`);
 
     if (!hasToken) {
-      console.log(\`  → Token not configured — use /linear or /figma slash commands for direct API access\`);
-      console.log(\`  → Contact your admin to set \${name.toUpperCase()}_TOKEN env var\`);
+      console.log(\`  -> Token not configured - use /linear or /figma slash commands for direct API access\`);
+      console.log(\`  -> Contact your admin to set \${name.toUpperCase()}_TOKEN env var\`);
     }
   } else {
     // Stdio server (always has token if activated)
@@ -82,27 +82,27 @@ for (const [name, config] of Object.entries(mcpServers)) {
 
 ## Using Figma and Linear
 
-**Figma and Linear MCP servers are configured with token auth.** Their tools should be available natively in your Claude Code session. Just use them directly — no extra setup needed.
+**Figma and Linear MCP servers are configured with token auth.** Their tools should be available natively in your Claude Code session. Just use them directly - no extra setup needed.
 
 To verify, run the status script above. If it shows `Auth: Token auth` for figma/linear, the MCP tools are ready.
 
 ### If MCP tools are not available
 
 If the MCP tools don't appear in your session, use the fallback slash commands which call the APIs directly:
-- **Linear**: `/linear` — GraphQL API examples (get issues, search, comment, update status)
-- **Figma**: `/figma` — REST API examples (get files, export images, read comments)
+- **Linear**: `/linear` - GraphQL API examples (get issues, search, comment, update status)
+- **Figma**: `/figma` - REST API examples (get files, export images, read comments)
 
-**Do NOT try OAuth authentication** — it requires browser access and doesn't work from agent sessions.
+**Do NOT try OAuth authentication** - it requires browser access and doesn't work from agent sessions.
 
 ## Getting API Tokens
 
 Tokens are set as environment variables via Terraform/deployment config:
 
-- **Linear**: `LINEAR_API_KEY` — [Linear Settings > API](https://linear.app/settings/api)
-- **Figma**: `FIGMA_TOKEN` — [Figma Settings > Personal Access Tokens](https://www.figma.com/settings)
-- **GitHub**: `GITHUB_TOKEN` — [GitHub Settings > Tokens](https://github.com/settings/tokens)
-- **Notion**: `NOTION_API_KEY` — [Notion Integrations](https://www.notion.so/my-integrations)
-- **Slack**: `SLACK_TOKEN` — [Slack API > Your Apps](https://api.slack.com/apps)
+- **Linear**: `LINEAR_API_KEY` - [Linear Settings > API](https://linear.app/settings/api)
+- **Figma**: `FIGMA_TOKEN` - [Figma Settings > Personal Access Tokens](https://www.figma.com/settings)
+- **GitHub**: `GITHUB_TOKEN` - [GitHub Settings > Tokens](https://github.com/settings/tokens)
+- **Notion**: `NOTION_API_KEY` - [Notion Integrations](https://www.notion.so/my-integrations)
+- **Slack**: `SLACK_TOKEN` - [Slack API > Your Apps](https://api.slack.com/apps)
 
 ## Summary
 

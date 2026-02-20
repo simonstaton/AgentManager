@@ -46,7 +46,7 @@ ANTHROPIC_API_KEY=                   # Must be empty when using OpenRouter
 API_KEY=use-this-password-to-access-the-ui
 JWT_SECRET=any-random-string
 
-# Optional — only needed for GitHub integration
+# Optional - only needed for GitHub integration
 GITHUB_TOKEN=github_pat_...
 ```
 
@@ -81,8 +81,8 @@ src/
   routes/          # Route handlers (agents, messages, context, config, mcp)
   utils/           # Shared utilities (express helpers, file ops, context dir)
   types.ts         # Shared TypeScript types
-  agents.ts        # AgentManager — spawn/kill/message Claude CLI processes
-  messages.ts      # MessageBus — inter-agent pub/sub
+  agents.ts        # AgentManager - spawn/kill/message Claude CLI processes
+  messages.ts      # MessageBus - inter-agent pub/sub
   guardrails.ts    # Safety limits (agent count, spawn depth, session TTL)
   kill-switch.ts   # Emergency stop logic
 ui/                # React SPA (Vite + Tailwind v4)
@@ -107,11 +107,11 @@ npx vitest run src/auth.test.ts
 
 Use one of these conventions:
 
-- `feat/{short-description}` — new feature
-- `fix/{short-description}` — bug fix
-- `docs/{short-description}` — documentation only
-- `refactor/{short-description}` — code changes without behaviour change
-- `test/{short-description}` — test changes only
+- `feat/{short-description}` - new feature
+- `fix/{short-description}` - bug fix
+- `docs/{short-description}` - documentation only
+- `refactor/{short-description}` - code changes without behaviour change
+- `test/{short-description}` - test changes only
 
 Examples: `feat/agent-pause`, `fix/sse-reconnect`, `docs/openapi-spec`
 
@@ -126,7 +126,7 @@ Brief description of what changed and why.
 
 ## How
 
-Explain the approach taken — especially any non-obvious decisions.
+Explain the approach taken - especially any non-obvious decisions.
 
 ## Testing
 
@@ -139,9 +139,9 @@ Closes #<issue number>
 
 Always reference the issue your PR resolves:
 
-- `Closes #42` — automatically closes the issue when the PR is merged
-- `Fixes #42` — same effect
-- `Related to #42` — links without closing
+- `Closes #42` - automatically closes the issue when the PR is merged
+- `Fixes #42` - same effect
+- `Related to #42` - links without closing
 
 ### Before submitting
 
@@ -156,7 +156,7 @@ This runs Biome lint, TypeScript typecheck, and the Vitest test suite. PRs with 
 ## Code review expectations
 
 - Reviews typically happen within a few business days.
-- All feedback is addressed before merging — if you disagree with a suggestion, say so and explain why.
+- All feedback is addressed before merging - if you disagree with a suggestion, say so and explain why.
 - Maintainers may push minor fixup commits directly to your branch (formatting, typos) rather than leaving comments.
 - Once approved, maintainers will merge using squash merge to keep history clean.
 

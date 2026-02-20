@@ -12,8 +12,8 @@ MCP tools (Figma and Linear) are **working** and available to all agents in the 
 node -e "
   # Read /app/mcp/settings-template.json
   # For each MCP server:
-  #   - HTTP servers with token env vars → added with Authorization headers
-  #   - Stdio servers → only if env vars present
+  #   - HTTP servers with token env vars -> added with Authorization headers
+  #   - Stdio servers -> only if env vars present
   # Merge into ~/.claude/settings.json
 "
 ```
@@ -54,20 +54,20 @@ const proc = spawn("claude", args, {
 - Reads `~/.claude/settings.json` (standard Claude Code behavior)
 - Loads mcpServers configuration
 - Makes MCP tools available alongside built-in tools
-- **No code changes needed** — this is automatic
+- **No code changes needed** - this is automatic
 
 ## Authentication
 
 ### Token Auth (Standard)
 - **Status**: Working, pre-configured
-- **How**: `FIGMA_TOKEN` and `LINEAR_API_KEY` env vars → injected as Authorization headers → MCP tools work immediately
+- **How**: `FIGMA_TOKEN` and `LINEAR_API_KEY` env vars -> injected as Authorization headers -> MCP tools work immediately
 - **Benefit**: All agents share same authentication, no per-session setup
 - **Use case**: All deployments
 
 ### Fallback: Slash Commands
 If MCP tools don't load, agents can use:
-- `/linear` — Direct GraphQL API access
-- `/figma` — Direct REST API access
+- `/linear` - Direct GraphQL API access
+- `/figma` - Direct REST API access
 
 ### OAuth (Legacy, operator-only)
 OAuth support exists for human operators who want to authenticate via browser. It is **not usable by agents** and should not be attempted from agent sessions.
@@ -104,9 +104,9 @@ To verify MCP tools work:
 ## Additional MCP Servers
 
 The platform supports these integrations:
-- GitHub (stdio) — requires `GITHUB_TOKEN`
-- Notion (stdio) — requires `NOTION_API_KEY`
-- Slack (stdio) — requires `SLACK_TOKEN`
-- Google Calendar (stdio) — requires `GOOGLE_CREDENTIALS`
+- GitHub (stdio) - requires `GITHUB_TOKEN`
+- Notion (stdio) - requires `NOTION_API_KEY`
+- Slack (stdio) - requires `SLACK_TOKEN`
+- Google Calendar (stdio) - requires `GOOGLE_CREDENTIALS`
 
 To activate: Set the required env vars in `terraform/terraform.tfvars` and redeploy.

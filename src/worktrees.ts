@@ -54,14 +54,14 @@ export async function cleanupWorktreesForWorkspace(workspaceDir: string): Promis
 
       await git(["-C", repoPath, "worktree", "prune"]);
     } catch {
-      // repo may not be a valid git repo — skip
+      // repo may not be a valid git repo - skip
     }
   }
 }
 
 /**
  * Prune all stale worktrees across every bare repo in /persistent/repos/.
- * A worktree is stale when its working directory no longer exists on disk —
+ * A worktree is stale when its working directory no longer exists on disk -
  * which happens when an agent's /tmp/workspace-{uuid} is cleaned up (either by
  * destroy, container restart, or OS tmpdir cleanup).
  *

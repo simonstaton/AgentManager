@@ -1,7 +1,7 @@
 /**
- * Kill Switch — Layer 1 of the defense-in-depth emergency stop.
+ * Kill Switch - Layer 1 of the defense-in-depth emergency stop.
  *
- * State file is stored at /tmp/platform/kill-switch.json — NOT in shared-context
+ * State file is stored at /tmp/platform/kill-switch.json - NOT in shared-context
  * or /persistent, both of which are agent-accessible. The /tmp/platform/ directory
  * is not symlinked into any agent workspace.
  *
@@ -31,7 +31,7 @@ export interface KillSwitchState {
   activatedAt?: string;
 }
 
-// In-memory flag — fast path, no disk I/O on the hot path
+// In-memory flag - fast path, no disk I/O on the hot path
 let inMemoryState: KillSwitchState = { killed: false };
 // biome-ignore lint/suspicious/noExplicitAny: GCS Storage is dynamically imported
 let gcsStorage: any = null;
@@ -127,7 +127,7 @@ async function checkGcsState(): Promise<KillSwitchState | null> {
 
 /**
  * Check if the kill switch is currently active.
- * Fast in-memory check — no disk I/O.
+ * Fast in-memory check - no disk I/O.
  */
 export function isKilled(): boolean {
   return inMemoryState.killed;
@@ -150,7 +150,7 @@ export async function activate(reason?: string): Promise<void> {
   };
   inMemoryState = state;
   writeLocalState(state);
-  console.log(`[kill-switch] ACTIVATED — reason: ${state.reason}`);
+  console.log(`[kill-switch] ACTIVATED - reason: ${state.reason}`);
   await uploadToGcs(state);
 }
 
@@ -173,7 +173,7 @@ export async function deactivate(): Promise<void> {
 export async function loadPersistedState(): Promise<boolean> {
   ensurePlatformDir();
 
-  // Check local file first (fast path — same container restart)
+  // Check local file first (fast path - same container restart)
   const local = readLocalState();
   if (local?.killed) {
     inMemoryState = local;
@@ -181,7 +181,7 @@ export async function loadPersistedState(): Promise<boolean> {
     return true;
   }
 
-  // Check GCS (cross-container — remote activation via gsutil)
+  // Check GCS (cross-container - remote activation via gsutil)
   const gcsState = await checkGcsState();
   if (gcsState?.killed) {
     inMemoryState = gcsState;
@@ -208,7 +208,7 @@ export function startGcsKillSwitchPoll(onActivated: () => Promise<void>): () => 
   }
 
   gcsPollingInterval = setInterval(async () => {
-    // Skip if already killed — no need to poll
+    // Skip if already killed - no need to poll
     if (inMemoryState.killed) return;
 
     try {
@@ -220,7 +220,7 @@ export function startGcsKillSwitchPoll(onActivated: () => Promise<void>): () => 
         await onActivated();
       }
     } catch {
-      // Best-effort — don't crash the poll interval
+      // Best-effort - don't crash the poll interval
     }
   }, 10_000);
 

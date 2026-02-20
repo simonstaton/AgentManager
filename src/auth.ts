@@ -10,7 +10,7 @@ if (!process.env.JWT_SECRET) {
 
 // Layer 3: Use mutable `let` instead of `const` so rotateJwtSecret() takes effect
 // immediately for all subsequent sign/verify calls. The original `const` captured
-// the value once at import time — updating process.env had no effect.
+// the value once at import time - updating process.env had no effect.
 let jwtSecret = process.env.JWT_SECRET;
 const apiKey = process.env.API_KEY || "";
 
@@ -25,7 +25,7 @@ export function rotateJwtSecret(): string {
   process.env.JWT_SECRET = newSecret;
   // Reset sanitize cache so the new secret value gets redacted in logs
   resetSanitizeCache();
-  console.log("[auth] JWT secret rotated — all existing tokens invalidated");
+  console.log("[auth] JWT secret rotated - all existing tokens invalidated");
   return newSecret;
 }
 

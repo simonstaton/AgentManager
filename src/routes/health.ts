@@ -8,7 +8,7 @@ import { getContainerMemoryUsage } from "../utils/memory";
 export function createHealthRouter(agentManager: AgentManager, memoryLimitBytes: number, isRecovering: () => boolean) {
   const router = express.Router();
 
-  // Health check — always returns 200 so the startup probe passes during recovery
+  // Health check - always returns 200 so the startup probe passes during recovery
   router.get("/api/health", (_req, res) => {
     const agents = agentManager.list();
     const { rss, heapUsed, heapTotal } = process.memoryUsage();

@@ -26,7 +26,7 @@ describe("persistence", () => {
     mkdirSync(eventsDir, { recursive: true });
 
     // Mock node:fs so that STATE_DIR and EVENTS_DIR point to our temp dirs.
-    // We intercept existsSync("/persistent") → false (so it uses /tmp paths),
+    // We intercept existsSync("/persistent") to return false (so it uses /tmp paths),
     // then redirect all path.join(STATE_DIR/EVENTS_DIR, ...) calls to our temp dirs.
     vi.doMock("node:fs", async () => {
       const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
@@ -155,7 +155,7 @@ describe("persistence", () => {
       persistence.saveAgentState(agentIdle);
       await new Promise((r) => setTimeout(r, 50));
 
-      // Now save again with the same status (non-meaningful change) — should debounce
+      // Now save again with the same status (non-meaningful change) - should debounce
       const agentSame = makeAgent("agent-debounce", "idle");
       agentSame.currentTask = "doing something";
       persistence.saveAgentState(agentSame);

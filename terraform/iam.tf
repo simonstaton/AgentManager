@@ -22,7 +22,7 @@ resource "google_secret_manager_secret_iam_member" "jwt_secret" {
   member    = "serviceAccount:${google_service_account.swarm.email}"
 }
 
-# GCS bucket access — objectUser allows create, read, and overwrite (but not
+# GCS bucket access - objectUser allows create, read, and overwrite (but not
 # bucket-level admin or ACL changes), which is the minimum needed for syncToGCS.
 resource "google_storage_bucket_iam_member" "swarm_storage" {
   bucket = google_storage_bucket.swarm_data.name

@@ -1,4 +1,4 @@
-# Agent Communication System — Architecture
+# Agent Communication System - Architecture
 
 ## Overview
 
@@ -7,7 +7,7 @@ The ClaudeSwarm platform implements a multi-agent communication system that allo
 ## Architecture
 
 ```
-User → UI (React) → POST /api/agents → AgentManager.create() → spawns `claude` CLI process
+User -> UI (React) -> POST /api/agents -> AgentManager.create() -> spawns `claude` CLI process
                                          └─ each agent gets /tmp/workspace-{uuid}/
                                          └─ all agents share /shared-context/ (symlinked)
                                          └─ all agents share /persistent/repos/ (bare git clones)
@@ -29,13 +29,13 @@ A lightweight in-memory message bus that agents use for real-time coordination.
 **API endpoints:**
 
 ```
-POST   /api/messages                  — post a message (from UI or agent)
-GET    /api/messages?to={agentId}     — get messages for an agent
-GET    /api/messages?channel={name}   — get messages on a channel
-POST   /api/messages/:id/read         — mark a message as read
-POST   /api/messages/read-all         — mark all messages as read for an agent
-DELETE /api/messages/:id              — delete a message
-GET    /api/messages/stream           — SSE stream of new messages (real-time)
+POST   /api/messages                  - post a message (from UI or agent)
+GET    /api/messages?to={agentId}     - get messages for an agent
+GET    /api/messages?channel={name}   - get messages on a channel
+POST   /api/messages/:id/read         - mark a message as read
+POST   /api/messages/read-all         - mark all messages as read for an agent
+DELETE /api/messages/:id              - delete a message
+GET    /api/messages/stream           - SSE stream of new messages (real-time)
 ```
 
 **Message schema:**
@@ -75,12 +75,12 @@ interface Agent {
 
 **Registry endpoint:**
 ```
-GET /api/agents/registry  — returns all agents with roles/capabilities/status/unread message counts
+GET /api/agents/registry  - returns all agents with roles/capabilities/status/unread message counts
 ```
 
 **Metadata updates:**
 ```
-PATCH /api/agents/:id  — update role, capabilities, or currentTask
+PATCH /api/agents/:id  - update role, capabilities, or currentTask
 ```
 
 **CLAUDE.md instructions tell agents to:**
@@ -99,14 +99,14 @@ A simple convention (not heavy infrastructure) for agents to assign work to each
 
 **Slash command skills** (`~/.claude/commands/`) help agents interact with the system:
 
-- `/agent-status` — Show all active agents with roles and current tasks
-- `/check-messages` — Check inbox for unread messages addressed to this agent
-- `/send-message` — Post a message to the bus (task, result, question, info, status)
-- `/spawn-agent` — Create a new sub-agent with a specific role and task
+- `/agent-status` - Show all active agents with roles and current tasks
+- `/check-messages` - Check inbox for unread messages addressed to this agent
+- `/send-message` - Post a message to the bus (task, result, question, info, status)
+- `/spawn-agent` - Create a new sub-agent with a specific role and task
 
 Agents are instructed in CLAUDE.md to:
 - Check messages periodically during long tasks
-- Process messages according to type (task → do work, question → answer, etc.)
+- Process messages according to type (task -> do work, question -> answer, etc.)
 - Post results back to the sender when work is complete
 
 ### 4. Parent-Child Agent Relationships
@@ -149,11 +149,11 @@ POST /api/agents
 
 ## Key Design Decisions
 
-1. **In-memory over database** — Agents are ephemeral (Cloud Run), messages don't need to survive container restarts beyond GCS sync. Keep it simple.
-2. **Auto-delivery with pull fallback** — The server automatically delivers messages to idle agents by resuming their Claude CLI process with the message content. Busy agents receive messages when they next go idle. The `interrupt` message type can force-deliver to a busy agent by killing its current process and restarting with the message. The `/check-messages` skill is available as a manual fallback.
-3. **Convention over infrastructure** — Most coordination happens via CLAUDE.md instructions and message conventions, not complex distributed systems code.
-4. **Backward compatible** — Shared-context files continue to work. Messages are an additional channel, not a replacement.
-5. **Parent-child cleanup** — Automatic destruction of child agents prevents orphaned processes and simplifies agent lifecycle management.
+1. **In-memory over database** - Agents are ephemeral (Cloud Run), messages don't need to survive container restarts beyond GCS sync. Keep it simple.
+2. **Auto-delivery with pull fallback** - The server automatically delivers messages to idle agents by resuming their Claude CLI process with the message content. Busy agents receive messages when they next go idle. The `interrupt` message type can force-deliver to a busy agent by killing its current process and restarting with the message. The `/check-messages` skill is available as a manual fallback.
+3. **Convention over infrastructure** - Most coordination happens via CLAUDE.md instructions and message conventions, not complex distributed systems code.
+4. **Backward compatible** - Shared-context files continue to work. Messages are an additional channel, not a replacement.
+5. **Parent-child cleanup** - Automatic destruction of child agents prevents orphaned processes and simplifies agent lifecycle management.
 
 ## System Files
 

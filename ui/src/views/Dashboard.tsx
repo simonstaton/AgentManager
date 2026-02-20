@@ -115,7 +115,7 @@ export function Dashboard() {
             )}
           </main>
 
-          {/* Inline agent creation input — matches conversation page input */}
+          {/* Inline agent creation input - matches conversation page input */}
           <PromptInput
             onSubmit={() => {}}
             disabled={creating}

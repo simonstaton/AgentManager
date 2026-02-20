@@ -63,7 +63,7 @@ variable "cloud_run_invokers" {
   sensitive   = true
 }
 
-# GitHub Actions CI/CD — set github_repo to enable Workload Identity Federation
+# GitHub Actions CI/CD - set github_repo to enable Workload Identity Federation
 variable "github_repo" {
   description = "GitHub repo (org/name) for WIF CI/CD (e.g. \"myorg/myrepo\"). Leave empty to skip WIF setup."
   type        = string

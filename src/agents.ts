@@ -120,14 +120,14 @@ function cleanupAllProcesses(): void {
         process.kill(pid, "SIGKILL");
         killed++;
       } catch {
-        // Already dead or no permission — skip
+        // Already dead or no permission - skip
       }
     }
     if (killed > 0) {
       console.log(`[kill-switch] cleanupAllProcesses: killed ${killed} process(es)`);
     }
   } catch {
-    // ps not available — skip
+    // ps not available - skip
   }
 }
 
@@ -143,7 +143,7 @@ export class AgentManager {
   private idleListeners = new Set<(agentId: string) => void>();
   private writeQueues = new Map<string, Promise<void>>();
   /** Per-agent lifecycle lock to prevent concurrent message/destroy operations.
-   *  Each entry is a promise chain — operations queue behind the previous one. */
+   *  Each entry is a promise chain - operations queue behind the previous one. */
   private lifecycleLocks = new Map<string, Promise<void>>();
   /** Set of agent IDs currently being delivered to (prevents concurrent delivery). */
   private delivering = new Set<string>();
@@ -151,7 +151,7 @@ export class AgentManager {
    *  Key: "parentId:name" or "name", Value: timestamp of creation. */
   private recentCreations = new Map<string, number>();
   private static readonly DEDUP_WINDOW_MS = 10_000; // 10 seconds
-  /** Layer 1: Set to true by kill switch — blocks create() and message() at the code level. */
+  /** Layer 1: Set to true by kill switch - blocks create() and message() at the code level. */
   killed = false;
   /** Optional persistent cost tracker (SQLite-backed). */
   private costTracker: CostTracker | null = null;
@@ -216,7 +216,7 @@ export class AgentManager {
   } {
     // Layer 1: Block spawning when kill switch is active
     if (this.killed) {
-      throw new Error("Kill switch is active — agent spawning is disabled");
+      throw new Error("Kill switch is active - agent spawning is disabled");
     }
     if (this.agents.size >= MAX_AGENTS) {
       throw new Error(`Maximum of ${MAX_AGENTS} agents reached`);
@@ -350,7 +350,7 @@ export class AgentManager {
   }
 
   /** Create multiple agents sequentially from a batch request.
-   *  Returns an array of results — one per spec — with either the created agent or an error. */
+   *  Returns an array of results - one per spec - with either the created agent or an error. */
   createBatch(specs: CreateAgentRequest[]): Array<{ agent: Agent } | { error: string }> {
     const results: Array<{ agent: Agent } | { error: string }> = [];
     for (const spec of specs) {
@@ -371,7 +371,7 @@ export class AgentManager {
     targetSessionId?: string,
   ): { agent: Agent; subscribe: (listener: (event: StreamEvent) => void) => () => void } {
     // Layer 1: Block messaging when kill switch is active
-    if (this.killed) throw new Error("Kill switch is active — agent messaging is disabled");
+    if (this.killed) throw new Error("Kill switch is active - agent messaging is disabled");
     const agentProc = this.agents.get(id);
     if (!agentProc) throw new Error("Agent not found");
     if (!agentProc.agent.claudeSessionId) throw new Error("Agent has no session to resume");
@@ -466,10 +466,10 @@ export class AgentManager {
         resolve();
       });
 
-      // Use process group kill (SIGTERM → SIGKILL escalation) from killProcessGroup
+      // Use process group kill (SIGTERM then SIGKILL escalation) from killProcessGroup
       killProcessGroup(proc);
 
-      // Safety timeout — resolve even if close never fires
+      // Safety timeout - resolve even if close never fires
       const safety = setTimeout(() => resolve(), 6_000);
       safety.unref();
     });
@@ -552,7 +552,7 @@ export class AgentManager {
 
   /** WI-5: Resume a paused agent by sending SIGCONT to its process group.
    *  If SIGCONT fails (e.g. stale connections after long pause), falls back to
-   *  killing the process — the next message delivery will respawn via --resume. */
+   *  killing the process - the next message delivery will respawn via --resume. */
   resume(id: string): boolean {
     const agentProc = this.agents.get(id);
     if (!agentProc) return false;
@@ -563,7 +563,7 @@ export class AgentManager {
     try {
       process.kill(-proc.pid, "SIGCONT");
     } catch {
-      // Process group gone — mark as idle so message delivery can respawn
+      // Process group gone - mark as idle so message delivery can respawn
       agent.status = "idle";
       agent.lastActivity = new Date().toISOString();
       saveAgentState(agent);
@@ -575,7 +575,7 @@ export class AgentManager {
       return true;
     }
 
-    // Verify the process is actually alive after SIGCONT — it may have exited
+    // Verify the process is actually alive after SIGCONT - it may have exited
     // while paused (zombie state) and process.kill() won't throw for zombies.
     if (proc.exitCode !== null) {
       agent.status = "idle";
@@ -793,9 +793,9 @@ export class AgentManager {
     return true;
   }
 
-  /** Internal destroy implementation — runs after lifecycle lock is released. */
+  /** Internal destroy implementation - runs after lifecycle lock is released. */
   private async doDestroy(id: string, agentProc: AgentProcess): Promise<void> {
-    // Finalize cost record in SQLite before cleanup — the data was already
+    // Finalize cost record in SQLite before cleanup - the data was already
     // upserted independently of the agent map, so this just sets closedAt.
     if (this.costTracker) {
       this.costTracker.finalize(id);
@@ -860,12 +860,12 @@ export class AgentManager {
   }
 
   /**
-   * Layer 2: Nuclear emergency shutdown — called by the kill switch.
+   * Layer 2: Nuclear emergency shutdown - called by the kill switch.
    * Unlike destroyAll(), this:
    *   1. Sets killed flag immediately (blocks create/message at code level)
    *   2. Clears all message bus listeners (prevents auto-delivery from re-triggering agents)
    *   3. SIGKILLs all tracked processes immediately (no graceful SIGTERM)
-   *   4. Kills ALL non-init processes (not just claude — catches bash, node, curl, git, etc.)
+   *   4. Kills ALL non-init processes (not just claude - catches bash, node, curl, git, etc.)
    *   5. Deletes ALL state files so agents are not restored on restart
    *   6. Writes a tombstone file so loadAllAgentStates() skips restoration even if delete failed
    *   7. Schedules a second pass at +500ms to catch processes spawned mid-kill
@@ -876,7 +876,7 @@ export class AgentManager {
     clearInterval(this.flushInterval);
     clearInterval(this.watchdogInterval);
 
-    console.log("[kill-switch] emergencyDestroyAll — starting nuclear shutdown");
+    console.log("[kill-switch] emergencyDestroyAll - starting nuclear shutdown");
 
     // Clear all idle listeners to prevent auto-delivery from re-triggering agent runs
     this.idleListeners.clear();
@@ -910,7 +910,7 @@ export class AgentManager {
       }
       agentProc.listeners.clear();
 
-      // Fire-and-forget cleanup — emergencyDestroyAll is synchronous by design
+      // Fire-and-forget cleanup - emergencyDestroyAll is synchronous by design
       // (nuclear kill path) so we don't await, but must use .catch() since
       // removeAgentState is async and try/catch won't catch promise rejections.
       removeAgentState(id).catch(() => {});
@@ -1007,7 +1007,7 @@ export class AgentManager {
 
       this.handleEvent(id, { type: "done", exitCode: code ?? undefined });
 
-      // Flush any pending batches immediately on close — listeners need
+      // Flush any pending batches immediately on close - listeners need
       // to see events (especially "done") before state transitions happen
       this.flushEventBatch(id, agentProc);
 
@@ -1060,10 +1060,10 @@ export class AgentManager {
       offset = end;
 
       if (offset < lines.length) {
-        // More lines to process — yield to event loop then continue
+        // More lines to process - yield to event loop then continue
         setImmediate(processBatch);
       } else {
-        // Done processing — resume stdout if paused due to backpressure
+        // Done processing - resume stdout if paused due to backpressure
         if (proc.stdout?.isPaused?.()) {
           proc.stdout.resume();
         }
@@ -1206,7 +1206,7 @@ export class AgentManager {
       agentProc.persistTimer = null;
     }
 
-    // Flush persistence batch — single appendFile for all accumulated events
+    // Flush persistence batch - single appendFile for all accumulated events
     const batch = agentProc.persistBatch;
     agentProc.persistBatch = "";
     if (batch) {
@@ -1226,7 +1226,7 @@ export class AgentManager {
       this.writeQueues.set(id, next);
     }
 
-    // Flush listener batch — notify all listeners with buffered events
+    // Flush listener batch - notify all listeners with buffered events
     const events = agentProc.listenerBatch;
     agentProc.listenerBatch = [];
     if (events.length > 0) {
@@ -1247,9 +1247,9 @@ export class AgentManager {
     const { eventBuffer, eventBufferTotal } = agentProc;
     const len = eventBuffer.length;
     if (len === 0) return [];
-    // Buffer hasn't wrapped yet — return as-is
+    // Buffer hasn't wrapped yet - return as-is
     if (eventBufferTotal <= EVENT_RING_BUFFER_SIZE) return eventBuffer.slice();
-    // Buffer has wrapped — oldest entry is at (eventBufferTotal % len), read in order
+    // Buffer has wrapped - oldest entry is at (eventBufferTotal % len), read in order
     const start = eventBufferTotal % len;
     return [...eventBuffer.slice(start), ...eventBuffer.slice(0, start)];
   }
@@ -1326,7 +1326,7 @@ export class AgentManager {
     }
   }
 
-  /** WI-4: Watchdog — detects dead processes, stalled agents, and start timeouts.
+  /** WI-4: Watchdog - detects dead processes, stalled agents, and start timeouts.
    *  Runs every 30s. Skips agents with active lifecycle locks to avoid races. */
   private static readonly START_TIMEOUT_MS = 2 * 60_000; // 2 minutes
   private static readonly STALL_TIMEOUT_MS = 10 * 60_000; // 10 minutes
@@ -1348,7 +1348,7 @@ export class AgentManager {
     for (const [id, agentProc] of this.agents) {
       const { agent, proc } = agentProc;
 
-      // Skip agents with active lifecycle locks — they're in the middle of
+      // Skip agents with active lifecycle locks - they're in the middle of
       // a message() or destroy() operation. Also skip paused agents.
       if (this.lifecycleLocks.has(id)) continue;
       if (agent.status === "destroying" || agent.status === "killing" || agent.status === "paused") continue;
@@ -1399,9 +1399,9 @@ export class AgentManager {
         if (now - lastActivityTs > AgentManager.STALL_TIMEOUT_MS) {
           agentProc.stallCount++;
           if (agentProc.stallCount >= AgentManager.MAX_STALL_COUNT) {
-            // Too many consecutive stalls — escalate to error
+            // Too many consecutive stalls - escalate to error
             console.warn(
-              `[watchdog] Agent ${agent.name} (${id.slice(0, 8)}) stalled ${AgentManager.MAX_STALL_COUNT} times — marking as error`,
+              `[watchdog] Agent ${agent.name} (${id.slice(0, 8)}) stalled ${AgentManager.MAX_STALL_COUNT} times - marking as error`,
             );
             agent.status = "error";
             saveAgentState(agent);
@@ -1412,7 +1412,7 @@ export class AgentManager {
             });
           } else {
             console.warn(
-              `[watchdog] Stall detected for agent ${agent.name} (${id.slice(0, 8)}) — no output for 10+ minutes (stall ${agentProc.stallCount}/${AgentManager.MAX_STALL_COUNT})`,
+              `[watchdog] Stall detected for agent ${agent.name} (${id.slice(0, 8)}) - no output for 10+ minutes (stall ${agentProc.stallCount}/${AgentManager.MAX_STALL_COUNT})`,
             );
             agent.status = "stalled";
             saveAgentState(agent);
@@ -1455,7 +1455,7 @@ export class AgentManager {
           await writeFile(tmpPath, `${trimmed.join("\n")}\n`);
           await rename(tmpPath, filePath);
           console.log(
-            `[agents] Truncated event file for ${id.slice(0, 8)}: ${lines.length} → ${trimmed.length} events`,
+            `[agents] Truncated event file for ${id.slice(0, 8)}: ${lines.length} -> ${trimmed.length} events`,
           );
         } catch (err: unknown) {
           console.warn(`[agents] Failed to truncate events for ${id}:`, errorMessage(err));

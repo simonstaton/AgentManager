@@ -18,7 +18,7 @@ These run as local processes (via `npx` or `gh`). They require environment varia
 
 These connect to hosted MCP endpoints (e.g. `https://mcp.linear.app/mcp`). They require an API token env var, which is injected as an Authorization header.
 
-The `gh` CLI automatically uses the `GITHUB_TOKEN` env var for authentication — no `gh auth login` needed. On container startup, `gh auth setup-git` configures git to use `gh` as a credential helper, so `git push` and `git fetch` to GitHub repos also work automatically.
+The `gh` CLI automatically uses the `GITHUB_TOKEN` env var for authentication - no `gh auth login` needed. On container startup, `gh auth setup-git` configures git to use `gh` as a credential helper, so `git push` and `git fetch` to GitHub repos also work automatically.
 
 ## Adding credentials
 
@@ -58,7 +58,7 @@ FIGMA_TOKEN=figd_xxxxx
 LINEAR_API_KEY=lin_api_xxxxx
 ```
 
-Then `npm run dev` — the entrypoint auto-merges MCP settings when these env vars are present.
+Then `npm run dev` - the entrypoint auto-merges MCP settings when these env vars are present.
 
 ### OAuth (operator-only, not for agents)
 
@@ -70,10 +70,10 @@ For detailed OAuth documentation, see [docs/mcp-oauth.md](../docs/mcp-oauth.md).
 
 | Server | Type | Env var | Where to get it |
 |--------|------|---------|-----------------|
-| GitHub | stdio | `GITHUB_TOKEN` | [GitHub Settings > Tokens](https://github.com/settings/tokens) — classic PAT with `repo` scope, or [fine-grained token](https://github.com/settings/personal-access-tokens/new) with Contents + Pull requests (read/write) |
+| GitHub | stdio | `GITHUB_TOKEN` | [GitHub Settings > Tokens](https://github.com/settings/tokens) - classic PAT with `repo` scope, or [fine-grained token](https://github.com/settings/personal-access-tokens/new) with Contents + Pull requests (read/write) |
 | Notion | stdio | `NOTION_API_KEY` | [Notion Integrations](https://www.notion.so/my-integrations) |
-| Google Calendar | stdio | `GOOGLE_CREDENTIALS` | Google Cloud Console → APIs & Services → Credentials |
-| Slack | stdio | `SLACK_TOKEN` | [Slack API > Your Apps](https://api.slack.com/apps) → OAuth & Permissions |
+| Google Calendar | stdio | `GOOGLE_CREDENTIALS` | Google Cloud Console > APIs & Services > Credentials |
+| Slack | stdio | `SLACK_TOKEN` | [Slack API > Your Apps](https://api.slack.com/apps) > OAuth & Permissions |
 | Figma | remote | `FIGMA_TOKEN` | [Figma Settings > Personal Access Tokens](https://www.figma.com/settings) |
 | Linear | remote | `LINEAR_API_KEY` | [Linear Settings > API](https://linear.app/settings/api) |
 

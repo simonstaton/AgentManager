@@ -50,7 +50,7 @@ function buildSharedContextIndex(sharedContextDir: string): string {
         .filter(Boolean);
       const heading = lines.find((l) => l.startsWith("#"))?.replace(/^#+\s*/, "") || "";
       const firstLine = lines.find((l) => !l.startsWith("#") && !l.startsWith("<!--")) || "";
-      summary = heading && firstLine ? `${heading} — ${firstLine}`.substring(0, 120) : heading || relPath;
+      summary = heading && firstLine ? `${heading} - ${firstLine}`.substring(0, 120) : heading || relPath;
     }
 
     entries.push(`- **${relPath}** (${sizeKb}KB): ${summary}`);
@@ -107,20 +107,20 @@ export class WorkspaceManager {
     }
 
     // Seed initial working memory file so the agent (and other agents) can
-    // see it immediately — agents are instructed to keep it updated.
+    // see it immediately - agents are instructed to keep it updated.
     const wmPath = path.join(getContextDir(), `working-memory-${agentName}.md`);
     if (!existsSync(wmPath)) {
       const timestamp = new Date().toISOString().replace("T", " ").slice(0, 19);
       writeFileSync(
         wmPath,
-        `<!-- summary: Working memory for ${agentName} -->\n# Working Memory — ${agentName}\n\n## Current Task\nStarting up — reading instructions\n\n## Status\nactive\n\n## Context\n- Agent just spawned\n\n## Recent Actions\n- ${timestamp} — Agent created, workspace initialized\n\n## Next Steps\n- Read CLAUDE.md and shared context\n- Begin assigned task\n`,
+        `<!-- summary: Working memory for ${agentName} -->\n# Working Memory - ${agentName}\n\n## Current Task\nStarting up - reading instructions\n\n## Status\nactive\n\n## Context\n- Agent just spawned\n\n## Recent Actions\n- ${timestamp} - Agent created, workspace initialized\n\n## Next Steps\n- Read CLAUDE.md and shared context\n- Begin assigned task\n`,
       );
     }
 
     // Write workspace CLAUDE.md so agents know about shared context and working memory
     this.writeWorkspaceClaudeMd(workspaceDir, agentName, agentId);
 
-    // Write fresh auth token file — agents read this before each API call
+    // Write fresh auth token file - agents read this before each API call
     this.writeAgentTokenFile(workspaceDir, agentId);
   }
 
@@ -156,7 +156,7 @@ export class WorkspaceManager {
 
     const skillsList = skillFiles.length > 0 ? skillFiles.map((f) => `- \`${f}\``).join("\n") : "(none yet)";
 
-    // Gather agent list (no currentTask — CRIT-1 fix)
+    // Gather agent list (no currentTask - CRIT-1 fix)
     const PORT = process.env.PORT ?? "8080";
     const otherAgents = this.agentListProvider
       ? this.agentListProvider
@@ -233,10 +233,10 @@ export class WorkspaceManager {
         // Strip data URL prefix and decode base64
         const base64 = att.data.replace(/^data:[^;]+;base64,/, "");
         writeFileSync(filePath, Buffer.from(base64, "base64"));
-        refs.push(`[Attached image: ${att.name}] — saved to ${filePath} (use the Read tool to view it)`);
+        refs.push(`[Attached image: ${att.name}] - saved to ${filePath} (use the Read tool to view it)`);
       } else if (att.type === "file") {
         writeFileSync(filePath, att.data, "utf-8");
-        refs.push(`[Attached file: ${att.name}] — saved to ${filePath} (use the Read tool to view it)`);
+        refs.push(`[Attached file: ${att.name}] - saved to ${filePath} (use the Read tool to view it)`);
       }
     }
 
@@ -244,7 +244,7 @@ export class WorkspaceManager {
   }
 
   buildEnv(agentId?: string): NodeJS.ProcessEnv {
-    // Layer 0: Allowlist approach — only forward env vars agents actually need.
+    // Layer 0: Allowlist approach - only forward env vars agents actually need.
     const ALLOWED_ENV_KEYS = [
       // Anthropic API access (needed for Claude CLI)
       "ANTHROPIC_API_KEY",

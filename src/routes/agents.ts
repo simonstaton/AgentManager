@@ -21,7 +21,7 @@ export function createAgentsRouter(
   router.get("/api/agents", (_req, res) => {
     const agents = agentManager.list();
     // NOTE: Previously touched all agents here to prevent TTL cleanup while UI is active.
-    // Removed because it prevents TTL-based cleanup entirely — any open dashboard tab
+    // Removed because it prevents TTL-based cleanup entirely - any open dashboard tab
     // resets every agent's lastActivity every 5s. Individual agent interactions
     // (GET /api/agents/:id, message, events) still touch the specific agent.
     res.json(agents);
@@ -45,7 +45,7 @@ export function createAgentsRouter(
     res.json(agents);
   });
 
-  // Swarm topology graph — nodes + edges derived from parentId relationships.
+  // Swarm topology graph - nodes + edges derived from parentId relationships.
   // Agents can use this to discover direct paths to peers without multi-hop routing.
   router.get("/api/agents/topology", (_req, res) => {
     const agents = agentManager.list();
@@ -66,10 +66,10 @@ export function createAgentsRouter(
     res.json({ nodes, edges });
   });
 
-  // Batch create agents (returns JSON, not SSE — designed for spawning multiple agents at once)
+  // Batch create agents (returns JSON, not SSE - designed for spawning multiple agents at once)
   router.post("/api/agents/batch", (req: Request, res: Response) => {
     if (isMemoryPressure()) {
-      res.status(503).json({ error: "Server under memory pressure — cannot create new agents. Try again later." });
+      res.status(503).json({ error: "Server under memory pressure - cannot create new agents. Try again later." });
       return;
     }
 
@@ -100,7 +100,7 @@ export function createAgentsRouter(
   // Create agent (streams SSE)
   router.post("/api/agents", validateCreateAgent, (req: Request, res: Response) => {
     if (isMemoryPressure()) {
-      res.status(503).json({ error: "Server under memory pressure — cannot create new agents. Try again later." });
+      res.status(503).json({ error: "Server under memory pressure - cannot create new agents. Try again later." });
       return;
     }
 
@@ -191,7 +191,7 @@ export function createAgentsRouter(
     const afterIndex = req.query.after ? Number.parseInt(queryString(req.query.after) ?? "", 10) : undefined;
 
     // Set up fresh SSE with event replay (skipping events before afterIndex).
-    // closeOnDone: false — historical `done` events from previous turns must not
+    // closeOnDone: false - historical `done` events from previous turns must not
     // terminate the SSE connection; we need to replay the full history and then
     // stay open for any future live events.
     const subscribe = (listener: (event: StreamEvent) => void) => {

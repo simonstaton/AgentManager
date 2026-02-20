@@ -45,7 +45,7 @@ export function AgentView({ agentId }: { agentId: string }) {
 
   // Load agent details and reconnect to stream.
   // Use refs for clearEvents/reconnect/api so this effect only re-runs when
-  // `id` changes — not when callback references change (which caused redundant
+  // `id` changes - not when callback references change (which caused redundant
   // SSE connections and leaked server-side listeners).
   const reconnectRef = useRef(reconnect);
   const clearEventsRef = useRef(clearEvents);
@@ -195,17 +195,17 @@ export function AgentView({ agentId }: { agentId: string }) {
           injectSystemMessage(
             [
               "Available commands:",
-              "  /cost     — Show token usage and cost for this session",
-              "  /status   — Show agent status and session info",
-              "  /clear    — Clear terminal output",
-              "  /compact  — Ask agent to summarize the conversation",
-              "  /review   — Ask agent to review recent changes",
-              "  /help     — Show this help",
+              "  /cost     - Show token usage and cost for this session",
+              "  /status   - Show agent status and session info",
+              "  /clear    - Clear terminal output",
+              "  /compact  - Ask agent to summarize the conversation",
+              "  /review   - Ask agent to review recent changes",
+              "  /help     - Show this help",
               "",
               "Input features:",
-              "  @filename  — Reference a file in the agent's workspace",
-              "  Paste/drag — Attach images or text files",
-              "  Shift+Enter — Insert newline",
+              "  @filename  - Reference a file in the agent's workspace",
+              "  Paste/drag - Attach images or text files",
+              "  Shift+Enter - Insert newline",
             ].join("\n"),
           );
           break;
@@ -217,9 +217,9 @@ export function AgentView({ agentId }: { agentId: string }) {
 
   const getPlaceholder = () => {
     if (agent?.status === "error") return "Agent errored";
-    if (agent?.status === "restored") return "Agent restored from crash — send a message to resume...";
-    if (agent?.status === "stalled") return "Agent appears stalled — send a message to attempt recovery...";
-    if (agent?.status === "paused") return "Agent is paused — resume to continue...";
+    if (agent?.status === "restored") return "Agent restored from crash - send a message to resume...";
+    if (agent?.status === "stalled") return "Agent appears stalled - send a message to attempt recovery...";
+    if (agent?.status === "paused") return "Agent is paused - resume to continue...";
     if (isStreaming) return "Send a message (will interrupt current task)...";
     return "Send a follow-up message...";
   };

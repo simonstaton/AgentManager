@@ -34,7 +34,7 @@ export function saveAgentState(agent: Agent): void {
   const isStatusChange = MEANINGFUL_STATUSES.has(agent.status) && lastSavedStatus.get(agent.id) !== agent.status;
 
   if (isStatusChange) {
-    // Meaningful status change — save immediately, cancel any pending debounce
+    // Meaningful status change - save immediately, cancel any pending debounce
     const pending = pendingSaves.get(agent.id);
     if (pending) {
       clearTimeout(pending);
@@ -45,7 +45,7 @@ export function saveAgentState(agent: Agent): void {
     return;
   }
 
-  // Non-critical update — debounce
+  // Non-critical update - debounce
   const existing = pendingSaves.get(agent.id);
   if (existing) clearTimeout(existing);
   pendingSaves.set(
@@ -61,7 +61,7 @@ export function saveAgentState(agent: Agent): void {
 export function loadAllAgentStates(): Agent[] {
   // If a kill-switch tombstone exists, skip all restoration
   if (existsSync(TOMBSTONE_FILE)) {
-    console.log("[persistence] Kill switch tombstone found — skipping agent restoration");
+    console.log("[persistence] Kill switch tombstone found - skipping agent restoration");
     return [];
   }
   const agents: Agent[] = [];
@@ -73,7 +73,7 @@ export function loadAllAgentStates(): Agent[] {
       try {
         const data = readFileSync(path.join(STATE_DIR, file), "utf-8");
         if (!data.trim()) {
-          // Empty file — leftover from a failed FUSE delete, clean it up
+          // Empty file - leftover from a failed FUSE delete, clean it up
           console.warn(`[persistence] Removing empty state file: ${file}`);
           unlinkSync(path.join(STATE_DIR, file));
           continue;
@@ -188,10 +188,10 @@ export async function removeAgentState(id: string): Promise<void> {
   try {
     await unlink(`${filePath}.tmp`);
   } catch {
-    // .tmp may not exist — that's fine
+    // .tmp may not exist - that's fine
   }
 
-  // Verify deletion — on GCS FUSE, unlink can silently fail to propagate.
+  // Verify deletion - on GCS FUSE, unlink can silently fail to propagate.
   // If the file still exists after deletion, overwrite it with an empty/tombstone
   // marker that loadAllAgentStates will skip, then retry unlink.
   try {

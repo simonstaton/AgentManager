@@ -105,7 +105,7 @@ paths:
       tags: [Health]
       summary: Health check
       description: |
-        Returns platform health metrics. Does **not** require authentication —
+        Returns platform health metrics. Does **not** require authentication -
         suitable for load-balancer and uptime probes.
       security: []
       responses:
@@ -173,7 +173,7 @@ paths:
       tags: [Agents]
       summary: Agent registry
       description: |
-        Returns a compact summary of all agents — their role, current task,
+        Returns a compact summary of all agents - their role, current task,
         capabilities, and unread message count. Intended for agent-to-agent
         discovery.
       responses:
@@ -349,7 +349,7 @@ paths:
       description: |
         Opens an SSE connection to an existing agent. Replays historical
         events and then streams new ones as they arrive. Use `?after=N` to
-        skip events the client has already received (for seamless reconnect).
+        skip events the client has already received (for clean reconnect).
       parameters:
         - $ref: "#/components/parameters/AgentId"
         - name: after
@@ -360,7 +360,7 @@ paths:
           description: Skip events with an index ≤ this value (for reconnect).
       responses:
         "200":
-          description: SSE stream — replays history then continues live.
+          description: SSE stream - replays history then continues live.
           content:
             text/event-stream:
               schema:
@@ -371,7 +371,7 @@ paths:
   /api/agents/{id}/raw-events:
     get:
       tags: [Agents]
-      summary: Debug — raw event log
+      summary: Debug - raw event log
       description: |
         Returns a summary of the raw event log for the agent: total count,
         session IDs, event types seen, and the 50 most recent events.
@@ -523,7 +523,7 @@ paths:
       summary: Query messages
       description: |
         Queries messages from the bus with optional filters. All query
-        parameters are optional — omitting all returns all messages (subject
+        parameters are optional - omitting all returns all messages (subject
         to the `limit`).
       parameters:
         - name: to
@@ -853,7 +853,7 @@ paths:
       summary: Update guardrail settings at runtime
       description: |
         Adjusts safety limits without restarting the server. All fields are
-        optional — omit any field to leave its current value unchanged.
+        optional - omit any field to leave its current value unchanged.
         Agent service tokens cannot call this endpoint.
       requestBody:
         required: true
@@ -999,7 +999,7 @@ paths:
       description: |
         Creates a new slash-command skill `.md` file inside
         `~/.claude/commands/`. The `name` field becomes the command path
-        (e.g. `"my-skill"` → `/my-skill`).
+        (e.g. `"my-skill"` -> `/my-skill`).
       requestBody:
         required: true
         content:
@@ -1011,7 +1011,7 @@ paths:
                 name:
                   type: string
                   description: |
-                    Command name — alphanumeric, hyphens, underscores, and `/`
+                    Command name - alphanumeric, hyphens, underscores, and `/`
                     for subdirectories. Do not include `.md`.
                   example: my-skill
                 content:
@@ -1329,12 +1329,12 @@ components:
       enum: [task, result, question, info, status, interrupt]
       description: |
         Semantic type of an inter-agent message:
-        - `task` — assign work to another agent
-        - `result` — return the outcome of a task
-        - `question` — ask for information
-        - `info` — share context without expecting a reply
-        - `status` — report current state
-        - `interrupt` — redirect a busy agent
+        - `task` - assign work to another agent
+        - `result` - return the outcome of a task
+        - `question` - ask for information
+        - `info` - share context without expecting a reply
+        - `status` - report current state
+        - `interrupt` - redirect a busy agent
 
     Agent:
       type: object

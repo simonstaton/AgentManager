@@ -12,7 +12,7 @@ Swarm V3 is a comprehensive upgrade addressing four interconnected problem areas
 |---|---|
 | **Current State** | In-memory pub/sub, shared markdown files, sequential prompts, UI tightly coupled to agent processes |
 | **Target State** | Process-isolated agents, structured world model, orchestrator planner, virtualised UI, persistent state |
-| **Primary Risk** | Performance and crash issues are blocking usability today — address Phase 1 before anything else |
+| **Primary Risk** | Performance and crash issues are blocking usability today - address Phase 1 before anything else |
 
 ---
 
@@ -92,9 +92,9 @@ Before an agent proposes a merge or code change, it should self-assess risk.
 
 - After producing a fix, the agent runs a secondary grading prompt asking it to rate: ticket clarity (high/medium/low), fix confidence (high/medium/low), and blast radius (isolated/moderate/broad)
 - The combined score produces a risk label:
-  - **Low Risk** — safe to auto-merge
-  - **Medium Risk** — human review recommended
-  - **High Risk** — block merge, escalate to orchestrator
+  - **Low Risk** - safe to auto-merge
+  - **Medium Risk** - human review recommended
+  - **High Risk** - block merge, escalate to orchestrator
 - Surface the risk label prominently in the PR description and in the Swarm UI
 - High-risk changes trigger a notification and require explicit user approval before the agent proceeds
 

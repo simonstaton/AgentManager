@@ -27,13 +27,13 @@ export let MAX_AGENTS = 100;
 export let MAX_BATCH_SIZE = 10;
 export let SESSION_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
-// Layer 4: Spawning depth limits — stored as an immutable field on Agent at
+// Layer 4: Spawning depth limits - stored as an immutable field on Agent at
 // creation time. Walking the parent chain at runtime is bypassable if a parent
 // is destroyed (chain breaks, depth resets to 0).
 export let MAX_AGENT_DEPTH = 3;
 export let MAX_CHILDREN_PER_AGENT = 20;
 
-// Setters — ES module namespace objects are read-only, so external modules
+// Setters - ES module namespace objects are read-only, so external modules
 // must call these instead of assigning to the exports directly.
 export function setMaxPromptLength(v: number) {
   MAX_PROMPT_LENGTH = v;

@@ -53,7 +53,7 @@ process.on("uncaughtException", (err) => {
     err.stack || err,
   );
   if (uncaughtExceptionCount >= MAX_UNCAUGHT_EXCEPTIONS) {
-    console.error(`[FATAL] ${MAX_UNCAUGHT_EXCEPTIONS} uncaught exceptions reached — exiting to avoid corrupted state`);
+    console.error(`[FATAL] ${MAX_UNCAUGHT_EXCEPTIONS} uncaught exceptions reached - exiting to avoid corrupted state`);
     process.exit(1);
   }
 });
@@ -84,7 +84,7 @@ app.use((_req, res, next) => {
 
 app.use(corsMiddleware);
 
-// Agent routes accept file attachments — allow up to 10 MB for those endpoints.
+// Agent routes accept file attachments - allow up to 10 MB for those endpoints.
 // All other routes use a 1 MB cap to limit DoS surface area (issue #65).
 app.use("/api/agents", express.json({ limit: "10mb" }));
 app.use(express.json({ limit: "1mb" }));
@@ -106,7 +106,7 @@ app.use((req, res, next) => {
     return;
   }
   res.status(503).json({
-    error: "Kill switch is active — all agent operations are disabled",
+    error: "Kill switch is active - all agent operations are disabled",
     state: "killed",
   });
 });
@@ -155,7 +155,7 @@ const orchestrator = new Orchestrator(
   },
 );
 
-const MEMORY_LIMIT_BYTES = 32 * 1024 * 1024 * 1024; // 32Gi — matches Cloud Run container limit
+const MEMORY_LIMIT_BYTES = 32 * 1024 * 1024 * 1024; // 32Gi - matches Cloud Run container limit
 const MEMORY_WARN_THRESHOLD = 0.75;
 const MEMORY_REJECT_THRESHOLD = 0.85;
 
@@ -172,7 +172,7 @@ let keepAliveInterval: ReturnType<typeof setInterval> | null = null;
 
 function startKeepAlive() {
   if (keepAliveInterval) return;
-  console.log("[keepalive] Starting — agents exist, keeping instance alive");
+  console.log("[keepalive] Starting - agents exist, keeping instance alive");
   fetch(`http://localhost:${KEEPALIVE_PORT}/api/health`).catch(() => {});
   keepAliveInterval = setInterval(async () => {
     if (agentManager.list().length === 0) {
@@ -184,12 +184,12 @@ function startKeepAlive() {
     } catch (err) {
       console.warn("[keepalive] Health check failed:", err instanceof Error ? err.message : String(err));
     }
-  }, 60_000); // every 60 seconds — well within Cloud Run's ~15min idle timeout
+  }, 60_000); // every 60 seconds - well within Cloud Run's ~15min idle timeout
 }
 
 function stopKeepAlive() {
   if (!keepAliveInterval) return;
-  console.log("[keepalive] Stopping — no agents, allowing scale-to-zero");
+  console.log("[keepalive] Stopping - no agents, allowing scale-to-zero");
   clearInterval(keepAliveInterval);
   keepAliveInterval = null;
 }
@@ -206,7 +206,7 @@ app.use((req, res, next) => {
     next();
     return;
   }
-  res.status(503).json({ error: "Server is starting up — restoring agents from previous session", recovering: true });
+  res.status(503).json({ error: "Server is starting up - restoring agents from previous session", recovering: true });
 });
 
 app.use(createAgentsRouter(agentManager, messageBus, startKeepAlive, stopKeepAlive, isMemoryPressure));
@@ -223,7 +223,7 @@ app.use(createKillSwitchRouter(agentManager));
 
 // When a message targets a specific agent that is idle, automatically resume
 // the agent with the message content so it can respond. Without this, agents
-// only see messages if they happen to poll — which they rarely do.
+// only see messages if they happen to poll - which they rarely do.
 messageBus.subscribe((msg) => {
   // Only deliver targeted messages (not broadcasts) of actionable types
   if (!msg.to) return;
@@ -234,7 +234,7 @@ messageBus.subscribe((msg) => {
 
   const sender = msg.fromName || msg.from.slice(0, 8);
 
-  // Interrupt messages bypass the idle check — they kill the running process
+  // Interrupt messages bypass the idle check - they kill the running process
   // and deliver immediately. This allows a team lead (or the platform) to
   // redirect a busy agent without waiting for it to finish.
   if (msg.type === "interrupt" && agentManager.canInterrupt(msg.to)) {
@@ -259,7 +259,7 @@ messageBus.subscribe((msg) => {
   // canDeliver() atomically sets a delivery lock when returning true.
   if (!agentManager.canDeliver(msg.to)) return;
 
-  const prompt = formatDeliveryPrompt(`[Message from ${sender} — type: ${msg.type}]`, msg.content, msg.from);
+  const prompt = formatDeliveryPrompt(`[Message from ${sender} - type: ${msg.type}]`, msg.content, msg.from);
 
   try {
     // Mark as read before delivering so the idle handler doesn't re-deliver it
@@ -309,7 +309,7 @@ agentManager.onIdle((agentId) => {
     messageBus.markRead(next.id, agentId);
 
     const sender = next.fromName || next.from.slice(0, 8);
-    const prompt = formatDeliveryPrompt(`[Message from ${sender} — type: ${next.type}]`, next.content, next.from);
+    const prompt = formatDeliveryPrompt(`[Message from ${sender} - type: ${next.type}]`, next.content, next.from);
 
     try {
       console.log(
@@ -360,8 +360,8 @@ const memoryMonitorInterval = setInterval(() => {
   if (pct > MEMORY_WARN_THRESHOLD) {
     const limitGi = MEMORY_LIMIT_BYTES / 1024 / 1024 / 1024;
     console.warn(
-      `[memory] WARNING: container ${(containerMem / 1024 / 1024).toFixed(0)}MB (${(pct * 100).toFixed(1)}% of ${limitGi}Gi limit) — ` +
-        `heap ${(heapUsed / 1024 / 1024).toFixed(0)}/${(heapTotal / 1024 / 1024).toFixed(0)}MB — ` +
+      `[memory] WARNING: container ${(containerMem / 1024 / 1024).toFixed(0)}MB (${(pct * 100).toFixed(1)}% of ${limitGi}Gi limit) - ` +
+        `heap ${(heapUsed / 1024 / 1024).toFixed(0)}/${(heapTotal / 1024 / 1024).toFixed(0)}MB - ` +
         `agents: ${agentManager.list().length}`,
     );
   }
@@ -400,7 +400,7 @@ function cleanupOrphanedProcesses(): void {
       console.log(`[cleanup] Killed ${killed} orphaned claude process(es)`);
     }
   } catch {
-    // ps not available or failed — skip
+    // ps not available or failed - skip
   }
 }
 
@@ -425,7 +425,7 @@ function cleanupStaleWorkspaces(manager: AgentManager): void {
       console.log(`[cleanup] Removed ${cleaned} stale workspace director${cleaned === 1 ? "y" : "ies"}`);
     }
   } catch {
-    // /tmp not readable — skip
+    // /tmp not readable - skip
   }
 
   // Clean orphaned working-memory files from shared-context
@@ -447,7 +447,7 @@ function cleanupStaleWorkspaces(manager: AgentManager): void {
       console.log(`[cleanup] Removed ${cleanedWm} orphaned working-memory file(s)`);
     }
   } catch {
-    // shared-context not readable — skip
+    // shared-context not readable - skip
   }
 }
 
@@ -493,11 +493,11 @@ async function start() {
     const wasKilled = await loadPersistedState();
     if (wasKilled) {
       agentManager.killed = true;
-      console.log("[kill-switch] Kill switch was active on startup — agent restoration skipped");
+      console.log("[kill-switch] Kill switch was active on startup - agent restoration skipped");
     }
 
     if (hasTombstone()) {
-      console.log("[kill-switch] Tombstone present — skipping all agent restoration");
+      console.log("[kill-switch] Tombstone present - skipping all agent restoration");
     }
 
     cleanupStaleState();
@@ -528,7 +528,7 @@ async function start() {
     worktreeGCInterval = startWorktreeGC(() => agentManager.getActiveWorkspaceDirs());
 
     stopGcsPoll = startGcsKillSwitchPoll(async () => {
-      console.log("[kill-switch] Remote activation via GCS — running emergency shutdown");
+      console.log("[kill-switch] Remote activation via GCS - running emergency shutdown");
       agentManager.emergencyDestroyAll();
       const { rotateJwtSecret } = await import("./src/auth");
       rotateJwtSecret();

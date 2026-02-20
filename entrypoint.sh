@@ -84,8 +84,8 @@ node -e "
         resolved.headers = { [config._tokenHeader]: prefix + tokenVal };
         console.log('MCP: activated ' + name + ' (token auth from env)');
       } else {
-        // No token — Claude Code will use OAuth via browser on first use
-        console.log('MCP: activated ' + name + ' (OAuth — authenticate via /api/mcp/auth/' + name + ')');
+        // No token - Claude Code will use OAuth via browser on first use
+        console.log('MCP: activated ' + name + ' (OAuth - authenticate via /api/mcp/auth/' + name + ')');
       }
 
       activeMcp[name] = resolved;

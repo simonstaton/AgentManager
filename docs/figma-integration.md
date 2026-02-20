@@ -56,11 +56,11 @@ When a token is provided, it's passed as a Bearer header to the remote server au
 
 ## For Agents
 
-**Figma MCP tools are pre-configured with token auth.** Just use them directly — they should appear as available tools in your session (e.g., `mcp__figma__...`).
+**Figma MCP tools are pre-configured with token auth.** Just use them directly - they should appear as available tools in your session (e.g., `mcp__figma__...`).
 
 If MCP tools are not loading, use the `/figma` slash command for direct REST API access as a fallback.
 
-**Do NOT attempt OAuth or browser-based authentication** — it doesn't work from agent sessions.
+**Do NOT attempt OAuth or browser-based authentication** - it doesn't work from agent sessions.
 
 ## Usage Examples
 

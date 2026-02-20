@@ -8,7 +8,7 @@ import type { AuthenticatedRequest } from "../types";
 export function createKillSwitchRouter(agentManager: AgentManager): Router {
   const router = Router();
 
-  /** GET /api/kill-switch — returns current kill switch status */
+  /** GET /api/kill-switch - returns current kill switch status */
   router.get("/api/kill-switch", (_req, res) => {
     res.json(getKillSwitchState());
   });
@@ -35,11 +35,11 @@ export function createKillSwitchRouter(agentManager: AgentManager): Router {
       // Activate: set flag, destroy all agents, rotate JWT, write tombstone
       await activate(reason || "Manual activation via API");
 
-      // Layer 2: Nuclear process kill — emergencyDestroyAll sets killed flag,
+      // Layer 2: Nuclear process kill - emergencyDestroyAll sets killed flag,
       // SIGKILLs all processes, deletes state, writes tombstone
       agentManager.emergencyDestroyAll();
 
-      // Layer 3: Rotate JWT secret — all existing tokens (including agent service
+      // Layer 3: Rotate JWT secret - all existing tokens (including agent service
       // tokens) are immediately invalidated
       rotateJwtSecret();
 
@@ -50,12 +50,12 @@ export function createKillSwitchRouter(agentManager: AgentManager): Router {
       await deactivate();
       clearTombstone();
 
-      // Rotate JWT on deactivation too — human must log in again with the API key.
+      // Rotate JWT on deactivation too - human must log in again with the API key.
       // This ensures the session that activated the kill switch can't silently
       // continue as if nothing happened.
       rotateJwtSecret();
 
-      console.log("[kill-switch] Deactivation complete — JWT rotated, please re-authenticate");
+      console.log("[kill-switch] Deactivation complete - JWT rotated, please re-authenticate");
       res.json({ ok: true, state: getKillSwitchState() });
     } else {
       res.status(400).json({ error: 'action must be "activate" or "deactivate"' });

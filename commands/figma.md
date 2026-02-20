@@ -1,6 +1,6 @@
 # Figma Integration
 
-**Try MCP tools first** — Figma MCP is configured with token auth and should be available as native tools in your session (e.g. `mcp__figma__...`). Only use the REST API examples below as a fallback if MCP tools aren't loading.
+**Try MCP tools first** - Figma MCP is configured with token auth and should be available as native tools in your session (e.g. `mcp__figma__...`). Only use the REST API examples below as a fallback if MCP tools aren't loading.
 
 ## Quick Start
 
@@ -181,10 +181,10 @@ req.end();
 
 Figma URLs contain the file key and optionally a node ID:
 
-- **File**: `https://www.figma.com/file/ABC123/Design-System` → file key is `ABC123`
-- **Design**: `https://www.figma.com/design/ABC123/Design-System` → file key is `ABC123`
-- **With node**: `...?node-id=1-234` → node ID is `1:234` (replace `-` with `:`)
-- **Prototype**: `https://www.figma.com/proto/ABC123/...` → file key is `ABC123`
+- **File**: `https://www.figma.com/file/ABC123/Design-System` -> file key is `ABC123`
+- **Design**: `https://www.figma.com/design/ABC123/Design-System` -> file key is `ABC123`
+- **With node**: `...?node-id=1-234` -> node ID is `1:234` (replace `-` with `:`)
+- **Prototype**: `https://www.figma.com/proto/ABC123/...` -> file key is `ABC123`
 
 ## Tips
 

@@ -26,7 +26,7 @@ export interface TaskNode {
   requiredCapabilities: string[];
   /** IDs of tasks that must complete before this task can start. */
   dependsOn: string[];
-  /** Optimistic lock version — incremented on every write. */
+  /** Optimistic lock version - incremented on every write. */
   version: number;
   /** Number of times this task has been retried after failure. */
   retryCount: number;
@@ -298,7 +298,7 @@ export class TaskGraph {
     // Cycle detection for dependencies
     if (opts.dependsOn && opts.dependsOn.length > 0) {
       // Self-dependency check is handled by wouldCreateCycle naturally
-      // but we need a task ID first — we'll check after insert using addDependencies
+      // but we need a task ID first - we'll check after insert using addDependencies
     }
 
     const id = randomUUID();
@@ -711,7 +711,7 @@ export class TaskGraph {
     if (!profile) return 0.1; // Unknown agent gets a low base score
 
     if (task.requiredCapabilities.length === 0) {
-      // No specific requirements — score based on overall reliability
+      // No specific requirements - score based on overall reliability
       const total = profile.totalCompleted + profile.totalFailed;
       if (total === 0) return 0.5;
       return profile.totalCompleted / total;
@@ -834,7 +834,7 @@ export class TaskGraph {
       const now = new Date().toISOString();
       this.blockStmt.run({
         updatedAt: now,
-        errorMessage: `Blocked: dependency ${failedTaskId.slice(0, 8)} failed — ${reason}`,
+        errorMessage: `Blocked: dependency ${failedTaskId.slice(0, 8)} failed - ${reason}`,
         id: dep.id,
       });
 

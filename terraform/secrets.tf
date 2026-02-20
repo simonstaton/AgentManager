@@ -39,7 +39,7 @@ resource "google_secret_manager_secret_version" "jwt_secret" {
   secret_data = random_password.jwt_secret.result
 }
 
-# Optional MCP secrets — only created if values provided
+# Optional MCP secrets - only created if values provided
 
 resource "google_secret_manager_secret" "notion_api_key" {
   count     = var.notion_api_key != "" ? 1 : 0

@@ -1,4 +1,4 @@
-# Cloud Monitoring Alert Policies — Claude Swarm
+# Cloud Monitoring Alert Policies - Claude Swarm
 #
 # Thresholds (tune to environment):
 #   High error rate  : 5xx request rate > 5 requests/min (5-min window)
@@ -7,7 +7,7 @@
 #   Memory           : container memory utilization > 80%  (5-min window)
 #   CPU              : container CPU utilization > 80%     (5-min window)
 #
-# Notification channel: email — set alert_notification_email in terraform.tfvars
+# Notification channel: email - set alert_notification_email in terraform.tfvars
 # All policies are skipped (count = 0) when that variable is empty.
 
 locals {
@@ -17,12 +17,12 @@ locals {
 }
 
 # ---------------------------------------------------------------------------
-# Notification Channel — Email
+# Notification Channel - Email
 # ---------------------------------------------------------------------------
 
 resource "google_monitoring_notification_channel" "email_alerts" {
   count        = local.enable_alerts
-  display_name = "Claude Swarm — Email Alerts"
+  display_name = "Claude Swarm - Email Alerts"
   type         = "email"
 
   labels = {
@@ -40,7 +40,7 @@ resource "google_monitoring_notification_channel" "email_alerts" {
 
 resource "google_monitoring_alert_policy" "high_error_rate" {
   count        = local.enable_alerts
-  display_name = "Claude Swarm — High Error Rate"
+  display_name = "Claude Swarm - High Error Rate"
   combiner     = "OR"
 
   conditions {
@@ -103,7 +103,7 @@ resource "google_monitoring_alert_policy" "high_error_rate" {
 
 resource "google_monitoring_alert_policy" "high_latency" {
   count        = local.enable_alerts
-  display_name = "Claude Swarm — High Latency"
+  display_name = "Claude Swarm - High Latency"
   combiner     = "OR"
 
   conditions {
@@ -149,7 +149,7 @@ resource "google_monitoring_alert_policy" "high_latency" {
       1. Check Cloud Run instance metrics for CPU/memory saturation.
       2. Inspect slow API routes via Cloud Trace.
       3. Review GCS / Secret Manager latency for upstream bottlenecks.
-      4. Consider scaling limits — service is capped at 1 instance.
+      4. Consider scaling limits - service is capped at 1 instance.
     EOT
     mime_type = "text/markdown"
   }
@@ -165,7 +165,7 @@ resource "google_monitoring_alert_policy" "high_latency" {
 
 resource "google_monitoring_alert_policy" "container_crashes" {
   count        = local.enable_alerts
-  display_name = "Claude Swarm — Container Crashes"
+  display_name = "Claude Swarm - Container Crashes"
   combiner     = "OR"
 
   conditions {
@@ -210,7 +210,7 @@ resource "google_monitoring_alert_policy" "container_crashes" {
 
       **Runbook:**
       1. Check Cloud Run logs for OOM or panic errors.
-      2. Inspect recent deploys — a bad image may cause boot crashes.
+      2. Inspect recent deploys - a bad image may cause boot crashes.
       3. Check memory limits; OOM kills appear as crashes.
       4. Review startup probe configuration if the service fails to start.
     EOT
@@ -227,7 +227,7 @@ resource "google_monitoring_alert_policy" "container_crashes" {
 
 resource "google_monitoring_alert_policy" "high_memory" {
   count        = local.enable_alerts
-  display_name = "Claude Swarm — High Memory Utilization"
+  display_name = "Claude Swarm - High Memory Utilization"
   combiner     = "OR"
 
   conditions {
@@ -241,7 +241,7 @@ resource "google_monitoring_alert_policy" "high_memory" {
       ])
 
       comparison      = "COMPARISON_GT"
-      threshold_value = 0.80 # 80% — range is 0.0–1.0
+      threshold_value = 0.80 # 80% - range is 0.0–1.0
       duration        = "300s"
 
       aggregations {
@@ -271,7 +271,7 @@ resource "google_monitoring_alert_policy" "high_memory" {
       **Current limit:** 32 GiB (see cloud-run.tf)
 
       **Runbook:**
-      1. Check agent count — each spawned agent consumes memory.
+      1. Check agent count - each spawned agent consumes memory.
       2. Look for memory leaks in agent process lifecycle (src/agents.ts).
       3. Consider increasing the Cloud Run memory limit if usage is expected.
       4. At ~95% utilization the service risks OOM crashes.
@@ -289,7 +289,7 @@ resource "google_monitoring_alert_policy" "high_memory" {
 
 resource "google_monitoring_alert_policy" "high_cpu" {
   count        = local.enable_alerts
-  display_name = "Claude Swarm — High CPU Utilization"
+  display_name = "Claude Swarm - High CPU Utilization"
   combiner     = "OR"
 
   conditions {
@@ -303,7 +303,7 @@ resource "google_monitoring_alert_policy" "high_cpu" {
       ])
 
       comparison      = "COMPARISON_GT"
-      threshold_value = 0.80 # 80% — range is 0.0–1.0
+      threshold_value = 0.80 # 80% - range is 0.0–1.0
       duration        = "300s"
 
       aggregations {
@@ -335,7 +335,7 @@ resource "google_monitoring_alert_policy" "high_cpu" {
       **Runbook:**
       1. Check active agent count and concurrent spawning.
       2. Review Node.js CPU profiling for hot loops.
-      3. Inspect SSE streaming load — many open connections increase CPU.
+      3. Inspect SSE streaming load - many open connections increase CPU.
       4. Consider whether the 8 vCPU limit needs to be raised.
     EOT
     mime_type = "text/markdown"

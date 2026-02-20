@@ -147,7 +147,7 @@ function useFileEditor() {
   const [message, setMessage] = useState("");
   const isDirty = content !== savedContentRef.current;
 
-  // No in-app navigation blocker in Next.js App Router — browser tab close is handled below
+  // No in-app navigation blocker in Next.js App Router - browser tab close is handled below
   const blocker: { state: "unblocked" | "blocked" | "proceeding"; proceed?: () => void; reset?: () => void } = {
     state: "unblocked",
     proceed: undefined,
@@ -712,7 +712,7 @@ export function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
                 {selected.name === "~/CLAUDE.md" ? (
                   <>
                     <p>
-                      <strong className="text-zinc-300">Global instructions</strong> — Claude Code loads this
+                      <strong className="text-zinc-300">Global instructions</strong> - Claude Code loads this
                       automatically for every agent session.
                     </p>
                     <p>
@@ -723,7 +723,7 @@ export function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
                 ) : (
                   <>
                     <p>
-                      <strong className="text-zinc-300">Project instructions</strong> — This is the workspace CLAUDE.md
+                      <strong className="text-zinc-300">Project instructions</strong> - This is the workspace CLAUDE.md
                       template written to each agent's working directory.
                     </p>
                     <p>

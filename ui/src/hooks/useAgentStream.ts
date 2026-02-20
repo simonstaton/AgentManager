@@ -72,7 +72,7 @@ function cleanupStream(
 
 export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
   const api = useApi();
-  // Mutable ref holds the actual events array — avoids creating new arrays on every SSE event.
+  // Mutable ref holds the actual events array - avoids creating new arrays on every SSE event.
   // React state holds only the count, which triggers re-renders.
   const eventsRef = useRef<StreamEvent[]>([]);
   const [_eventCount, setEventCount] = useState(0);
@@ -87,7 +87,7 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
   const agentIdRef = useRef(agentId);
   // Generation counter: incremented on every new stream (sendMessage, reconnect,
   // agent switch). Retry callbacks compare their captured generation to the
-  // current value — if they differ, another stream has taken over and the
+  // current value - if they differ, another stream has taken over and the
   // retry is a stale no-op. This closes the race window between cleanupStream
   // and the new stream where a queued setTimeout could fire in between.
   const generationRef = useRef(0);
@@ -141,7 +141,7 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
       setError(null);
 
       if (!incremental) {
-        // Full reconnect — clear existing events since the server replays full history
+        // Full reconnect - clear existing events since the server replays full history
         eventsRef.current = [];
         setEventCount(0);
         serverEventCountRef.current = 0;
@@ -180,7 +180,7 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
                 setEventCount((c) => c + 1);
               }
             } else {
-              // Agent switched — cancel the reader which propagates to the
+              // Agent switched - cancel the reader which propagates to the
               // underlying fetch body, closing the server-side SSE connection
               // and removing the listener from agentProc.listeners
               abort();
@@ -205,7 +205,7 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
               }
             }, delay);
           } else {
-            setError("Connection lost — click Reconnect to retry");
+            setError("Connection lost - click Reconnect to retry");
           }
         } finally {
           setIsStreaming(false);
@@ -251,7 +251,7 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
               setEventCount((c) => c + 1);
             }
           } else {
-            // Agent switched — abort the fetch to close the server-side SSE
+            // Agent switched - abort the fetch to close the server-side SSE
             // connection and free the listener from agentProc.listeners
             abort();
             reader.cancel();
@@ -282,7 +282,7 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
       generationRef.current++;
       retryCountRef.current = 0;
 
-      // Don't inject a synthetic user_prompt — the server now persists one,
+      // Don't inject a synthetic user_prompt - the server now persists one,
       // and the message stream will deliver it. Injecting here would create
       // a duplicate if the user later reconnects.
       // Instead, we rely on the server-side user_prompt event.
@@ -316,7 +316,7 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
     setEventCount((c) => c + 1);
   }, []);
 
-  // Cleanup on unmount — abort all active streams and timers
+  // Cleanup on unmount - abort all active streams and timers
   useEffect(() => {
     return () => {
       cleanupStream(abortRef, retryTimerRef);

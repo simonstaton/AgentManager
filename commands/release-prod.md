@@ -1,6 +1,6 @@
 # Release to Production
 
-Deploy the latest main branch to production by syncing the public repo and triggering the Cloud Run deploy pipeline. **This is a destructive action — always confirm with the user before proceeding.**
+Deploy the latest main branch to production by syncing the public repo and triggering the Cloud Run deploy pipeline. **This is a destructive action - always confirm with the user before proceeding.**
 
 ## Steps
 
@@ -33,7 +33,7 @@ git push origin main --force
 gh workflow run deploy.yml --repo simonstaton/ClaudeSwarm_PRIVATE --ref main
 ```
 
-4. **Monitor the deployment** — wait for the workflow to start and report its status:
+4. **Monitor the deployment** - wait for the workflow to start and report its status:
 
 ```bash
 # Wait a few seconds for the run to register, then check status

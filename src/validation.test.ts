@@ -168,7 +168,7 @@ describe("rateLimitMiddleware", () => {
     const user = { sub: "test-rate-limit-block" };
     const res = mockRes();
 
-    // Make 120 requests (the limit) — use unique IP to isolate from other tests
+    // Make 120 requests (the limit) - use unique IP to isolate from other tests
     for (let i = 0; i < 120; i++) {
       const mockNext = vi.fn();
       rateLimitMiddleware(mockReq({}, user, "/api/agents", "10.0.0.2"), mockRes(), mockNext);

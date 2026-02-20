@@ -192,7 +192,7 @@ export class Orchestrator {
     if (result.status === "completed") {
       const { success, unblockedTasks } = this.taskGraph.completeTask(result.taskId, task.version);
       if (!success) {
-        return { accepted: false, unblockedTasks: [], error: "Version conflict — task was modified concurrently" };
+        return { accepted: false, unblockedTasks: [], error: "Version conflict - task was modified concurrently" };
       }
 
       // Update agent capability stats

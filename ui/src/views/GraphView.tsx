@@ -28,7 +28,7 @@ function computeLayout(topology: SwarmTopology): LayoutNode[] {
   const { nodes, edges } = topology;
   if (nodes.length === 0) return [];
 
-  // Build adjacency: parent → children
+  // Build adjacency: parent -> children
   const children = new Map<string, string[]>();
   const hasParent = new Set<string>();
   for (const node of nodes) children.set(node.id, []);

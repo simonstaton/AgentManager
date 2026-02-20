@@ -16,7 +16,7 @@ The gap is documented in [README.md](README.md) lines 86-88.
 - Add `agentTeams?: boolean` to `CreateAgentRequest` in [src/types.ts](src/types.ts) and pass it through
 - Create a test agent with a prompt like "Create a team of 2 to research X" and observe whether Claude attempts to use team tools or says they're unavailable
 
-**If it works**: The tools fire, teammates spawn as child `claude` processes, communicate via filesystem. This is the cheapest path — skip to Phase 2 for discovery/UI. The output parsing in `attachProcessHandlers` already handles any JSON event type via the `[key: string]: unknown` index signature on `StreamEvent`.
+**If it works**: The tools fire, teammates spawn as child `claude` processes, communicate via filesystem. This is the cheapest path - skip to Phase 2 for discovery/UI. The output parsing in `attachProcessHandlers` already handles any JSON event type via the `[key: string]: unknown` index signature on `StreamEvent`.
 
 **If it doesn't work**: Proceed to Phase 1.
 
@@ -40,7 +40,7 @@ args.push("--teammate-mode", "in-process");
 // Prompt sent via stdin after spawn
 ```
 
-Also add `--output-format stream-json` to both paths (it's already there for `--print`; verify it works in interactive mode — if not, we'll need to parse raw output, see 1c).
+Also add `--output-format stream-json` to both paths (it's already there for `--print`; verify it works in interactive mode - if not, we'll need to parse raw output, see 1c).
 
 ### 1b. stdin piping
 
@@ -52,18 +52,18 @@ Change stdio from `["ignore", "pipe", "pipe"]` to `["pipe", "pipe", "pipe"]` for
 proc.stdin.write(opts.prompt + "\n");
 ```
 
-**Follow-up messages** (`message()` method, line 314): Instead of kill-and-respawn with `--resume`, write to the existing process's stdin. This is a fundamental change to the message lifecycle — the process stays alive between turns:
+**Follow-up messages** (`message()` method, line 314): Instead of kill-and-respawn with `--resume`, write to the existing process's stdin. This is a fundamental change to the message lifecycle - the process stays alive between turns:
 
 - Remove the `killAndWait` + re-spawn logic for team mode agents
 - Write the new prompt to `proc.stdin` directly
-- Detect "turn complete" / "waiting for input" state from stream events (look for a `system` event with `subtype: "idle"` or similar — needs verification)
+- Detect "turn complete" / "waiting for input" state from stream events (look for a `system` event with `subtype: "idle"` or similar - needs verification)
 
 ### 1c. Output parsing fallback
 
 If `--output-format stream-json` does NOT work without `--print`, interactive mode outputs ANSI-formatted terminal text. Options:
 
 - **Option A (preferred)**: Use a pseudo-TTY (node-pty) to satisfy Claude's TTY detection, but still parse stdout. This may allow `--output-format stream-json` to work.
-- **Option B**: Parse the interactive output. Strip ANSI codes, detect tool use blocks by pattern matching. Fragile — avoid if possible.
+- **Option B**: Parse the interactive output. Strip ANSI codes, detect tool use blocks by pattern matching. Fragile - avoid if possible.
 - **Option C**: Run a thin wrapper script that sets up a PTY and pipes structured output back to the platform.
 
 ### 1d. Environment changes
@@ -139,8 +139,8 @@ export interface Teammate {
 
 In [src/routes/agents.ts](src/routes/agents.ts), add:
 
-- `GET /api/agents/:id/teammates` — list discovered teammates for a team lead agent
-- `GET /api/agents/:id/team-tasks` — list the shared task list for a team
+- `GET /api/agents/:id/teammates` - list discovered teammates for a team lead agent
+- `GET /api/agents/:id/team-tasks` - list the shared task list for a team
 
 ### 2d. UI changes
 

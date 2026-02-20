@@ -31,7 +31,7 @@ export function createConfigRouter() {
     });
   });
 
-  // Switch API key — supports both OpenRouter (sk-or-) and direct Anthropic (sk-ant-)
+  // Switch API key - supports both OpenRouter (sk-or-) and direct Anthropic (sk-ant-)
   router.put("/api/settings/anthropic-key", (req: Request, res: Response) => {
     // biome-ignore lint/suspicious/noExplicitAny: Express Request augmentation for auth
     const user = (req as any).user;
