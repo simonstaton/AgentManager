@@ -159,7 +159,7 @@ export function validateMessage(req: Request, res: Response, next: NextFunction)
 }
 
 /** Validate PATCH /api/agents/:id request.
- *  Enforces whitelist of allowed fields (role, currentTask, name) to prevent prompt injection.
+ *  Enforces whitelist of allowed fields (role, currentTask, name, dangerouslySkipPermissions) to prevent prompt injection.
  *  Rejects any fields not in the whitelist and enforces max lengths on string fields.
  */
 export function validatePatchAgent(req: Request, res: Response, next: NextFunction): void {
@@ -170,6 +170,7 @@ export function validatePatchAgent(req: Request, res: Response, next: NextFuncti
     role: 100,
     currentTask: 1000,
     name: 100,
+    dangerouslySkipPermissions: null, // boolean, no max length
   };
 
   // Extract only allowed fields from the request body
@@ -221,6 +222,15 @@ export function validatePatchAgent(req: Request, res: Response, next: NextFuncti
       return;
     }
     sanitized.name = sanitizeAgentName(body.name);
+  }
+
+  // Validate dangerouslySkipPermissions if provided
+  if (body.dangerouslySkipPermissions !== undefined) {
+    if (typeof body.dangerouslySkipPermissions !== "boolean") {
+      res.status(400).json({ error: "dangerouslySkipPermissions must be a boolean" });
+      return;
+    }
+    sanitized.dangerouslySkipPermissions = body.dangerouslySkipPermissions;
   }
 
   // Replace request body with sanitized data

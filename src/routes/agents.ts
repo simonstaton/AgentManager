@@ -270,7 +270,7 @@ export function createAgentsRouter(
     }
   });
 
-  // Update agent metadata (role, currentTask, name)
+  // Update agent metadata (role, currentTask, name, dangerouslySkipPermissions)
   // Input validation middleware enforces whitelist and sanitization (issue #62)
   router.patch("/api/agents/:id", validatePatchAgent, (req: Request, res: Response) => {
     const id = param(req.params.id);
@@ -280,7 +280,7 @@ export function createAgentsRouter(
       return;
     }
 
-    const { role, currentTask, name } = req.body ?? {};
+    const { role, currentTask, name, dangerouslySkipPermissions } = req.body ?? {};
 
     if (role !== undefined) {
       agent.role = role;
@@ -290,6 +290,9 @@ export function createAgentsRouter(
     }
     if (name !== undefined) {
       agent.name = name;
+    }
+    if (dangerouslySkipPermissions !== undefined) {
+      agent.dangerouslySkipPermissions = dangerouslySkipPermissions || undefined;
     }
 
     agentManager.touch(id);

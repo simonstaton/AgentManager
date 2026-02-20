@@ -32,6 +32,7 @@ export function AgentView({ agentId }: { agentId: string }) {
   const [stopError, setStopError] = useState<string | null>(null);
   const [isPausing, setIsPausing] = useState(false);
   const [isResuming, setIsResuming] = useState(false);
+  const [isTogglingPerms, setIsTogglingPerms] = useState(false);
   const { events, isStreaming, error, sendMessage, reconnect, clearEvents, injectEvent } = useAgentStream(id || null);
   const killSwitch = useKillSwitchContext();
   const { toast } = useToast();
@@ -129,6 +130,22 @@ export function AgentView({ agentId }: { agentId: string }) {
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : "Failed to stop agent", "error");
       setIsStopping(false);
+    }
+  };
+
+  const handleToggleSkipPermissions = async () => {
+    if (!id || !agent || isTogglingPerms) return;
+    const next = !agent.dangerouslySkipPermissions;
+    setIsTogglingPerms(true);
+    setAgent((prev) => (prev ? { ...prev, dangerouslySkipPermissions: next } : prev));
+    try {
+      const updated = await api.patchAgent(id, { dangerouslySkipPermissions: next });
+      setAgent(updated);
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : "Failed to update permissions", "error");
+      setAgent((prev) => (prev ? { ...prev, dangerouslySkipPermissions: !next } : prev));
+    } finally {
+      setIsTogglingPerms(false);
     }
   };
 
@@ -286,6 +303,21 @@ export function AgentView({ agentId }: { agentId: string }) {
                 <span className="text-xs text-red-400 mr-1" role="alert">
                   {stopError}
                 </span>
+              )}
+              {agent && (
+                <label
+                  className="flex items-center gap-1.5 cursor-pointer select-none"
+                  title="Toggle --dangerously-skip-permissions for the next message (takes effect on next Claude process spawn)"
+                >
+                  <input
+                    type="checkbox"
+                    checked={agent.dangerouslySkipPermissions === true}
+                    onChange={handleToggleSkipPermissions}
+                    disabled={isTogglingPerms}
+                    className="w-3 h-3 accent-amber-500"
+                  />
+                  <span className="text-[10px] text-zinc-400 whitespace-nowrap">Skip permissions</span>
+                </label>
               )}
               <Button
                 variant="tertiary"

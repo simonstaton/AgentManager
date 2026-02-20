@@ -202,6 +202,19 @@ export function createApi(authFetch: AuthFetch) {
       return res.json();
     },
 
+    async patchAgent(
+      id: string,
+      patch: { dangerouslySkipPermissions?: boolean; role?: string; currentTask?: string; name?: string },
+    ): Promise<Agent> {
+      const res = await authFetch(`/api/agents/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error("Failed to update agent");
+      return res.json();
+    },
+
     createAgentStream(opts: {
       prompt: string;
       name?: string;
