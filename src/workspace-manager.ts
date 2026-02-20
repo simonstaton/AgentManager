@@ -1,0 +1,299 @@
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import path from "node:path";
+import { generateServiceToken } from "./auth";
+import { generateWorkspaceClaudeMd } from "./templates/workspace-claude-md";
+import type { Agent, PromptAttachment } from "./types";
+import { errorMessage } from "./types";
+import { getContextDir } from "./utils/context";
+import { scanCommands, walkMdFiles } from "./utils/files";
+
+const AGENT_TOKEN_FILENAME = ".agent-token";
+
+/** Build a shared-context index with summaries from file content. */
+function buildSharedContextIndex(sharedContextDir: string): string {
+  const files = walkMdFiles(sharedContextDir);
+  const entries: string[] = [];
+
+  for (const relPath of files) {
+    const absPath = path.join(sharedContextDir, relPath);
+    let content: string;
+    let sizeKb: number;
+    try {
+      content = readFileSync(absPath, "utf-8");
+      const stats = statSync(absPath);
+      sizeKb = Math.ceil(stats.size / 1024);
+    } catch {
+      continue;
+    }
+
+    // Check for explicit <!-- summary: ... --> tag
+    const summaryMatch = content.match(/<!--\s*summary:\s*(.+?)\s*-->/);
+    let summary: string;
+
+    if (summaryMatch) {
+      summary = summaryMatch[1].trim();
+    } else {
+      // Fallback: first heading + first content line
+      const lines = content
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+      const heading = lines.find((l) => l.startsWith("#"))?.replace(/^#+\s*/, "") || "";
+      const firstLine = lines.find((l) => !l.startsWith("#") && !l.startsWith("<!--")) || "";
+      summary = heading && firstLine ? `${heading} — ${firstLine}`.substring(0, 120) : heading || relPath;
+    }
+
+    entries.push(`- **${relPath}** (${sizeKb}KB): ${summary}`);
+  }
+
+  // Sort: working-memory first, then guides/ last, then alphabetical
+  entries.sort((a, b) => {
+    const aWm = a.includes("working-memory");
+    const bWm = b.includes("working-memory");
+    const aGuide = a.includes("guides/");
+    const bGuide = b.includes("guides/");
+    if (aWm && !bWm) return -1;
+    if (!aWm && bWm) return 1;
+    if (aGuide && !bGuide) return 1;
+    if (!aGuide && bGuide) return -1;
+    return a.localeCompare(b);
+  });
+
+  return entries.join("\n");
+}
+
+/** Provides agent list for workspace CLAUDE.md generation. */
+export interface AgentListProvider {
+  list(): Agent[];
+}
+
+export class WorkspaceManager {
+  private agentListProvider: AgentListProvider | null = null;
+
+  /** Set the provider used to list agents for workspace CLAUDE.md generation.
+   *  Called by AgentManager after construction to break the circular dependency. */
+  setAgentListProvider(provider: AgentListProvider): void {
+    this.agentListProvider = provider;
+  }
+
+  /** Ensure workspace directory exists with symlinks and CLAUDE.md. */
+  ensureWorkspace(workspaceDir: string, agentName: string, agentId?: string): void {
+    mkdirSync(workspaceDir, { recursive: true });
+
+    // Symlink shared context into workspace
+    mkdirSync(getContextDir(), { recursive: true });
+    const contextTarget = path.join(workspaceDir, "shared-context");
+    if (!existsSync(contextTarget)) {
+      symlinkSync(path.resolve(getContextDir()), contextTarget);
+    }
+
+    // Symlink persistent repos into workspace (if available)
+    const persistentRepos = "/persistent/repos";
+    if (existsSync(persistentRepos)) {
+      const reposTarget = path.join(workspaceDir, "repos");
+      if (!existsSync(reposTarget)) {
+        symlinkSync(persistentRepos, reposTarget);
+      }
+    }
+
+    // Seed initial working memory file so the agent (and other agents) can
+    // see it immediately — agents are instructed to keep it updated.
+    const wmPath = path.join(getContextDir(), `working-memory-${agentName}.md`);
+    if (!existsSync(wmPath)) {
+      const timestamp = new Date().toISOString().replace("T", " ").slice(0, 19);
+      writeFileSync(
+        wmPath,
+        `<!-- summary: Working memory for ${agentName} -->\n# Working Memory — ${agentName}\n\n## Current Task\nStarting up — reading instructions\n\n## Status\nactive\n\n## Context\n- Agent just spawned\n\n## Recent Actions\n- ${timestamp} — Agent created, workspace initialized\n\n## Next Steps\n- Read CLAUDE.md and shared context\n- Begin assigned task\n`,
+      );
+    }
+
+    // Write workspace CLAUDE.md so agents know about shared context and working memory
+    this.writeWorkspaceClaudeMd(workspaceDir, agentName, agentId);
+
+    // Write fresh auth token file — agents read this before each API call
+    this.writeAgentTokenFile(workspaceDir, agentId);
+  }
+
+  writeWorkspaceClaudeMd(workspaceDir: string, agentName: string, agentId?: string): void {
+    // Build shared-context index with summaries
+    const sharedContextPath = path.join(workspaceDir, "shared-context");
+    const contextIndex = buildSharedContextIndex(sharedContextPath);
+
+    // Build repo list if persistent storage is available
+    const persistentRepos = "/persistent/repos";
+    let repoList: string[] = [];
+    if (existsSync(persistentRepos)) {
+      try {
+        repoList = readdirSync(persistentRepos).filter((f) => f.endsWith(".git"));
+      } catch (err) {
+        console.warn("[workspace] Failed to list persistent repos:", errorMessage(err));
+      }
+    }
+
+    // List existing skills/commands
+    const commandsDir = path.join(
+      process.env.CLAUDE_HOME || path.join(process.env.HOME || "/home/agent", ".claude"),
+      "commands",
+    );
+    let skillFiles: string[] = [];
+    if (existsSync(commandsDir)) {
+      try {
+        skillFiles = scanCommands(commandsDir);
+      } catch (err) {
+        console.warn("[workspace] Failed to scan skills/commands:", errorMessage(err));
+      }
+    }
+
+    const skillsList = skillFiles.length > 0 ? skillFiles.map((f) => `- \`${f}\``).join("\n") : "(none yet)";
+
+    // Gather agent list (no currentTask — CRIT-1 fix)
+    const PORT = process.env.PORT ?? "8080";
+    const otherAgents = this.agentListProvider
+      ? this.agentListProvider
+          .list()
+          .filter((a) => a.id !== agentId)
+          .map((a) => ({
+            name: a.name,
+            id: a.id,
+            role: a.role,
+            status: a.status,
+          }))
+      : [];
+
+    const claudeMd = generateWorkspaceClaudeMd({
+      agentName,
+      agentId: agentId || "unknown",
+      workspaceDir,
+      port: PORT,
+      otherAgents,
+      contextIndex,
+      repoList,
+      skillsList,
+    });
+
+    writeFileSync(path.join(workspaceDir, "CLAUDE.md"), claudeMd);
+  }
+
+  /** Write a fresh auth token to the agent's workspace for file-based token reading.
+   *  Agents read this via $(cat .agent-token) in curl commands, ensuring they always
+   *  use the latest token even after periodic refresh. Uses atomic write-then-rename
+   *  to prevent agents from reading a partially-written file. */
+  writeAgentTokenFile(workspaceDir: string, agentId?: string): void {
+    const tokenPath = path.join(workspaceDir, AGENT_TOKEN_FILENAME);
+    const tmpPath = `${tokenPath}.tmp.${process.pid}`;
+    writeFileSync(tmpPath, generateServiceToken(agentId), { mode: 0o600 });
+    renameSync(tmpPath, tokenPath);
+  }
+
+  /** Refresh auth token files for all active agents. Called periodically (every 60 min)
+   *  to ensure tokens never expire (4h TTL). Bails out when kill switch is active. */
+  refreshAllAgentTokens(agents: Map<string, { agent: Agent }>, killed: boolean): void {
+    if (killed) return;
+    let refreshed = 0;
+    for (const [id, agentProc] of agents) {
+      try {
+        this.writeAgentTokenFile(agentProc.agent.workspaceDir, id);
+        refreshed++;
+      } catch (err: unknown) {
+        console.warn(`[workspace] Failed to refresh token for ${id.slice(0, 8)}:`, errorMessage(err));
+      }
+    }
+    if (refreshed > 0) {
+      console.log(`[workspace] Refreshed auth tokens for ${refreshed} agent(s)`);
+    }
+  }
+
+  /** Save attachments to the agent workspace and return a prompt suffix referencing them. */
+  saveAttachments(workspaceDir: string, attachments: PromptAttachment[]): string {
+    if (attachments.length === 0) return "";
+
+    const attachDir = path.join(workspaceDir, ".attachments");
+    mkdirSync(attachDir, { recursive: true });
+
+    const refs: string[] = [];
+    const timestamp = Date.now();
+
+    for (let i = 0; i < attachments.length; i++) {
+      const att = attachments[i];
+      const safeName = att.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const filename = `${timestamp}-${i}-${safeName}`;
+      const filePath = path.join(attachDir, filename);
+
+      if (att.type === "image" && att.data.startsWith("data:")) {
+        // Strip data URL prefix and decode base64
+        const base64 = att.data.replace(/^data:[^;]+;base64,/, "");
+        writeFileSync(filePath, Buffer.from(base64, "base64"));
+        refs.push(`[Attached image: ${att.name}] — saved to ${filePath} (use the Read tool to view it)`);
+      } else if (att.type === "file") {
+        writeFileSync(filePath, att.data, "utf-8");
+        refs.push(`[Attached file: ${att.name}] — saved to ${filePath} (use the Read tool to view it)`);
+      }
+    }
+
+    return refs.length > 0 ? `\n\n${refs.join("\n")}` : "";
+  }
+
+  buildEnv(agentId?: string): NodeJS.ProcessEnv {
+    // Layer 0: Allowlist approach — only forward env vars agents actually need.
+    const ALLOWED_ENV_KEYS = [
+      // Anthropic API access (needed for Claude CLI)
+      "ANTHROPIC_API_KEY",
+      "ANTHROPIC_AUTH_TOKEN",
+      "ANTHROPIC_BASE_URL",
+      // GitHub CLI and git operations
+      "GH_TOKEN",
+      "GITHUB_TOKEN",
+      "GIT_AUTHOR_NAME",
+      "GIT_AUTHOR_EMAIL",
+      "GIT_COMMITTER_NAME",
+      "GIT_COMMITTER_EMAIL",
+      // MCP integration tokens
+      "LINEAR_API_KEY",
+      "FIGMA_TOKEN",
+      "SLACK_TOKEN",
+      "NOTION_API_KEY",
+      "GOOGLE_CREDENTIALS",
+      // Runtime essentials
+      "HOME",
+      "USER",
+      "PATH",
+      "LANG",
+      "LC_ALL",
+      "TERM",
+      "TMPDIR",
+      "TZ",
+      "NODE_ENV",
+      "PORT",
+      // Claude Code config
+      "CLAUDE_HOME",
+      // Shared context
+      "SHARED_CONTEXT_DIR",
+      // npm cache (persistent across sessions)
+      "npm_config_cache",
+    ];
+
+    const env: NodeJS.ProcessEnv = {
+      SHELL: "/bin/sh",
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+      AGENT_AUTH_TOKEN: generateServiceToken(agentId),
+      ...(existsSync("/persistent/npm-cache") && { npm_config_cache: "/persistent/npm-cache" }),
+    };
+
+    for (const key of ALLOWED_ENV_KEYS) {
+      if (process.env[key] !== undefined) {
+        env[key] = process.env[key];
+      }
+    }
+
+    return env;
+  }
+}

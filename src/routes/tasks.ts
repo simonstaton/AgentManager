@@ -27,7 +27,7 @@ const MAX_QUERY_LIMIT = 250;
 function parseLimit(raw: string | undefined, defaultLimit?: number): number | undefined {
   if (!raw && defaultLimit === undefined) return undefined;
   if (!raw) return defaultLimit;
-  const parsed = parseInt(raw, 10);
+  const parsed = Number.parseInt(raw, 10);
   if (Number.isNaN(parsed)) return defaultLimit;
   return Math.min(Math.max(parsed, 1), MAX_QUERY_LIMIT);
 }

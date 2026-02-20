@@ -67,7 +67,7 @@ export function createCostRouter(agentManager: AgentManager, costTracker?: CostT
       res.json({ records: [], summary: { allTimeCost: 0, allTimeTokensIn: 0, allTimeTokensOut: 0, totalRecords: 0 } });
       return;
     }
-    const limit = Math.min(parseInt(req.query.limit as string, 10) || 500, 1000);
+    const limit = Math.min(Number.parseInt(req.query.limit as string, 10) || 500, 1000);
     const records = costTracker.getAll(limit);
     const summary = costTracker.getSummary();
     res.json({ records, summary });

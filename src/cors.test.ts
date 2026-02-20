@@ -67,14 +67,14 @@ describe("corsMiddleware", () => {
   const originalEnv = process.env.CORS_ORIGINS;
 
   beforeEach(() => {
-    delete process.env.CORS_ORIGINS;
+    process.env.CORS_ORIGINS = undefined;
   });
 
   afterEach(() => {
     if (originalEnv !== undefined) {
       process.env.CORS_ORIGINS = originalEnv;
     } else {
-      delete process.env.CORS_ORIGINS;
+      process.env.CORS_ORIGINS = undefined;
     }
   });
 

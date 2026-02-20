@@ -89,7 +89,7 @@ describe("TaskGraph", () => {
 
       const retrieved = tg.getTask(task.id);
       expect(retrieved).not.toBeNull();
-      expect(retrieved!.dependsOn).toEqual([dep.id]);
+      expect(retrieved?.dependsOn).toEqual([dep.id]);
     });
   });
 
@@ -196,9 +196,9 @@ describe("TaskGraph", () => {
       expect(result).toBe(true);
 
       const updated = tg.getTask(task.id);
-      expect(updated!.status).toBe("assigned");
-      expect(updated!.ownerAgentId).toBe("agent-1");
-      expect(updated!.version).toBe(task.version + 1);
+      expect(updated?.status).toBe("assigned");
+      expect(updated?.ownerAgentId).toBe("agent-1");
+      expect(updated?.version).toBe(task.version + 1);
     });
 
     it("fails with wrong version (optimistic lock)", () => {
@@ -253,7 +253,7 @@ describe("TaskGraph", () => {
       const dep = tg.createTask({ title: "Dependency" });
       const blocked = tg.createTask({ title: "Blocked", dependsOn: [dep.id] });
 
-      expect(tg.getTask(blocked.id)!.status).toBe("blocked");
+      expect(tg.getTask(blocked.id)?.status).toBe("blocked");
 
       // Complete the dependency
       tg.assignTask(dep.id, "agent-1", dep.version);
@@ -265,7 +265,7 @@ describe("TaskGraph", () => {
       expect(success).toBe(true);
       expect(unblockedTasks).toHaveLength(1);
       expect(unblockedTasks[0].id).toBe(blocked.id);
-      expect(tg.getTask(blocked.id)!.status).toBe("pending");
+      expect(tg.getTask(blocked.id)?.status).toBe("pending");
     });
 
     it("does not unblock if other dependencies remain incomplete", () => {
@@ -273,7 +273,7 @@ describe("TaskGraph", () => {
       const dep2 = tg.createTask({ title: "Dep 2" });
       const blocked = tg.createTask({ title: "Blocked", dependsOn: [dep1.id, dep2.id] });
 
-      expect(tg.getTask(blocked.id)!.status).toBe("blocked");
+      expect(tg.getTask(blocked.id)?.status).toBe("blocked");
 
       // Complete only dep1
       tg.assignTask(dep1.id, "agent-1", dep1.version);
@@ -283,7 +283,7 @@ describe("TaskGraph", () => {
       const { unblockedTasks } = tg.completeTask(dep1.id, running.version);
 
       expect(unblockedTasks).toHaveLength(0);
-      expect(tg.getTask(blocked.id)!.status).toBe("blocked");
+      expect(tg.getTask(blocked.id)?.status).toBe("blocked");
     });
   });
 
@@ -417,9 +417,9 @@ describe("TaskGraph", () => {
       const c = tg.createTask({ title: "C", dependsOn: [a.id] });
       const d = tg.createTask({ title: "D", dependsOn: [b.id, c.id] });
 
-      expect(tg.getTask(b.id)!.status).toBe("blocked");
-      expect(tg.getTask(c.id)!.status).toBe("blocked");
-      expect(tg.getTask(d.id)!.status).toBe("blocked");
+      expect(tg.getTask(b.id)?.status).toBe("blocked");
+      expect(tg.getTask(c.id)?.status).toBe("blocked");
+      expect(tg.getTask(d.id)?.status).toBe("blocked");
 
       // Complete A -> unblocks B and C
       tg.assignTask(a.id, "agent-1", a.version);
@@ -428,7 +428,7 @@ describe("TaskGraph", () => {
       const a2 = tg.getTask(a.id)!;
       const { unblockedTasks: afterA } = tg.completeTask(a.id, a2.version);
       expect(afterA.map((t) => t.title).sort()).toEqual(["B", "C"]);
-      expect(tg.getTask(d.id)!.status).toBe("blocked"); // D still blocked
+      expect(tg.getTask(d.id)?.status).toBe("blocked"); // D still blocked
 
       // Complete B -> D still blocked (C not done)
       const bFresh = tg.getTask(b.id)!;
@@ -438,7 +438,7 @@ describe("TaskGraph", () => {
       const b2 = tg.getTask(b.id)!;
       const { unblockedTasks: afterB } = tg.completeTask(b.id, b2.version);
       expect(afterB).toHaveLength(0);
-      expect(tg.getTask(d.id)!.status).toBe("blocked");
+      expect(tg.getTask(d.id)?.status).toBe("blocked");
 
       // Complete C -> D unblocked
       const cFresh = tg.getTask(c.id)!;
@@ -449,7 +449,7 @@ describe("TaskGraph", () => {
       const { unblockedTasks: afterC } = tg.completeTask(c.id, c2.version);
       expect(afterC).toHaveLength(1);
       expect(afterC[0].id).toBe(d.id);
-      expect(tg.getTask(d.id)!.status).toBe("pending");
+      expect(tg.getTask(d.id)?.status).toBe("pending");
     });
   });
 
@@ -461,7 +461,7 @@ describe("TaskGraph", () => {
 
       const next = tg.getNextTask();
       expect(next).not.toBeNull();
-      expect(next!.title).toBe("High Priority");
+      expect(next?.title).toBe("High Priority");
     });
 
     it("prefers tasks matching agent capabilities", () => {
@@ -471,7 +471,7 @@ describe("TaskGraph", () => {
 
       const next = tg.getNextTask(["testing"]);
       expect(next).not.toBeNull();
-      expect(next!.title).toBe("Needs Testing");
+      expect(next?.title).toBe("Needs Testing");
     });
 
     it("returns null when no tasks available", () => {
@@ -492,7 +492,7 @@ describe("TaskGraph", () => {
 
       const profile = tg.getCapabilityProfile("agent-1");
       expect(profile).not.toBeNull();
-      expect(profile!.capabilities).toEqual({ "code-review": 0.8, testing: 0.6 });
+      expect(profile?.capabilities).toEqual({ "code-review": 0.8, testing: 0.6 });
     });
 
     it("records task outcomes and updates success rate", () => {
@@ -567,9 +567,9 @@ describe("TaskGraph", () => {
       const count = tg.cleanupForAgent("agent-1");
       expect(count).toBe(2);
 
-      expect(tg.getTask(t1.id)!.status).toBe("pending");
-      expect(tg.getTask(t1.id)!.ownerAgentId).toBeNull();
-      expect(tg.getTask(t2.id)!.status).toBe("pending");
+      expect(tg.getTask(t1.id)?.status).toBe("pending");
+      expect(tg.getTask(t1.id)?.ownerAgentId).toBeNull();
+      expect(tg.getTask(t2.id)?.status).toBe("pending");
     });
   });
 

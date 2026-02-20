@@ -111,6 +111,10 @@ export interface AgentProcess {
   listenerBatch: StreamEvent[];
   /** WI-4: Consecutive stall detection count — escalates to error after threshold. */
   stallCount: number;
+  /** Ring buffer of recent events for fast reconnect replay (avoids disk reads). */
+  eventBuffer: StreamEvent[];
+  /** Total number of events ever appended (used to compute ring buffer offset). */
+  eventBufferTotal: number;
 }
 
 export interface AuthPayload {

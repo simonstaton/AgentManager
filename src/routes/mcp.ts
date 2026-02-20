@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import express, { type Request, type Response } from "express";
 import {
+  MCP_SERVERS,
   exchangeCodeForToken,
   generateAuthUrl,
   getValidToken,
-  MCP_SERVERS,
   revokeToken,
   validateState,
 } from "../mcp-oauth-manager";
@@ -142,7 +142,7 @@ export function createMcpRouter() {
       const { code, state, error, error_description } = req.query;
 
       if (error) {
-        console.error(`[MCP-Routes] OAuth error:`, error, error_description);
+        console.error("[MCP-Routes] OAuth error:", error, error_description);
         const desc = typeof error_description === "string" ? `<p>${escapeHtml(error_description)}</p>` : "";
         res
           .status(400)

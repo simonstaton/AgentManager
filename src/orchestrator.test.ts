@@ -220,7 +220,7 @@ describe("Orchestrator", () => {
       });
 
       expect(outcome.accepted).toBe(true);
-      expect(tg.getTask(task.id)!.status).toBe("completed");
+      expect(tg.getTask(task.id)?.status).toBe("completed");
     });
 
     it("unblocks dependent tasks on success", () => {
@@ -245,7 +245,7 @@ describe("Orchestrator", () => {
       expect(outcome.unblockedTasks).toHaveLength(1);
       expect(outcome.unblockedTasks[0].id).toBe(blocked.id);
       // The orchestrator auto-assigns unblocked tasks, so status may be "assigned" or "pending"
-      expect(["pending", "assigned"]).toContain(tg.getTask(blocked.id)!.status);
+      expect(["pending", "assigned"]).toContain(tg.getTask(blocked.id)?.status);
     });
 
     it("handles failure and triggers retry", () => {
@@ -321,7 +321,7 @@ describe("Orchestrator", () => {
 
       const profile = tg.getCapabilityProfile("agent-1");
       expect(profile).not.toBeNull();
-      expect(profile!.totalCompleted).toBe(1);
+      expect(profile?.totalCompleted).toBe(1);
     });
   });
 

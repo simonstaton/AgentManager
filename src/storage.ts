@@ -1,4 +1,4 @@
-import { existsSync, type FSWatcher, mkdirSync, readdirSync, rmSync, statSync, watch, writeFileSync } from "node:fs";
+import { type FSWatcher, existsSync, mkdirSync, readdirSync, rmSync, statSync, watch, writeFileSync } from "node:fs";
 import fsPromises from "node:fs/promises";
 import path from "node:path";
 import { errorMessage } from "./types";
@@ -559,7 +559,7 @@ export function startPeriodicSync(): void {
         if (contextSyncTimeout) clearTimeout(contextSyncTimeout);
         contextSyncTimeout = setTimeout(async () => {
           try {
-            console.log(`[sync] Shared context changed, syncing to GCS...`);
+            console.log("[sync] Shared context changed, syncing to GCS...");
             await uploadDir(SHARED_CONTEXT_DIR, "shared-context/");
           } catch (err: unknown) {
             console.warn("Context watch sync failed:", errorMessage(err));

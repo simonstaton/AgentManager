@@ -51,8 +51,8 @@ export function createConfigRouter() {
       process.env.ANTHROPIC_BASE_URL = "https://openrouter.ai/api";
     } else {
       process.env.ANTHROPIC_API_KEY = key;
-      delete process.env.ANTHROPIC_AUTH_TOKEN;
-      delete process.env.ANTHROPIC_BASE_URL;
+      process.env.ANTHROPIC_AUTH_TOKEN = undefined;
+      process.env.ANTHROPIC_BASE_URL = undefined;
     }
     resetSanitizeCache();
     console.warn(

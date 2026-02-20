@@ -161,7 +161,7 @@ function isMemoryPressure(): boolean {
 // ── Instance keep-alive (prevents Cloud Run scale-to-zero while agents exist) ─
 // Uses localhost to guarantee the request hits this container directly,
 // avoiding issues with external URL routing through Cloud Run's load balancer.
-const KEEPALIVE_PORT = parseInt(process.env.PORT ?? "8080", 10);
+const KEEPALIVE_PORT = Number.parseInt(process.env.PORT ?? "8080", 10);
 let keepAliveInterval: ReturnType<typeof setInterval> | null = null;
 
 function startKeepAlive() {
@@ -270,7 +270,7 @@ messageBus.subscribe((msg) => {
 // How long to wait after an agent goes idle before delivering queued messages.
 // The delay lets the agent process fully exit before a new prompt is injected.
 // Configurable via DELIVERY_SETTLE_MS env var (default: 250ms).
-const DELIVERY_SETTLE_MS = parseInt(process.env.DELIVERY_SETTLE_MS ?? "250", 10);
+const DELIVERY_SETTLE_MS = Number.parseInt(process.env.DELIVERY_SETTLE_MS ?? "250", 10);
 
 // When an agent finishes and goes idle, check if there are unread messages
 // waiting for it and deliver the oldest one. This handles messages that arrived
@@ -377,8 +377,8 @@ function cleanupOrphanedProcesses(): void {
       const match = line.trim().match(/^(\d+)\s+(\d+)\s+(.+)$/);
       if (!match) continue;
       const [, pidStr, ppidStr, comm] = match;
-      const pid = parseInt(pidStr, 10);
-      const ppid = parseInt(ppidStr, 10);
+      const pid = Number.parseInt(pidStr, 10);
+      const ppid = Number.parseInt(ppidStr, 10);
       // Kill claude processes that are NOT children of the current server
       if (comm.trim() === "claude" && ppid !== myPid && pid !== myPid) {
         try {
@@ -445,7 +445,7 @@ function cleanupStaleWorkspaces(manager: AgentManager): void {
 }
 
 async function start() {
-  const PORT = parseInt(process.env.PORT ?? "8080", 10);
+  const PORT = Number.parseInt(process.env.PORT ?? "8080", 10);
 
   // Start listening IMMEDIATELY so the startup probe passes while we recover.
   // GCS sync and agent restoration happen in the background.

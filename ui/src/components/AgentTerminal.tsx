@@ -70,7 +70,7 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
           data={blocks}
           followOutput={followOutput}
           overscan={200}
-          initialTopMostItemIndex={999999}
+          initialTopMostItemIndex={blocks.length - 1}
           className="h-full"
           itemContent={renderBlock}
           components={virtuosoComponents}

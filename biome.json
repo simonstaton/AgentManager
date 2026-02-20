@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.0/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.3.0/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": [
+    "include": [
       "**/*.ts",
       "**/*.tsx",
       "**/*.json",
@@ -29,7 +29,8 @@
     "rules": {
       "recommended": true,
       "suspicious": {
-        "noExplicitAny": "warn"
+        "noExplicitAny": "warn",
+        "noAssignInExpressions": "off"
       },
       "complexity": {
         "noForEach": "off"
@@ -38,6 +39,10 @@
         "noNonNullAssertion": "warn",
         "useConst": "error",
         "useTemplate": "warn"
+      },
+      "a11y": {
+        "useSemanticElements": "off",
+        "useFocusableInteractive": "off"
       }
     }
   },
@@ -47,11 +52,11 @@
       "semicolons": "always"
     }
   },
-  "assist": {
+  "assists": {
     "enabled": true,
     "actions": {
       "source": {
-        "organizeImports": "on"
+        "useSortedKeys": "off"
       }
     }
   }

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { access, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Agent, AgentStatus } from "./types";

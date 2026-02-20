@@ -318,7 +318,6 @@ export function GraphView() {
                   : (node.role ?? node.status);
 
                 return (
-                  // biome-ignore lint/a11y/useSemanticElements: SVG <g> cannot be replaced with HTML <button>
                   <g
                     key={node.id}
                     data-node="true"

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * Tests for the environment variable allowlist in AgentManager.buildEnv().
+ * Tests for the environment variable allowlist in WorkspaceManager.buildEnv().
  * Validates that only the intended env vars are forwarded to agent processes,
  * and server-only secrets are never leaked.
  */
@@ -61,9 +61,9 @@ describe("env allowlist", () => {
   });
 
   it("forwards all allowed environment variables", async () => {
-    const { AgentManager } = await import("../agents");
-    const manager = new AgentManager();
-    const env = (manager as unknown as { buildEnv: (id?: string) => NodeJS.ProcessEnv }).buildEnv("test-agent");
+    const { WorkspaceManager } = await import("../../src/workspace-manager");
+    const wm = new WorkspaceManager();
+    const env = wm.buildEnv("test-agent");
 
     for (const key of ALLOWED_KEYS) {
       expect(env[key]).toBe(`test-value-${key}`);
@@ -71,9 +71,9 @@ describe("env allowlist", () => {
   });
 
   it("excludes server-only secrets", async () => {
-    const { AgentManager } = await import("../agents");
-    const manager = new AgentManager();
-    const env = (manager as unknown as { buildEnv: (id?: string) => NodeJS.ProcessEnv }).buildEnv("test-agent");
+    const { WorkspaceManager } = await import("../../src/workspace-manager");
+    const wm = new WorkspaceManager();
+    const env = wm.buildEnv("test-agent");
 
     for (const key of SERVER_ONLY_KEYS) {
       expect(env[key]).toBeUndefined();
@@ -81,18 +81,18 @@ describe("env allowlist", () => {
   });
 
   it("always injects SHELL and CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", async () => {
-    const { AgentManager } = await import("../agents");
-    const manager = new AgentManager();
-    const env = (manager as unknown as { buildEnv: (id?: string) => NodeJS.ProcessEnv }).buildEnv("test-agent");
+    const { WorkspaceManager } = await import("../../src/workspace-manager");
+    const wm = new WorkspaceManager();
+    const env = wm.buildEnv("test-agent");
 
     expect(env.SHELL).toBe("/bin/sh");
     expect(env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC).toBe("1");
   });
 
   it("injects AGENT_AUTH_TOKEN for the agent", async () => {
-    const { AgentManager } = await import("../agents");
-    const manager = new AgentManager();
-    const env = (manager as unknown as { buildEnv: (id?: string) => NodeJS.ProcessEnv }).buildEnv("test-agent");
+    const { WorkspaceManager } = await import("../../src/workspace-manager");
+    const wm = new WorkspaceManager();
+    const env = wm.buildEnv("test-agent");
 
     expect(env.AGENT_AUTH_TOKEN).toBeDefined();
     expect(typeof env.AGENT_AUTH_TOKEN).toBe("string");
@@ -100,12 +100,12 @@ describe("env allowlist", () => {
   });
 
   it("skips allowed vars that are not set in process.env", async () => {
-    delete process.env.FIGMA_TOKEN;
-    delete process.env.LINEAR_API_KEY;
+    process.env.FIGMA_TOKEN = undefined;
+    process.env.LINEAR_API_KEY = undefined;
 
-    const { AgentManager } = await import("../agents");
-    const manager = new AgentManager();
-    const env = (manager as unknown as { buildEnv: (id?: string) => NodeJS.ProcessEnv }).buildEnv("test-agent");
+    const { WorkspaceManager } = await import("../../src/workspace-manager");
+    const wm = new WorkspaceManager();
+    const env = wm.buildEnv("test-agent");
 
     expect(env.FIGMA_TOKEN).toBeUndefined();
     expect(env.LINEAR_API_KEY).toBeUndefined();

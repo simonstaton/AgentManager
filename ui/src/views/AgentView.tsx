@@ -28,6 +28,8 @@ export function AgentView({ agentId }: { agentId: string }) {
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [stopError, setStopError] = useState<string | null>(null);
+  const [isPausing, setIsPausing] = useState(false);
+  const [isResuming, setIsResuming] = useState(false);
   const { events, isStreaming, error, sendMessage, reconnect, clearEvents, injectEvent } = useAgentStream(id || null);
   const killSwitch = useKillSwitchContext();
   const { toast } = useToast();
@@ -255,34 +257,49 @@ export function AgentView({ agentId }: { agentId: string }) {
               <Button variant="tertiary" size="24" onClick={reconnect}>
                 Reconnect
               </Button>
-              {agent && (agent.status === "running" || agent.status === "idle" || agent.status === "stalled") && (
+              {agent &&
+                (isPausing || agent.status === "running" || agent.status === "idle" || agent.status === "stalled") && (
+                  <Button
+                    variant="tertiary"
+                    size="24"
+                    disabled={isPausing}
+                    onClick={async () => {
+                      if (!id || isPausing) return;
+                      setIsPausing(true);
+                      setAgent((prev) => (prev ? { ...prev, status: "paused" } : prev));
+                      try {
+                        await api.pauseAgent(id);
+                      } catch (err: unknown) {
+                        toast(err instanceof Error ? err.message : "Pause failed", "error");
+                        setAgent((prev) => (prev ? { ...prev, status: "running" } : prev));
+                      } finally {
+                        setIsPausing(false);
+                      }
+                    }}
+                  >
+                    {isPausing ? "Pausing..." : "Pause"}
+                  </Button>
+                )}
+              {!isPausing && (agent?.status === "paused" || isResuming) && (
                 <Button
                   variant="tertiary"
                   size="24"
-                  onClick={() => {
-                    if (id) {
-                      api
-                        .pauseAgent(id)
-                        .catch((err) => toast(err instanceof Error ? err.message : "Pause failed", "error"));
+                  disabled={isResuming}
+                  onClick={async () => {
+                    if (!id || isResuming) return;
+                    setIsResuming(true);
+                    setAgent((prev) => (prev ? { ...prev, status: "running" } : prev));
+                    try {
+                      await api.resumeAgent(id);
+                    } catch (err: unknown) {
+                      toast(err instanceof Error ? err.message : "Resume failed", "error");
+                      setAgent((prev) => (prev ? { ...prev, status: "paused" } : prev));
+                    } finally {
+                      setIsResuming(false);
                     }
                   }}
                 >
-                  Pause
-                </Button>
-              )}
-              {agent?.status === "paused" && (
-                <Button
-                  variant="tertiary"
-                  size="24"
-                  onClick={() => {
-                    if (id) {
-                      api
-                        .resumeAgent(id)
-                        .catch((err) => toast(err instanceof Error ? err.message : "Resume failed", "error"));
-                    }
-                  }}
-                >
-                  Resume
+                  {isResuming ? "Resuming..." : "Resume"}
                 </Button>
               )}
               {canStop && (

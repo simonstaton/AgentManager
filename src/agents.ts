@@ -1,39 +1,28 @@
 import { execFileSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  renameSync,
-  statSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { createReadStream } from "node:fs";
 import { appendFile, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { generateServiceToken } from "./auth";
+import readline from "node:readline";
 import type { CostTracker } from "./cost-tracker";
 import {
   ALLOWED_MODELS,
   DEFAULT_MODEL,
-  MAX_AGENT_DEPTH,
   MAX_AGENTS,
+  MAX_AGENT_DEPTH,
   MAX_CHILDREN_PER_AGENT,
   SESSION_TTL_MS,
 } from "./guardrails";
 import { EVENTS_DIR, loadAllAgentStates, removeAgentState, saveAgentState, writeTombstone } from "./persistence";
 import { sanitizeEvent } from "./sanitize";
 import { cleanupAgentClaudeData, debouncedSyncToGCS } from "./storage";
-import { generateWorkspaceClaudeMd } from "./templates/workspace-claude-md";
 import type { Agent, AgentProcess, AgentUsage, CreateAgentRequest, PromptAttachment, StreamEvent } from "./types";
 import { errorMessage } from "./types";
 import { getContextDir } from "./utils/context";
-import { scanCommands, walkMdFiles } from "./utils/files";
+import { WorkspaceManager } from "./workspace-manager";
 import { cleanupWorktreesForWorkspace } from "./worktrees";
 
 const SHARED_CONTEXT_DIR = getContextDir();
-const AGENT_TOKEN_FILENAME = ".agent-token";
 
 /** Harmless stderr noise from Claude CLI startup that should not surface as errors. */
 const STDERR_NOISE_RE = /apiKeyHelper did not return a valid value|Error getting API key from apiKeyHelper/;
@@ -76,7 +65,7 @@ function cleanupAllProcesses(): void {
       const match = line.trim().match(/^(\d+)\s+(\d+)\s+(.+)$/);
       if (!match) continue;
       const [, pidStr] = match;
-      const pid = parseInt(pidStr, 10);
+      const pid = Number.parseInt(pidStr, 10);
       if (pid === 1 || pid === myPid) continue;
       try {
         process.kill(pid, "SIGKILL");
@@ -93,61 +82,9 @@ function cleanupAllProcesses(): void {
   }
 }
 
-/** Build a shared-context index with summaries from file content. */
-function buildSharedContextIndex(sharedContextDir: string): string {
-  const files = walkMdFiles(sharedContextDir);
-  const entries: string[] = [];
-
-  for (const relPath of files) {
-    const absPath = path.join(sharedContextDir, relPath);
-    let content: string;
-    let sizeKb: number;
-    try {
-      content = readFileSync(absPath, "utf-8");
-      const stats = statSync(absPath);
-      sizeKb = Math.ceil(stats.size / 1024);
-    } catch {
-      continue;
-    }
-
-    // Check for explicit <!-- summary: ... --> tag
-    const summaryMatch = content.match(/<!--\s*summary:\s*(.+?)\s*-->/);
-    let summary: string;
-
-    if (summaryMatch) {
-      summary = summaryMatch[1].trim();
-    } else {
-      // Fallback: first heading + first content line
-      const lines = content
-        .split("\n")
-        .map((l) => l.trim())
-        .filter(Boolean);
-      const heading = lines.find((l) => l.startsWith("#"))?.replace(/^#+\s*/, "") || "";
-      const firstLine = lines.find((l) => !l.startsWith("#") && !l.startsWith("<!--")) || "";
-      summary = heading && firstLine ? `${heading} — ${firstLine}`.substring(0, 120) : heading || relPath;
-    }
-
-    entries.push(`- **${relPath}** (${sizeKb}KB): ${summary}`);
-  }
-
-  // Sort: working-memory first, then guides/ last, then alphabetical
-  entries.sort((a, b) => {
-    const aWm = a.includes("working-memory");
-    const bWm = b.includes("working-memory");
-    const aGuide = a.includes("guides/");
-    const bGuide = b.includes("guides/");
-    if (aWm && !bWm) return -1;
-    if (!aWm && bWm) return 1;
-    if (aGuide && !bGuide) return 1;
-    if (!aGuide && bGuide) return -1;
-    return a.localeCompare(b);
-  });
-
-  return entries.join("\n");
-}
-
 const MAX_PERSISTED_EVENTS = 5_000;
 const EVENT_FILE_TRUNCATE_THRESHOLD = 10_000;
+const EVENT_RING_BUFFER_SIZE = 1_000;
 
 export class AgentManager {
   private agents = new Map<string, AgentProcess>();
@@ -169,9 +106,12 @@ export class AgentManager {
   killed = false;
   /** Optional persistent cost tracker (SQLite-backed). */
   private costTracker: CostTracker | null = null;
+  /** Workspace management (directories, symlinks, tokens, env). */
+  private workspace = new WorkspaceManager();
 
   constructor(opts?: { costTracker?: CostTracker }) {
     this.costTracker = opts?.costTracker ?? null;
+    this.workspace.setAgentListProvider(this);
     // Cleanup idle agents every 60s
     this.cleanupInterval = setInterval(() => this.cleanupExpired(), 60_000);
     // Periodic state flush every 30s (catches lastActivity updates without writing on every poll)
@@ -199,7 +139,7 @@ export class AgentManager {
       if (this.agents.has(agent.id)) continue;
 
       // Recreate workspace directory, symlinks, and token file after container restart
-      this.ensureWorkspace(agent.workspaceDir, agent.name, agent.id);
+      this.workspace.ensureWorkspace(agent.workspaceDir, agent.name, agent.id);
 
       agent.status = "restored";
       const agentProc: AgentProcess = {
@@ -213,6 +153,8 @@ export class AgentManager {
         persistTimer: null,
         listenerBatch: [],
         stallCount: 0,
+        eventBuffer: [],
+        eventBufferTotal: 0,
       };
       this.agents.set(agent.id, agentProc);
       console.log(`[restore] Restored agent ${agent.name} (${agent.id.slice(0, 8)})`);
@@ -270,7 +212,7 @@ export class AgentManager {
 
     const model = opts.model && ALLOWED_MODELS.includes(opts.model) ? opts.model : DEFAULT_MODEL;
     const workspaceDir = `/tmp/workspace-${id}`;
-    this.ensureWorkspace(workspaceDir, name, id);
+    this.workspace.ensureWorkspace(workspaceDir, name, id);
 
     const now = new Date().toISOString();
     const agent: Agent = {
@@ -289,12 +231,12 @@ export class AgentManager {
 
     let finalPrompt = opts.prompt;
     if (opts.attachments && opts.attachments.length > 0) {
-      const suffix = this.saveAttachments(workspaceDir, opts.attachments);
+      const suffix = this.workspace.saveAttachments(workspaceDir, opts.attachments);
       finalPrompt = opts.prompt + suffix;
     }
 
     const args = this.buildClaudeArgs({ ...opts, prompt: finalPrompt }, model);
-    const env = this.buildEnv(id);
+    const env = this.workspace.buildEnv(id);
 
     const proc = spawn("claude", args, {
       env,
@@ -314,6 +256,8 @@ export class AgentManager {
       persistTimer: null,
       listenerBatch: [],
       stallCount: 0,
+      eventBuffer: [],
+      eventBufferTotal: 0,
     };
 
     this.agents.set(id, agentProc);
@@ -390,7 +334,7 @@ export class AgentManager {
 
     const model = agentProc.agent.model;
     const args = this.buildClaudeArgs({ prompt, maxTurns, model }, model, resumeId);
-    const env = this.buildEnv(id);
+    const env = this.workspace.buildEnv(id);
 
     // Kill old process and await its exit before spawning new one.
     // This prevents event interleaving from the old process's close handler
@@ -405,7 +349,7 @@ export class AgentManager {
     this.handleEvent(id, { type: "user_prompt", text: prompt });
 
     // Ensure workspace exists (may have been lost after container restart for restored agents)
-    this.ensureWorkspace(agentProc.agent.workspaceDir, agentProc.agent.name, id);
+    this.workspace.ensureWorkspace(agentProc.agent.workspaceDir, agentProc.agent.name, id);
 
     // Chain the spawn behind the old process exit via lifecycle lock
     const prevLock = this.lifecycleLocks.get(id) ?? Promise.resolve();
@@ -867,11 +811,13 @@ export class AgentManager {
 
     // SIGKILL all tracked processes immediately
     for (const [id, agentProc] of this.agents) {
-      // Clear WI-1 batch timers
+      // Clear WI-1 batch timers and ring buffer
       if (agentProc.persistTimer) clearTimeout(agentProc.persistTimer);
       agentProc.persistTimer = null;
       agentProc.persistBatch = "";
       agentProc.listenerBatch = [];
+      agentProc.eventBuffer = [];
+      agentProc.eventBufferTotal = 0;
 
       const proc = agentProc.proc;
       if (proc) {
@@ -1147,6 +1093,15 @@ export class AgentManager {
     const sanitized = sanitizeEvent(event);
     agentProc.persistBatch += `${JSON.stringify(sanitized)}\n`;
 
+    // Append to in-memory ring buffer for fast reconnect replay.
+    // Uses modular overwrite once the buffer reaches EVENT_RING_BUFFER_SIZE.
+    if (agentProc.eventBuffer.length < EVENT_RING_BUFFER_SIZE) {
+      agentProc.eventBuffer.push(sanitized);
+    } else {
+      agentProc.eventBuffer[agentProc.eventBufferTotal % EVENT_RING_BUFFER_SIZE] = sanitized;
+    }
+    agentProc.eventBufferTotal++;
+
     // Batch listener notification: buffer events for 16ms (one frame) before
     // notifying SSE listeners, reducing the number of res.write() calls.
     agentProc.listenerBatch.push(event);
@@ -1215,22 +1170,64 @@ export class AgentManager {
     }
   }
 
+  /** Read the in-memory ring buffer in insertion order. */
+  private readEventBuffer(agentProc: AgentProcess): StreamEvent[] {
+    const { eventBuffer, eventBufferTotal } = agentProc;
+    const len = eventBuffer.length;
+    if (len === 0) return [];
+    // Buffer hasn't wrapped yet — return as-is
+    if (eventBufferTotal <= EVENT_RING_BUFFER_SIZE) return eventBuffer.slice();
+    // Buffer has wrapped — oldest entry is at (eventBufferTotal % len), read in order
+    const start = eventBufferTotal % len;
+    return [...eventBuffer.slice(start), ...eventBuffer.slice(0, start)];
+  }
+
+  /** Hybrid event reader: serves from in-memory ring buffer for hot reconnects,
+   *  falls back to streaming readline from disk for cold-start (restored) agents. */
   private async readPersistedEvents(id: string): Promise<StreamEvent[]> {
+    // Hot path: if the agent has events in its ring buffer, serve from memory
+    const agentProc = this.agents.get(id);
+    if (agentProc && agentProc.eventBufferTotal > 0) {
+      return this.readEventBuffer(agentProc);
+    }
+
+    // Cold path: stream from disk using readline (bounded memory)
     const filePath = path.join(EVENTS_DIR, `${id}.jsonl`);
     try {
-      const data = await readFile(filePath, "utf-8");
-      const lines = data.split("\n");
+      await stat(filePath);
+    } catch {
+      return [];
+    }
+
+    try {
       const events: StreamEvent[] = [];
-      const startIdx = Math.max(0, lines.length - MAX_PERSISTED_EVENTS);
-      for (let i = startIdx; i < lines.length; i++) {
-        const line = lines[i];
+      const rl = readline.createInterface({
+        input: createReadStream(filePath, { encoding: "utf-8" }),
+        crlfDelay: Number.POSITIVE_INFINITY,
+      });
+      for await (const line of rl) {
         if (!line.trim()) continue;
         try {
           events.push(JSON.parse(line) as StreamEvent);
-        } catch {}
+        } catch {
+          // Skip malformed lines
+        }
       }
+
+      // Trim to last MAX_PERSISTED_EVENTS in one pass (avoids O(n*k) per-line splice)
+      if (events.length > MAX_PERSISTED_EVENTS) {
+        events.splice(0, events.length - MAX_PERSISTED_EVENTS);
+      }
+
+      // Populate the ring buffer so subsequent reconnects are served from memory
+      if (agentProc) {
+        const bufferEvents = events.slice(-EVENT_RING_BUFFER_SIZE);
+        agentProc.eventBuffer = bufferEvents;
+        agentProc.eventBufferTotal = bufferEvents.length;
+      }
+
       return events;
-    } catch (err) {
+    } catch (err: unknown) {
       console.warn(`[agents] Failed to read persisted events for ${id.slice(0, 8)}:`, errorMessage(err));
       return [];
     }
@@ -1396,44 +1393,6 @@ export class AgentManager {
     }
   }
 
-  /** Ensure workspace directory exists with symlinks and CLAUDE.md. */
-  private ensureWorkspace(workspaceDir: string, agentName: string, agentId?: string): void {
-    mkdirSync(workspaceDir, { recursive: true });
-
-    // Symlink shared context into workspace
-    mkdirSync(SHARED_CONTEXT_DIR, { recursive: true });
-    const contextTarget = path.join(workspaceDir, "shared-context");
-    if (!existsSync(contextTarget)) {
-      symlinkSync(path.resolve(SHARED_CONTEXT_DIR), contextTarget);
-    }
-
-    // Symlink persistent repos into workspace (if available)
-    const persistentRepos = "/persistent/repos";
-    if (existsSync(persistentRepos)) {
-      const reposTarget = path.join(workspaceDir, "repos");
-      if (!existsSync(reposTarget)) {
-        symlinkSync(persistentRepos, reposTarget);
-      }
-    }
-
-    // Seed initial working memory file so the agent (and other agents) can
-    // see it immediately — agents are instructed to keep it updated.
-    const wmPath = path.join(SHARED_CONTEXT_DIR, `working-memory-${agentName}.md`);
-    if (!existsSync(wmPath)) {
-      const timestamp = new Date().toISOString().replace("T", " ").slice(0, 19);
-      writeFileSync(
-        wmPath,
-        `<!-- summary: Working memory for ${agentName} -->\n# Working Memory — ${agentName}\n\n## Current Task\nStarting up — reading instructions\n\n## Status\nactive\n\n## Context\n- Agent just spawned\n\n## Recent Actions\n- ${timestamp} — Agent created, workspace initialized\n\n## Next Steps\n- Read CLAUDE.md and shared context\n- Begin assigned task\n`,
-      );
-    }
-
-    // Write workspace CLAUDE.md so agents know about shared context and working memory
-    this.writeWorkspaceClaudeMd(workspaceDir, agentName, agentId);
-
-    // Write fresh auth token file — agents read this before each API call
-    this.writeAgentTokenFile(workspaceDir, agentId);
-  }
-
   private buildClaudeArgs(opts: CreateAgentRequest, model: string, resumeSessionId?: string): string[] {
     const args = [
       "--dangerously-skip-permissions",
@@ -1452,185 +1411,15 @@ export class AgentManager {
     return args;
   }
 
-  private writeWorkspaceClaudeMd(workspaceDir: string, agentName: string, agentId?: string): void {
-    // Build shared-context index with summaries
-    const sharedContextPath = path.join(workspaceDir, "shared-context");
-    const contextIndex = buildSharedContextIndex(sharedContextPath);
-
-    // Build repo list if persistent storage is available
-    const persistentRepos = "/persistent/repos";
-    let repoList: string[] = [];
-    if (existsSync(persistentRepos)) {
-      try {
-        repoList = readdirSync(persistentRepos).filter((f) => f.endsWith(".git"));
-      } catch (err) {
-        console.warn("[agents] Failed to list persistent repos:", errorMessage(err));
-      }
-    }
-
-    // List existing skills/commands
-    const commandsDir = path.join(
-      process.env.CLAUDE_HOME || path.join(process.env.HOME || "/home/agent", ".claude"),
-      "commands",
-    );
-    let skillFiles: string[] = [];
-    if (existsSync(commandsDir)) {
-      try {
-        skillFiles = scanCommands(commandsDir);
-      } catch (err) {
-        console.warn("[agents] Failed to scan skills/commands:", errorMessage(err));
-      }
-    }
-
-    const skillsList = skillFiles.length > 0 ? skillFiles.map((f) => `- \`${f}\``).join("\n") : "(none yet)";
-
-    // Gather agent list (no currentTask — CRIT-1 fix)
-    const PORT = process.env.PORT ?? "8080";
-    const otherAgents = this.list()
-      .filter((a) => a.id !== agentId)
-      .map((a) => ({
-        name: a.name,
-        id: a.id,
-        role: a.role,
-        status: a.status,
-      }));
-
-    const claudeMd = generateWorkspaceClaudeMd({
-      agentName,
-      agentId: agentId || "unknown",
-      workspaceDir,
-      port: PORT,
-      otherAgents,
-      contextIndex,
-      repoList,
-      skillsList,
-    });
-
-    writeFileSync(path.join(workspaceDir, "CLAUDE.md"), claudeMd);
-  }
-
-  /** Write a fresh auth token to the agent's workspace for file-based token reading.
-   *  Agents read this via $(cat .agent-token) in curl commands, ensuring they always
-   *  use the latest token even after periodic refresh. Uses atomic write-then-rename
-   *  to prevent agents from reading a partially-written file. */
-  private writeAgentTokenFile(workspaceDir: string, agentId?: string): void {
-    const tokenPath = path.join(workspaceDir, AGENT_TOKEN_FILENAME);
-    const tmpPath = `${tokenPath}.tmp.${process.pid}`;
-    writeFileSync(tmpPath, generateServiceToken(agentId), { mode: 0o600 });
-    renameSync(tmpPath, tokenPath);
+  /** Save attachments to the agent workspace and return a prompt suffix referencing them.
+   *  Delegates to WorkspaceManager. */
+  saveAttachments(workspaceDir: string, attachments: PromptAttachment[]): string {
+    return this.workspace.saveAttachments(workspaceDir, attachments);
   }
 
   /** Refresh auth token files for all active agents. Called periodically (every 60 min)
-   *  to ensure tokens never expire (4h TTL). Bails out when kill switch is active. */
+   *  to ensure tokens never expire (4h TTL). Delegates to WorkspaceManager. */
   refreshAllAgentTokens(): void {
-    if (this.killed) return;
-    let refreshed = 0;
-    for (const [id, agentProc] of this.agents) {
-      try {
-        this.writeAgentTokenFile(agentProc.agent.workspaceDir, id);
-        refreshed++;
-      } catch (err: unknown) {
-        console.warn(`[agents] Failed to refresh token for ${id.slice(0, 8)}:`, errorMessage(err));
-      }
-    }
-    if (refreshed > 0) {
-      console.log(`[agents] Refreshed auth tokens for ${refreshed} agent(s)`);
-    }
-  }
-
-  /** Save attachments to the agent workspace and return a prompt suffix referencing them. */
-  saveAttachments(workspaceDir: string, attachments: PromptAttachment[]): string {
-    if (attachments.length === 0) return "";
-
-    const attachDir = path.join(workspaceDir, ".attachments");
-    mkdirSync(attachDir, { recursive: true });
-
-    const refs: string[] = [];
-    const timestamp = Date.now();
-
-    for (let i = 0; i < attachments.length; i++) {
-      const att = attachments[i];
-      const safeName = att.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const filename = `${timestamp}-${i}-${safeName}`;
-      const filePath = path.join(attachDir, filename);
-
-      if (att.type === "image" && att.data.startsWith("data:")) {
-        // Strip data URL prefix and decode base64
-        const base64 = att.data.replace(/^data:[^;]+;base64,/, "");
-        writeFileSync(filePath, Buffer.from(base64, "base64"));
-        refs.push(`[Attached image: ${att.name}] — saved to ${filePath} (use the Read tool to view it)`);
-      } else if (att.type === "file") {
-        writeFileSync(filePath, att.data, "utf-8");
-        refs.push(`[Attached file: ${att.name}] — saved to ${filePath} (use the Read tool to view it)`);
-      }
-    }
-
-    return refs.length > 0 ? `\n\n${refs.join("\n")}` : "";
-  }
-
-  private buildEnv(agentId?: string): NodeJS.ProcessEnv {
-    // Layer 0: Allowlist approach — only forward env vars agents actually need.
-    // Previous denylist approach cloned all of process.env and deleted a few secrets,
-    // which leaked OAuth client secrets, GCS bucket names, JWT_SECRET, and other server
-    // internals to agent processes. Now only forwarding specific vars agents need.
-    //
-    // IMPORTANT: When adding entries, ask: "Does the agent process itself need this,
-    // or is it a server-only secret?" Server internals (JWT_SECRET, GCS_BUCKET,
-    // GCP_PROJECT, GOOGLE_APPLICATION_CREDENTIALS, DATABASE_URL, etc.) must NOT be
-    // included — they serve no purpose in agent child processes.
-    const ALLOWED_ENV_KEYS = [
-      // Anthropic API access (needed for Claude CLI)
-      "ANTHROPIC_API_KEY",
-      "ANTHROPIC_AUTH_TOKEN",
-      "ANTHROPIC_BASE_URL",
-      // GitHub CLI and git operations — both token forms needed (gh uses GH_TOKEN,
-      // some tools use GITHUB_TOKEN; include both to avoid breaking either)
-      "GH_TOKEN",
-      "GITHUB_TOKEN",
-      "GIT_AUTHOR_NAME",
-      "GIT_AUTHOR_EMAIL",
-      "GIT_COMMITTER_NAME",
-      "GIT_COMMITTER_EMAIL",
-      // MCP integration tokens — agents use these via MCP server subprocesses.
-      // Even though entrypoint.sh bakes token values into settings.json, agents
-      // may also make direct API calls using these tokens.
-      "LINEAR_API_KEY",
-      "FIGMA_TOKEN",
-      "SLACK_TOKEN",
-      "NOTION_API_KEY",
-      "GOOGLE_CREDENTIALS",
-      // Runtime essentials
-      "HOME",
-      "USER",
-      "PATH",
-      "LANG",
-      "LC_ALL",
-      "TERM",
-      "TMPDIR",
-      "TZ",
-      "NODE_ENV",
-      "PORT",
-      // Claude Code config
-      "CLAUDE_HOME",
-      // Shared context
-      "SHARED_CONTEXT_DIR",
-      // npm cache (persistent across sessions)
-      "npm_config_cache",
-    ];
-
-    const env: NodeJS.ProcessEnv = {
-      SHELL: "/bin/sh",
-      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
-      AGENT_AUTH_TOKEN: generateServiceToken(agentId),
-      ...(existsSync("/persistent/npm-cache") && { npm_config_cache: "/persistent/npm-cache" }),
-    };
-
-    for (const key of ALLOWED_ENV_KEYS) {
-      if (process.env[key] !== undefined) {
-        env[key] = process.env[key];
-      }
-    }
-
-    return env;
+    this.workspace.refreshAllAgentTokens(this.agents, this.killed);
   }
 }

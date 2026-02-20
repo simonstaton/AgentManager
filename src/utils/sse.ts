@@ -63,7 +63,7 @@ export function setupSSE(
       return;
     }
     try {
-      res.write(`: heartbeat\n\n`);
+      res.write(": heartbeat\n\n");
     } catch {
       scheduleCleanup();
     }

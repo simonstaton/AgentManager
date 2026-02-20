@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Header } from "../components/Header";
 import { Sidebar } from "../components/Sidebar";
 import { useAgentPolling } from "../hooks/useAgentPolling";
@@ -51,6 +52,7 @@ export function CostDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -75,7 +77,7 @@ export function CostDashboard() {
   }, [fetchData]);
 
   const handleReset = async () => {
-    if (!confirm("Reset all historical cost data? This cannot be undone.")) return;
+    setShowResetConfirm(false);
     try {
       setResetting(true);
       await api.resetCostHistory();
@@ -101,6 +103,15 @@ export function CostDashboard() {
   return (
     <div className="h-screen flex flex-col">
       <Header agentCount={agents.length} killSwitch={killSwitch} />
+      <ConfirmDialog
+        open={showResetConfirm}
+        onConfirm={handleReset}
+        onCancel={() => setShowResetConfirm(false)}
+        title="Reset cost history?"
+        description="All historical cost data will be permanently deleted. This cannot be undone."
+        confirmLabel="Reset History"
+        variant="destructive"
+      />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar agents={agents} activeId={null} />
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -151,7 +162,7 @@ export function CostDashboard() {
                   <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">All-Time Totals</p>
                   <button
                     type="button"
-                    onClick={handleReset}
+                    onClick={() => setShowResetConfirm(true)}
                     disabled={resetting || stats.allTime.totalRecords === 0}
                     className="text-xs text-zinc-500 hover:text-red-400 disabled:opacity-40 disabled:cursor-default transition-colors"
                   >

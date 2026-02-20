@@ -215,7 +215,7 @@ export async function exchangeCodeForToken(
 
     return token;
   } catch (err) {
-    console.error(`[MCP-OAuth] Error exchanging code for token:`, err);
+    console.error("[MCP-OAuth] Error exchanging code for token:", err);
     return null;
   }
 }
@@ -284,7 +284,7 @@ export async function refreshAccessToken(server: string): Promise<MCPOAuthToken 
     saveToken(token);
     return token;
   } catch (err) {
-    console.error(`[MCP-OAuth] Error refreshing token:`, err);
+    console.error("[MCP-OAuth] Error refreshing token:", err);
     return null;
   }
 }

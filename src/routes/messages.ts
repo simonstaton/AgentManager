@@ -84,7 +84,7 @@ export function createMessagesRouter(messageBus: MessageBus) {
       type: queryString(type) as AgentMessage["type"] | undefined,
       unreadBy: queryString(unreadBy),
       since: queryString(since),
-      limit: limit ? parseInt(queryString(limit) ?? "", 10) : undefined,
+      limit: limit ? Number.parseInt(queryString(limit) ?? "", 10) : undefined,
       agentRole: queryString(agentRole),
     });
     res.json(messages);
@@ -173,7 +173,7 @@ export function createMessagesRouter(messageBus: MessageBus) {
         return;
       }
       try {
-        res.write(`: heartbeat\n\n`);
+        res.write(": heartbeat\n\n");
       } catch {
         cleanup();
       }

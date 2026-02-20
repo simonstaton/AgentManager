@@ -611,7 +611,6 @@ export function PromptInput({
               className="relative group shrink-0 flex items-center gap-1.5 bg-zinc-800 border border-zinc-700 rounded-md px-2 py-1"
             >
               {att.type === "image" ? (
-                // biome-ignore lint/performance/noImgElement: base64 data URIs not supported by next/image
                 <img src={att.data} alt={att.name} className="h-8 w-8 rounded object-cover" />
               ) : (
                 <FileIcon filename={att.name} />

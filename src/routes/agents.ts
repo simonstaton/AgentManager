@@ -188,7 +188,7 @@ export function createAgentsRouter(
     agentManager.touch(id);
 
     // Support ?after=N to skip events the client already has (for auto-reconnect)
-    const afterIndex = req.query.after ? parseInt(queryString(req.query.after) ?? "", 10) : undefined;
+    const afterIndex = req.query.after ? Number.parseInt(queryString(req.query.after) ?? "", 10) : undefined;
 
     // Set up fresh SSE with event replay (skipping events before afterIndex).
     // closeOnDone: false — historical `done` events from previous turns must not
@@ -232,7 +232,7 @@ export function createAgentsRouter(
     }
 
     const types = req.query.type ? (queryString(req.query.type) ?? "").split(",") : undefined;
-    const tail = req.query.tail ? parseInt(queryString(req.query.tail) ?? "", 10) : undefined;
+    const tail = req.query.tail ? Number.parseInt(queryString(req.query.tail) ?? "", 10) : undefined;
 
     const { lines, total } = await agentManager.getLogs(id, { types, tail });
 
@@ -256,7 +256,7 @@ export function createAgentsRouter(
     }
 
     const query = (queryString(req.query.q) || "").toLowerCase();
-    const maxResults = Math.min(parseInt(queryString(req.query.limit) ?? "", 10) || 50, 200);
+    const maxResults = Math.min(Number.parseInt(queryString(req.query.limit) ?? "", 10) || 50, 200);
 
     try {
       const files = listFilesRecursive(agent.workspaceDir, agent.workspaceDir, query, maxResults);
