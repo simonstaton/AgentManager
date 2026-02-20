@@ -72,12 +72,12 @@ export function createConfigRouter() {
     const isOpenRouter = key.startsWith("sk-or-");
     if (isOpenRouter) {
       process.env.ANTHROPIC_AUTH_TOKEN = key;
-      process.env.ANTHROPIC_API_KEY = "";
+      delete process.env.ANTHROPIC_API_KEY;
       process.env.ANTHROPIC_BASE_URL = "https://openrouter.ai/api";
     } else {
       process.env.ANTHROPIC_API_KEY = key;
-      process.env.ANTHROPIC_AUTH_TOKEN = undefined;
-      process.env.ANTHROPIC_BASE_URL = undefined;
+      delete process.env.ANTHROPIC_AUTH_TOKEN;
+      delete process.env.ANTHROPIC_BASE_URL;
     }
     resetSanitizeCache();
     console.warn(

@@ -100,8 +100,8 @@ describe("env allowlist", () => {
   });
 
   it("skips allowed vars that are not set in process.env", async () => {
-    process.env.FIGMA_TOKEN = undefined;
-    process.env.LINEAR_API_KEY = undefined;
+    delete process.env.FIGMA_TOKEN;
+    delete process.env.LINEAR_API_KEY;
 
     const { WorkspaceManager } = await import("../../src/workspace-manager");
     const wm = new WorkspaceManager();
