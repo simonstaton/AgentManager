@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
 import { resetSanitizeCache } from "./sanitize";
-import type { AuthPayload, AuthenticatedRequest } from "./types";
+import type { AuthenticatedRequest, AuthPayload } from "./types";
 
 if (!process.env.JWT_SECRET) {
   console.error("FATAL: JWT_SECRET environment variable is not set. Exiting.");

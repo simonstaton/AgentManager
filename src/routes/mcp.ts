@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import express, { type Request, type Response } from "express";
 import {
-  MCP_SERVERS,
   exchangeCodeForToken,
   generateAuthUrl,
   getValidToken,
+  MCP_SERVERS,
   revokeToken,
   validateState,
 } from "../mcp-oauth-manager";

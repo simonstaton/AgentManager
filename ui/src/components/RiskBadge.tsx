@@ -1,7 +1,7 @@
 "use client";
 
-import { Badge } from "@fanvue/ui";
 import type { BadgeVariant } from "@fanvue/ui";
+import { Badge } from "@fanvue/ui";
 import type { RiskLevel } from "../api";
 
 const RISK_VARIANT: Record<RiskLevel, BadgeVariant> = {

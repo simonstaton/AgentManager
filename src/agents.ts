@@ -1,23 +1,31 @@
 import { execFile, execFileSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { appendFile, readFile, readdir, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
-import { promisify } from "node:util";
+import { appendFile, readdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import readline from "node:readline";
+import { promisify } from "node:util";
 import type { CostTracker } from "./cost-tracker";
 import {
   ALLOWED_MODELS,
   DEFAULT_MODEL,
-  MAX_AGENTS,
   MAX_AGENT_DEPTH,
+  MAX_AGENTS,
   MAX_CHILDREN_PER_AGENT,
   SESSION_TTL_MS,
 } from "./guardrails";
 import { EVENTS_DIR, loadAllAgentStates, removeAgentState, saveAgentState, writeTombstone } from "./persistence";
 import { sanitizeEvent } from "./sanitize";
 import { cleanupAgentClaudeData, debouncedSyncToGCS } from "./storage";
-import type { Agent, AgentMetadata, AgentProcess, AgentUsage, CreateAgentRequest, PromptAttachment, StreamEvent } from "./types";
+import type {
+  Agent,
+  AgentMetadata,
+  AgentProcess,
+  AgentUsage,
+  CreateAgentRequest,
+  PromptAttachment,
+  StreamEvent,
+} from "./types";
 import { errorMessage } from "./types";
 import { getContextDir } from "./utils/context";
 import { WorkspaceManager } from "./workspace-manager";
@@ -678,7 +686,6 @@ export class AgentManager {
       sessionStart: agent.createdAt,
     };
   }
-
 
   /** Return runtime metadata for a single agent (PID, git info, uptime, etc.). */
   async getMetadata(id: string): Promise<AgentMetadata | null> {

@@ -2,7 +2,7 @@
 
 import { Badge, type BadgeVariant, Button, TextField } from "@fanvue/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { AgentMessage, MessageType, createApi } from "../api";
+import type { AgentMessage, createApi, MessageType } from "../api";
 import { timeAgo } from "../constants";
 
 interface MessageFeedProps {

@@ -1,7 +1,7 @@
 import { mkdirSync, unlinkSync } from "node:fs";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { TaskGraphEvent, TaskNode } from "./task-graph";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { TaskGraphEvent } from "./task-graph";
 import { TaskGraph } from "./task-graph";
 
 const TEST_DB_DIR = "/tmp/task-graph-test";

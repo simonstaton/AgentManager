@@ -75,53 +75,56 @@ export function ConfirmDialog({
   const isDestructive = variant === "destructive";
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onCancel();
-      }}
-      onKeyDown={handleKeyDown}
-      role="presentation"
-    >
+    <>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: modal backdrop intentionally handles click-outside-to-close */}
       <div
-        ref={dialogRef}
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
-        aria-describedby="confirm-dialog-description"
-        className="bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl max-w-sm w-full mx-4 p-6"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onCancel();
+        }}
+        onKeyDown={handleKeyDown}
+        role="presentation"
       >
-        <h2
-          id="confirm-dialog-title"
-          className={`text-base font-semibold ${isDestructive ? "text-red-400" : "text-zinc-100"}`}
+        <div
+          ref={dialogRef}
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="confirm-dialog-title"
+          aria-describedby="confirm-dialog-description"
+          className="bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl max-w-sm w-full mx-4 p-6"
         >
-          {title}
-        </h2>
-        <p id="confirm-dialog-description" className="text-sm text-zinc-400 mt-2">
-          {description}
-        </p>
+          <h2
+            id="confirm-dialog-title"
+            className={`text-base font-semibold ${isDestructive ? "text-red-400" : "text-zinc-100"}`}
+          >
+            {title}
+          </h2>
+          <p id="confirm-dialog-description" className="text-sm text-zinc-400 mt-2">
+            {description}
+          </p>
 
-        <div className="flex gap-3 justify-end mt-6">
-          <button
-            ref={cancelRef}
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded transition-colors"
-          >
-            {cancelLabel}
-          </button>
-          <button
-            ref={confirmRef}
-            type="button"
-            onClick={onConfirm}
-            className={`px-4 py-2 text-sm font-semibold rounded transition-colors ${
-              isDestructive ? "bg-red-700 hover:bg-red-600 text-white" : "bg-zinc-600 hover:bg-zinc-500 text-white"
-            }`}
-          >
-            {confirmLabel}
-          </button>
+          <div className="flex gap-3 justify-end mt-6">
+            <button
+              ref={cancelRef}
+              type="button"
+              onClick={onCancel}
+              className="px-4 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded transition-colors"
+            >
+              {cancelLabel}
+            </button>
+            <button
+              ref={confirmRef}
+              type="button"
+              onClick={onConfirm}
+              className={`px-4 py-2 text-sm font-semibold rounded transition-colors ${
+                isDestructive ? "bg-red-700 hover:bg-red-600 text-white" : "bg-zinc-600 hover:bg-zinc-500 text-white"
+              }`}
+            >
+              {confirmLabel}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

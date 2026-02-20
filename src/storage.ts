@@ -1,4 +1,4 @@
-import { type FSWatcher, existsSync, mkdirSync, readdirSync, rmSync, statSync, watch, writeFileSync } from "node:fs";
+import { existsSync, type FSWatcher, mkdirSync, readdirSync, rmSync, statSync, watch, writeFileSync } from "node:fs";
 import fsPromises from "node:fs/promises";
 import path from "node:path";
 import { errorMessage } from "./types";

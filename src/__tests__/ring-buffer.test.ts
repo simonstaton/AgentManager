@@ -123,7 +123,7 @@ describe("ring buffer", () => {
     it("returns events in insertion order after wrap-around", () => {
       // Use a small buffer size to test wrapping. The actual buffer size is 1000,
       // so we manually construct a wrapped state to verify the read logic.
-      const BUFFER_SIZE = 4;
+      const _BUFFER_SIZE = 4;
       const proc = makeAgentProc();
 
       // Simulate writing 7 events into a buffer of size 4:

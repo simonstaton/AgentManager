@@ -78,6 +78,7 @@ export function AgentMetadataPanel({ agentId }: { agentId: string }) {
       >
         <span>Metadata</span>
         <svg
+          aria-hidden="true"
           className={`w-3 h-3 transition-transform ${expanded ? "rotate-180" : ""}`}
           fill="none"
           viewBox="0 0 24 24"
