@@ -11,7 +11,7 @@ export function Login() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    document.title = "Login \u2014 ClaudeSwarm";
+    document.title = "Login - ClaudeSwarm";
   }, []);
 
   const handleSubmit = async (e: FormEvent) => {

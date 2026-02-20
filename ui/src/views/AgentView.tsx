@@ -34,7 +34,7 @@ export function AgentView({ agentId }: { agentId: string }) {
 
   // Set page title based on agent name
   useEffect(() => {
-    document.title = agent?.name ? `${agent.name} \u2014 ClaudeSwarm` : "ClaudeSwarm";
+    document.title = agent?.name ? `${agent.name} - ClaudeSwarm` : "ClaudeSwarm";
   }, [agent?.name]);
 
   // Load agent details and reconnect to stream.
@@ -99,14 +99,12 @@ export function AgentView({ agentId }: { agentId: string }) {
     }
   };
 
-  const canStop = agent && ["running", "idle", "restored", "error"].includes(agent.status);
+  const canStop = agent && ["running", "idle", "restored", "error", "stalled", "paused"].includes(agent.status);
   const isErrored = agent?.status === "error";
 
   const handleSendMessage = (prompt: string, attachments?: Attachment[]) => {
     sendMessage(prompt, undefined, undefined, attachments);
   };
-
-  // ── @ file search handler ──────────────────────────────────────────────
 
   const handleSearchFiles = useCallback(
     async (query: string): Promise<string[]> => {
@@ -127,8 +125,6 @@ export function AgentView({ agentId }: { agentId: string }) {
     },
     [injectEvent],
   );
-
-  // ── Slash command handler ──────────────────────────────────────────────
 
   const handleSlashCommand = useCallback(
     (command: string) => {
@@ -189,6 +185,8 @@ export function AgentView({ agentId }: { agentId: string }) {
   const getPlaceholder = () => {
     if (agent?.status === "error") return "Agent errored";
     if (agent?.status === "restored") return "Agent restored from crash — send a message to resume...";
+    if (agent?.status === "stalled") return "Agent appears stalled — send a message to attempt recovery...";
+    if (agent?.status === "paused") return "Agent is paused — resume to continue...";
     if (isStreaming) return "Send a message (will interrupt current task)...";
     return "Send a follow-up message...";
   };
@@ -241,9 +239,52 @@ export function AgentView({ agentId }: { agentId: string }) {
                   {stopError}
                 </span>
               )}
+              <Button
+                variant="tertiary"
+                size="24"
+                onClick={() => {
+                  if (id && agent) {
+                    api
+                      .downloadAgentLogs(id, agent.name)
+                      .catch((err) => toast(err instanceof Error ? err.message : "Download failed", "error"));
+                  }
+                }}
+              >
+                Download Log
+              </Button>
               <Button variant="tertiary" size="24" onClick={reconnect}>
                 Reconnect
               </Button>
+              {agent && (agent.status === "running" || agent.status === "idle" || agent.status === "stalled") && (
+                <Button
+                  variant="tertiary"
+                  size="24"
+                  onClick={() => {
+                    if (id) {
+                      api
+                        .pauseAgent(id)
+                        .catch((err) => toast(err instanceof Error ? err.message : "Pause failed", "error"));
+                    }
+                  }}
+                >
+                  Pause
+                </Button>
+              )}
+              {agent?.status === "paused" && (
+                <Button
+                  variant="tertiary"
+                  size="24"
+                  onClick={() => {
+                    if (id) {
+                      api
+                        .resumeAgent(id)
+                        .catch((err) => toast(err instanceof Error ? err.message : "Resume failed", "error"));
+                    }
+                  }}
+                >
+                  Resume
+                </Button>
+              )}
               {canStop && (
                 <Button
                   variant="tertiaryDestructive"
@@ -257,13 +298,20 @@ export function AgentView({ agentId }: { agentId: string }) {
             </div>
           </header>
 
+          {/* Stalled warning banner */}
+          {agent?.status === "stalled" && (
+            <div className="px-4 py-2 bg-amber-950/30 border-b border-amber-800/50 text-amber-300 text-xs flex items-center gap-2">
+              <span>Agent appears stalled (no output for 10+ minutes). Send a message to attempt recovery.</span>
+            </div>
+          )}
+
           {/* Terminal */}
           <AgentTerminal events={events} />
 
           {/* Input */}
           <PromptInput
             onSubmit={handleSendMessage}
-            disabled={!agent || agent.status === "error"}
+            disabled={!agent || agent.status === "error" || agent.status === "paused"}
             placeholder={getPlaceholder()}
             onSearchFiles={handleSearchFiles}
             onSlashCommand={handleSlashCommand}

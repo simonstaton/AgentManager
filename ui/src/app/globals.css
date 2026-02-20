@@ -12,6 +12,14 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Pointer cursor for interactive elements */
+button,
+a,
+[role="button"],
+summary {
+  cursor: pointer;
+}
+
 /* Terminal styling */
 .terminal {
   font-family: var(--font-mono);

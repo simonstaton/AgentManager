@@ -15,7 +15,7 @@ mkdirSync(EVENTS_DIR, { recursive: true });
 
 // Debounce: only save immediately on meaningful status changes; otherwise coalesce
 const SAVE_DEBOUNCE_MS = 500;
-const MEANINGFUL_STATUSES: Set<AgentStatus> = new Set(["idle", "running", "error"]);
+const MEANINGFUL_STATUSES: Set<AgentStatus> = new Set(["idle", "running", "error", "paused", "stalled"]);
 const pendingSaves = new Map<string, ReturnType<typeof setTimeout>>();
 const lastSavedStatus = new Map<string, AgentStatus>();
 

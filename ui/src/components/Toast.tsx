@@ -2,8 +2,6 @@
 
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
 
-// ── Types ────────────────────────────────────────────────────────────────────
-
 type ToastVariant = "success" | "error" | "warning" | "info";
 
 interface Toast {
@@ -17,8 +15,6 @@ interface ToastContextValue {
   toast: (message: string, variant?: ToastVariant, duration?: number) => void;
 }
 
-// ── Context ──────────────────────────────────────────────────────────────────
-
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 export function useToast(): ToastContextValue {
@@ -26,8 +22,6 @@ export function useToast(): ToastContextValue {
   if (!ctx) throw new Error("useToast must be used inside <ToastProvider>");
   return ctx;
 }
-
-// ── Variant styles ───────────────────────────────────────────────────────────
 
 const VARIANT_CLASSES: Record<ToastVariant, string> = {
   success: "border-green-500/40 bg-green-950/80 text-green-300",
@@ -42,8 +36,6 @@ const VARIANT_ICONS: Record<ToastVariant, string> = {
   warning: "\u26A0",
   info: "\u2139",
 };
-
-// ── Provider ─────────────────────────────────────────────────────────────────
 
 let nextId = 0;
 
@@ -71,8 +63,6 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     </ToastContext.Provider>
   );
 }
-
-// ── Individual toast ─────────────────────────────────────────────────────────
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number) => void }) {
   const [exiting, setExiting] = useState(false);

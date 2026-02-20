@@ -14,7 +14,7 @@ export function Messages() {
   const killSwitch = useKillSwitchContext();
 
   useEffect(() => {
-    document.title = "Messages \u2014 ClaudeSwarm";
+    document.title = "Messages - ClaudeSwarm";
   }, []);
 
   return (

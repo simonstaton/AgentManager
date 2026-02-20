@@ -12,8 +12,6 @@ import {
   useState,
 } from "react";
 
-// ── Types ──────────────────────────────────────────────────────────────────
-
 export interface Attachment {
   id: string;
   name: string;
@@ -64,8 +62,6 @@ interface PromptInputProps {
   onDefaultsApplied?: () => void;
 }
 
-// ── Slash commands registry ────────────────────────────────────────────────
-
 function getSlashCommands(onSlashCommand?: (cmd: string) => void): SlashCommand[] {
   return [
     {
@@ -113,8 +109,6 @@ function getSlashCommands(onSlashCommand?: (cmd: string) => void): SlashCommand[
     },
   ];
 }
-
-// ── Component ──────────────────────────────────────────────────────────────
 
 export function PromptInput({
   onSubmit,
@@ -177,13 +171,9 @@ export function PromptInput({
     });
   }, [defaultValues, onDefaultsApplied]);
 
-  // ── Slash command filtering ────────────────────────────────────────────
-
   const filteredCommands = slashCommands.filter((cmd) =>
     cmd.name.toLowerCase().startsWith(`/${slashFilter.toLowerCase()}`),
   );
-
-  // ── File search with debounce ──────────────────────────────────────────
 
   useEffect(() => {
     if (!showFileMenu || !onSearchFiles) {
@@ -210,8 +200,6 @@ export function PromptInput({
       if (fileSearchTimer.current) clearTimeout(fileSearchTimer.current);
     };
   }, [fileFilter, showFileMenu, onSearchFiles]);
-
-  // ── Text analysis for autocomplete triggers ────────────────────────────
 
   const analyzeInput = useCallback(
     (text: string, cursorPos: number) => {
@@ -242,8 +230,6 @@ export function PromptInput({
     },
     [attachments.length, onSearchFiles],
   );
-
-  // ── Submit handling ────────────────────────────────────────────────────
 
   const submit = useCallback(() => {
     const trimmed = value.trim();
@@ -288,8 +274,6 @@ export function PromptInput({
     setShowFileMenu(false);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
   }, [value, attachments, disabled, onSubmit, slashCommands, createMode, agentName, agentModel, agentMaxTurns]);
-
-  // ── Keyboard handling ──────────────────────────────────────────────────
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     // Autocomplete navigation
@@ -345,8 +329,6 @@ export function PromptInput({
     }
   };
 
-  // ── Autocomplete selection ─────────────────────────────────────────────
-
   const selectSlashCommand = (cmd: SlashCommand) => {
     setValue(cmd.name);
     setShowSlashMenu(false);
@@ -381,8 +363,6 @@ export function PromptInput({
     });
   };
 
-  // ── Input change ───────────────────────────────────────────────────────
-
   const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     setValue(newValue);
@@ -397,8 +377,6 @@ export function PromptInput({
       el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
     }
   };
-
-  // ── File/image handling ────────────────────────────────────────────────
 
   const processFiles = useCallback(async (files: FileList | File[]) => {
     const newAttachments: Attachment[] = [];
@@ -482,8 +460,6 @@ export function PromptInput({
   const removeAttachment = (id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   };
-
-  // ── Render ─────────────────────────────────────────────────────────────
 
   return (
     <section
@@ -766,8 +742,6 @@ export function PromptInput({
     </section>
   );
 }
-
-// ── Helper components & utilities ────────────────────────────────────────────
 
 const GEAR_PATH =
   "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z";

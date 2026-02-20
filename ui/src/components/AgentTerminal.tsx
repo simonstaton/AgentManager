@@ -1,14 +1,21 @@
 "use client";
 
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useRef, useState } from "react";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import type { StreamEvent } from "../api";
+
+// Stable component refs for Virtuoso — extracted outside the component to
+// prevent creating new objects on every render (which defeats Virtuoso's
+// internal memoization and causes unnecessary re-renders).
+const VirtuosoSpacer = () => <div className="h-4" />;
+const virtuosoComponents = { Header: VirtuosoSpacer, Footer: VirtuosoSpacer };
 
 interface AgentTerminalProps {
   events: StreamEvent[];
 }
 
 // Parsed renderable block from raw stream events
-interface TerminalBlock {
+export interface TerminalBlock {
   id: string;
   kind: "system" | "text" | "user_prompt" | "tool_use" | "tool_result" | "result" | "error" | "raw";
   content: string;
@@ -16,11 +23,7 @@ interface TerminalBlock {
 }
 
 export function AgentTerminal({ events }: AgentTerminalProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [autoScroll, setAutoScroll] = useState(true);
-  const eventsRef = useRef(events);
-  const isResetRef = useRef(false);
-  const hasScrolledToBottomOnMount = useRef(false);
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
 
   // Incremental parsing: only parse new events since last render
   const parsedRef = useRef<{ upTo: number; blocks: TerminalBlock[] }>({ upTo: 0, blocks: [] });
@@ -29,10 +32,6 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
     // Events array was reset (e.g. agent switched) — reparse from scratch
     cached.upTo = 0;
     cached.blocks = [];
-    // Mark that we've reset so we don't auto-scroll on agent switch
-    isResetRef.current = true;
-    // Reset the mount scroll flag so the new agent's terminal scrolls to bottom
-    hasScrolledToBottomOnMount.current = false;
   }
   if (events.length > cached.upTo) {
     const newBlocks = parseEvents(events, cached.upTo);
@@ -41,73 +40,59 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
     cached.upTo = events.length;
   }
 
-  // Limit blocks to prevent memory leak - keep last 5000 blocks
+  // Limit blocks to prevent memory leak - keep last 2000 blocks
   // This matches MAX_EVENTS from useAgentStream and prevents unbounded growth
-  const MAX_BLOCKS = 5000;
+  const MAX_BLOCKS = 2000;
   if (cached.blocks.length > MAX_BLOCKS) {
     cached.blocks = cached.blocks.slice(-MAX_BLOCKS);
   }
 
   const blocks = cached.blocks;
 
-  // Clean up parsed blocks when events array is cleared or replaced
-  useEffect(() => {
-    if (events !== eventsRef.current) {
-      eventsRef.current = events;
-      // If events array changed to a different instance (not just appended),
-      // this likely means agent switched or reconnect cleared the array.
-      // The ref reset logic above handles upTo/blocks reset, but we
-      // ensure any React state cleanup happens here.
-    }
-  }, [events]);
-
-  useEffect(() => {
-    // Scroll to bottom on initial mount when blocks first become available
-    if (!hasScrolledToBottomOnMount.current && blocks.length > 0 && containerRef.current) {
-      // Use setTimeout to ensure DOM is fully rendered
-      setTimeout(() => {
-        if (containerRef.current) {
-          containerRef.current.scrollTop = containerRef.current.scrollHeight;
-          hasScrolledToBottomOnMount.current = true;
-        }
-      }, 0);
-    }
-
-    // Skip auto-scroll immediately after a reset (agent switch)
-    if (isResetRef.current) {
-      isResetRef.current = false;
-      return;
-    }
-    if (autoScroll && containerRef.current && blocks.length > 0) {
-      containerRef.current.scrollTop = containerRef.current.scrollHeight;
-    }
-  }, [autoScroll, blocks]);
-
-  const handleScroll = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    setAutoScroll(el.scrollHeight - el.scrollTop - el.clientHeight < 40);
+  // followOutput keeps scroll pinned to the bottom when new items arrive,
+  // but only if the user hasn't manually scrolled up.
+  const followOutput = useCallback((isAtBottom: boolean) => {
+    return isAtBottom ? ("smooth" as const) : false;
   }, []);
 
   return (
     <div
-      ref={containerRef}
-      onScroll={handleScroll}
+      className="terminal flex-1 overflow-hidden bg-zinc-950"
       role="log"
       aria-live="polite"
       aria-label="Agent terminal output"
-      className="terminal flex-1 overflow-y-auto p-4 bg-zinc-950"
     >
-      {blocks.length === 0 && <p className="text-zinc-400 text-sm italic">Waiting for output...</p>}
-      {blocks.map((block) => (
-        <MemoizedBlock key={block.id} block={block} />
-      ))}
+      {blocks.length === 0 ? (
+        <p className="text-zinc-400 text-sm italic p-4">Waiting for output...</p>
+      ) : (
+        <Virtuoso
+          ref={virtuosoRef}
+          data={blocks}
+          followOutput={followOutput}
+          overscan={200}
+          initialTopMostItemIndex={999999}
+          className="h-full"
+          itemContent={renderBlock}
+          components={virtuosoComponents}
+        />
+      )}
+    </div>
+  );
+}
+
+// Stable itemContent callback for Virtuoso — defined at module level so the
+// function reference never changes between renders (avoids Virtuoso re-rendering
+// every visible row on each parent render).
+function renderBlock(_index: number, block: TerminalBlock) {
+  return (
+    <div className="px-4">
+      <MemoizedBlock block={block} />
     </div>
   );
 }
 
 // Memoize individual blocks to prevent re-renders of unchanged content
-const MemoizedBlock = memo(Block);
+export const MemoizedBlock = memo(Block);
 
 function Block({ block }: { block: TerminalBlock }) {
   const [collapsed, setCollapsed] = useState(true);
@@ -118,6 +103,13 @@ function Block({ block }: { block: TerminalBlock }) {
         return (
           <div className="my-2 rounded bg-zinc-900/80 border border-zinc-800/60 px-3 py-2">
             <pre className="text-cyan-400/80 text-xs whitespace-pre-wrap font-[var(--font-mono)]">{block.content}</pre>
+          </div>
+        );
+      }
+      if (block.meta?.isWatchdog) {
+        return (
+          <div className="my-2 rounded bg-amber-950/30 border border-amber-800/50 px-3 py-2">
+            <pre className="text-amber-400 text-xs whitespace-pre-wrap font-[var(--font-mono)]">{block.content}</pre>
           </div>
         );
       }
@@ -165,13 +157,13 @@ function Block({ block }: { block: TerminalBlock }) {
             onClick={() => setCollapsed(!collapsed)}
             aria-expanded={!collapsed}
             aria-label={collapsed ? "Expand tool output" : "Collapse tool output"}
-            className="text-zinc-400 hover:text-zinc-400 text-xs transition-colors flex items-center gap-1"
+            className="text-zinc-400 hover:text-zinc-300 text-xs transition-colors flex items-center gap-1"
           >
-            <span className="text-[10px]">{collapsed ? "▶" : "▼"}</span>
+            <span className="text-[10px]">{collapsed ? "\u25B6" : "\u25BC"}</span>
             <span>
               output
               {block.meta?.is_error ? " (error)" : ""}
-              {!collapsed ? "" : ` — ${block.content.slice(0, 80)}${block.content.length > 80 ? "…" : ""}`}
+              {!collapsed ? "" : ` \u2014 ${block.content.slice(0, 80)}${block.content.length > 80 ? "\u2026" : ""}`}
             </span>
           </button>
           {!collapsed && (
@@ -211,7 +203,7 @@ function Block({ block }: { block: TerminalBlock }) {
 }
 
 /** Parse raw stream events into renderable blocks */
-function parseEvents(events: StreamEvent[], startIdx = 0): TerminalBlock[] {
+export function parseEvents(events: StreamEvent[], startIdx = 0): TerminalBlock[] {
   const blocks: TerminalBlock[] = [];
   let idx = startIdx;
 
@@ -226,9 +218,9 @@ function parseEvents(events: StreamEvent[], startIdx = 0): TerminalBlock[] {
           const sid = String(event.session_id || "").slice(0, 8);
           const tools = (event.tools as string[] | undefined)?.length;
           const mcpServers = (event.mcp_servers as string[] | undefined)?.length;
-          let info = `Session ${sid} · ${model}`;
-          if (tools) info += ` · ${tools} tools`;
-          if (mcpServers) info += ` · ${mcpServers} MCP servers`;
+          let info = `Session ${sid} \u00B7 ${model}`;
+          if (tools) info += ` \u00B7 ${tools} tools`;
+          if (mcpServers) info += ` \u00B7 ${mcpServers} MCP servers`;
           blocks.push({
             id,
             kind: "system",
@@ -240,6 +232,20 @@ function parseEvents(events: StreamEvent[], startIdx = 0): TerminalBlock[] {
             kind: "system",
             content: String(event.text || ""),
             meta: { isCommandOutput: true },
+          });
+        } else if (event.subtype === "watchdog") {
+          blocks.push({
+            id,
+            kind: "system",
+            content: String(event.message || ""),
+            meta: { isWatchdog: true },
+          });
+        } else if (event.subtype === "paused" || event.subtype === "resumed") {
+          blocks.push({
+            id,
+            kind: "system",
+            content: String(event.message || ""),
+            meta: { isWatchdog: true },
           });
         }
         break;
@@ -340,7 +346,7 @@ function parseEvents(events: StreamEvent[], startIdx = 0): TerminalBlock[] {
  * This function removes the white text blocks so the response only appears
  * once, in green.
  */
-function deduplicateResultBlocks(blocks: TerminalBlock[]): TerminalBlock[] {
+export function deduplicateResultBlocks(blocks: TerminalBlock[]): TerminalBlock[] {
   for (let i = 0; i < blocks.length; i++) {
     if (blocks[i].kind !== "result" || !blocks[i].content) continue;
 
@@ -397,7 +403,7 @@ function formatToolInput(toolName: string, input: Record<string, unknown>): stri
   if (toolName === "Bash" && input.command) return String(input.command);
   if (toolName === "Write" && input.content) {
     const content = String(input.content);
-    return content.length > 200 ? `${content.slice(0, 200)}…` : content;
+    return content.length > 200 ? `${content.slice(0, 200)}\u2026` : content;
   }
   if (toolName === "Edit") {
     const old_s = input.old_string ? String(input.old_string).slice(0, 100) : "";

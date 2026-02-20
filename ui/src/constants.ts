@@ -8,6 +8,10 @@ export const STATUS_BADGE_VARIANT: Record<string, BadgeVariant> = {
   idle: "info",
   error: "error",
   restored: "info",
+  killing: "warning",
+  destroying: "error",
+  paused: "warning",
+  stalled: "error",
 };
 
 export const STATUS_LABELS: Record<string, string> = {
@@ -16,6 +20,10 @@ export const STATUS_LABELS: Record<string, string> = {
   idle: "Idle",
   error: "Error",
   restored: "Restored",
+  killing: "Killing",
+  destroying: "Destroying",
+  paused: "Paused",
+  stalled: "Stalled",
 };
 
 export function timeAgo(date: string): string {

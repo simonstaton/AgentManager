@@ -5,8 +5,10 @@ import express from "express";
 import { AgentManager } from "./src/agents";
 import { authMiddleware } from "./src/auth";
 import { corsMiddleware } from "./src/cors";
+import { CostTracker } from "./src/cost-tracker";
 import { isKilled, loadPersistedState, startGcsKillSwitchPoll } from "./src/kill-switch";
 import { MessageBus } from "./src/messages";
+import { Orchestrator } from "./src/orchestrator";
 import { cleanupStaleState, hasTombstone } from "./src/persistence";
 import { createAgentsRouter } from "./src/routes/agents";
 import { createConfigRouter } from "./src/routes/config";
@@ -16,6 +18,7 @@ import { createHealthRouter } from "./src/routes/health";
 import { createKillSwitchRouter } from "./src/routes/kill-switch";
 import { createMcpRouter } from "./src/routes/mcp";
 import { createMessagesRouter } from "./src/routes/messages";
+import { createTasksRouter } from "./src/routes/tasks";
 import { createUsageRouter } from "./src/routes/usage";
 import {
   cleanupClaudeHome,
@@ -25,6 +28,7 @@ import {
   syncFromGCS,
   syncToGCS,
 } from "./src/storage";
+import { TaskGraph } from "./src/task-graph";
 import { getContextDir } from "./src/utils/context";
 import { getContainerMemoryUsage } from "./src/utils/memory";
 import { rateLimitMiddleware } from "./src/validation";
@@ -35,7 +39,6 @@ function formatDeliveryPrompt(header: string, content: string, replyToId: string
   return `${header}\n<message-content>\n${content}\n</message-content>\n\n(Reply by sending a message back to agent ID: ${replyToId})`;
 }
 
-// ── Global error handlers (prevent crashes from killing all agents) ──────────
 let uncaughtExceptionCount = 0;
 const MAX_UNCAUGHT_EXCEPTIONS = 3;
 
@@ -56,7 +59,6 @@ process.on("unhandledRejection", (reason) => {
 
 const app = express();
 
-// ── Security headers ─────────────────────────────────────────────────────────
 app.use((_req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
@@ -76,7 +78,6 @@ app.use((_req, res, next) => {
   next();
 });
 
-// ── CORS (configurable via CORS_ORIGINS env var) ────────────────────────────
 app.use(corsMiddleware);
 
 // Agent routes accept file attachments — allow up to 10 MB for those endpoints.
@@ -84,7 +85,6 @@ app.use(corsMiddleware);
 app.use("/api/agents", express.json({ limit: "10mb" }));
 app.use(express.json({ limit: "1mb" }));
 
-// ── Layer 1: Kill switch middleware ─────────────────────────────────────────
 // Checked BEFORE auth so even valid tokens get blocked when the switch is active.
 // Exempts: /api/kill-switch (to allow deactivation), /api/health, /api/auth/token.
 app.use((req, res, next) => {
@@ -112,9 +112,43 @@ app.use(authMiddleware);
 app.use(rateLimitMiddleware);
 
 const messageBus = new MessageBus();
-const agentManager = new AgentManager();
+const costTracker = new CostTracker();
+const agentManager = new AgentManager({ costTracker });
+const taskGraph = new TaskGraph();
 
-// ── Memory monitoring (#42) ──────────────────────────────────────────────────
+const orchestrator = new Orchestrator(
+  taskGraph,
+  {
+    getAvailableAgents: () =>
+      agentManager.list().filter((a) => (a.status === "idle" || a.status === "restored") && a.claudeSessionId),
+    getAgent: (id) => agentManager.get(id),
+  },
+  {
+    sendTaskMessage: (agentId, taskMessage) => {
+      const agent = agentManager.get(agentId);
+      const agentName = agent?.name ?? agentId.slice(0, 8);
+      messageBus.post({
+        from: "orchestrator",
+        fromName: "Orchestrator",
+        to: agentId,
+        type: "task",
+        content: `[Task Assignment: ${taskMessage.taskId.slice(0, 8)}]\nType: ${taskMessage.type}\n${taskMessage.successCriteria ? `Acceptance Criteria: ${taskMessage.successCriteria}\n` : ""}${taskMessage.input ? `Input: ${JSON.stringify(taskMessage.input)}\n` : ""}${taskMessage.timeoutMs ? `Timeout: ${taskMessage.timeoutMs}ms` : ""}`,
+        metadata: { taskMessage },
+      });
+      console.log(`[orchestrator] Sent ${taskMessage.type} to ${agentName} for task ${taskMessage.taskId.slice(0, 8)}`);
+    },
+    sendNotification: (agentId, content) => {
+      messageBus.post({
+        from: "orchestrator",
+        fromName: "Orchestrator",
+        to: agentId,
+        type: "info",
+        content,
+      });
+    },
+  },
+);
+
 const MEMORY_LIMIT_BYTES = 32 * 1024 * 1024 * 1024; // 32Gi — matches Cloud Run container limit
 const MEMORY_WARN_THRESHOLD = 0.75;
 const MEMORY_REJECT_THRESHOLD = 0.85;
@@ -157,7 +191,6 @@ function stopKeepAlive() {
 // ── Recovery state (set during startup while GCS sync + agent restore runs) ─
 let recovering = true;
 
-// ── Mount route modules ──────────────────────────────────────────────────────
 app.use(createHealthRouter(agentManager, MEMORY_LIMIT_BYTES, () => recovering));
 
 // Block non-essential API calls until background recovery (GCS sync + agent
@@ -176,11 +209,11 @@ app.use(createUsageRouter(agentManager));
 app.use(createConfigRouter());
 app.use(createContextRouter());
 app.use(createMcpRouter());
-app.use(createCostRouter(agentManager));
+app.use(createCostRouter(agentManager, costTracker));
+app.use(createTasksRouter(taskGraph, orchestrator));
 // Layer 1: Kill switch endpoint (no extra auth beyond authMiddleware above)
 app.use(createKillSwitchRouter(agentManager));
 
-// ── Auto-deliver messages to idle agents ─────────────────────────────────────
 // When a message targets a specific agent that is idle, automatically resume
 // the agent with the message content so it can respond. Without this, agents
 // only see messages if they happen to poll — which they rarely do.
@@ -285,7 +318,6 @@ agentManager.onIdle((agentId) => {
   }, DELIVERY_SETTLE_MS);
 });
 
-// ── Static file serving (Next.js static export) ────────────────────────────
 const uiDistPath = path.join(__dirname, "ui", "dist");
 app.use(express.static(uiDistPath));
 
@@ -314,7 +346,6 @@ app.get("/{*splat}", (_req, res) => {
   });
 });
 
-// ── Memory monitor interval ──────────────────────────────────────────────────
 const memoryMonitorInterval = setInterval(() => {
   const containerMem = getContainerMemoryUsage();
   const { heapUsed, heapTotal } = process.memoryUsage();
@@ -329,8 +360,6 @@ const memoryMonitorInterval = setInterval(() => {
   }
 }, 60_000);
 memoryMonitorInterval.unref();
-
-// ── Startup cleanup helpers ──────────────────────────────────────────────────
 
 /** Kill orphaned `claude` processes left over from a previous container run.
  *  After a non-graceful restart, child processes may still be running under
@@ -415,7 +444,6 @@ function cleanupStaleWorkspaces(manager: AgentManager): void {
   }
 }
 
-// ── Startup ─────────────────────────────────────────────────────────────────
 async function start() {
   const PORT = parseInt(process.env.PORT ?? "8080", 10);
 
@@ -435,7 +463,10 @@ async function start() {
     clearInterval(tokenRefreshInterval);
     clearInterval(worktreeGCInterval);
     clearInterval(memoryMonitorInterval);
+    orchestrator.stop();
     agentManager.dispose();
+    costTracker.close();
+    taskGraph.close();
     stopPeriodicSync();
     await syncToGCS();
     server.close(() => process.exit(0));
@@ -493,6 +524,9 @@ async function start() {
       const { rotateJwtSecret } = await import("./src/auth");
       rotateJwtSecret();
     });
+
+    // Start the orchestrator's assignment loop
+    orchestrator.start();
 
     console.log("[startup] Recovery complete");
   } catch (err: unknown) {

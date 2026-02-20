@@ -26,6 +26,8 @@ RUN npm run build
 # ── Stage 2: Server dependencies ────────────────────────────────────────────
 FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
+# better-sqlite3 needs build tools if prebuilt binaries are unavailable
+RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 RUN npm ci --omit=dev
 
@@ -48,6 +50,7 @@ RUN apk add --no-cache git bash curl \
 
 # Install Claude Code CLI globally
 RUN npm install -g @anthropic-ai/claude-code@2.1.47
+RUN npm install -g pnpm
 
 # Create non-root user
 RUN addgroup -S agent && adduser -S agent -G agent

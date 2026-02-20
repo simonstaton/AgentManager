@@ -2,7 +2,7 @@ import express, { type Request, type Response } from "express";
 import type { AgentManager } from "../agents";
 import { MAX_BATCH_SIZE } from "../guardrails";
 import type { MessageBus } from "../messages";
-import type { StreamEvent } from "../types";
+import type { AuthenticatedRequest, StreamEvent } from "../types";
 import { param, queryString } from "../utils/express";
 import { listFilesRecursive } from "../utils/files";
 import { setupSSE } from "../utils/sse";
@@ -351,6 +351,44 @@ export function createAgentsRouter(
     } catch (err: unknown) {
       console.error(`[agents] Error destroying agent ${id.slice(0, 8)}:`, err);
       res.status(500).json({ error: "Failed to destroy agent" });
+    }
+  });
+
+  // WI-5: Pause an agent (SIGSTOP)
+  router.post("/api/agents/:id/pause", (req: Request, res: Response) => {
+    // Agents must not pause/resume other agents
+    if ((req as AuthenticatedRequest).user?.sub === "agent-service") {
+      res.status(403).json({ error: "Agent service tokens cannot pause agents" });
+      return;
+    }
+    const id = param(req.params.id);
+    if (!agentManager.get(id)) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    if (agentManager.pause(id)) {
+      res.json({ ok: true });
+    } else {
+      res.status(400).json({ error: "Cannot pause agent (not running or no process)" });
+    }
+  });
+
+  // WI-5: Resume a paused agent (SIGCONT)
+  router.post("/api/agents/:id/resume", (req: Request, res: Response) => {
+    // Agents must not pause/resume other agents
+    if ((req as AuthenticatedRequest).user?.sub === "agent-service") {
+      res.status(403).json({ error: "Agent service tokens cannot resume agents" });
+      return;
+    }
+    const id = param(req.params.id);
+    if (!agentManager.get(id)) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    if (agentManager.resume(id)) {
+      res.json({ ok: true });
+    } else {
+      res.status(400).json({ error: "Cannot resume agent (not paused)" });
     }
   });
 

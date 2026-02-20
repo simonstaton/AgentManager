@@ -13,6 +13,7 @@ import {
 import { appendFile, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { generateServiceToken } from "./auth";
+import type { CostTracker } from "./cost-tracker";
 import {
   ALLOWED_MODELS,
   DEFAULT_MODEL,
@@ -152,6 +153,7 @@ export class AgentManager {
   private agents = new Map<string, AgentProcess>();
   private cleanupInterval: ReturnType<typeof setInterval>;
   private flushInterval: ReturnType<typeof setInterval>;
+  private watchdogInterval: ReturnType<typeof setInterval>;
   private idleListeners = new Set<(agentId: string) => void>();
   private writeQueues = new Map<string, Promise<void>>();
   /** Per-agent lifecycle lock to prevent concurrent message/destroy operations.
@@ -165,12 +167,17 @@ export class AgentManager {
   private static readonly DEDUP_WINDOW_MS = 10_000; // 10 seconds
   /** Layer 1: Set to true by kill switch — blocks create() and message() at the code level. */
   killed = false;
+  /** Optional persistent cost tracker (SQLite-backed). */
+  private costTracker: CostTracker | null = null;
 
-  constructor() {
+  constructor(opts?: { costTracker?: CostTracker }) {
+    this.costTracker = opts?.costTracker ?? null;
     // Cleanup idle agents every 60s
     this.cleanupInterval = setInterval(() => this.cleanupExpired(), 60_000);
     // Periodic state flush every 30s (catches lastActivity updates without writing on every poll)
     this.flushInterval = setInterval(() => this.flushAllStates(), 30_000);
+    // WI-4: Watchdog checks every 30s for dead/stalled/stuck-starting agents
+    this.watchdogInterval = setInterval(() => this.watchdogCheck(), 30_000);
   }
 
   /** Register a callback that fires when any agent transitions to idle. */
@@ -201,6 +208,11 @@ export class AgentManager {
         lineBuffer: "",
         listeners: new Set(),
         seenMessageIds: new Set(),
+        processingScheduled: false,
+        persistBatch: "",
+        persistTimer: null,
+        listenerBatch: [],
+        stallCount: 0,
       };
       this.agents.set(agent.id, agentProc);
       console.log(`[restore] Restored agent ${agent.name} (${agent.id.slice(0, 8)})`);
@@ -297,6 +309,11 @@ export class AgentManager {
       lineBuffer: "",
       listeners: new Set(),
       seenMessageIds: new Set(),
+      processingScheduled: false,
+      persistBatch: "",
+      persistTimer: null,
+      listenerBatch: [],
+      stallCount: 0,
     };
 
     this.agents.set(id, agentProc);
@@ -413,15 +430,14 @@ export class AgentManager {
 
         this.attachProcessHandlers(id, ap, proc);
       });
-    this.lifecycleLocks.set(
-      id,
-      spawnAfterKill.catch(() => {}),
-    );
-
-    // Update status immediately so canDeliver() returns false
-    agentProc.agent.status = "running";
-    agentProc.agent.lastActivity = new Date().toISOString();
-    saveAgentState(agentProc.agent);
+    const lockPromise = spawnAfterKill.catch(() => {});
+    this.lifecycleLocks.set(id, lockPromise);
+    // Clean up the lock entry once the spawn completes so the watchdog can monitor this agent
+    lockPromise.then(() => {
+      if (this.lifecycleLocks.get(id) === lockPromise) {
+        this.lifecycleLocks.delete(id);
+      }
+    });
 
     const userPromptEvent: StreamEvent = { type: "user_prompt", text: prompt };
     const subscribe = (listener: (event: StreamEvent) => void) => {
@@ -482,8 +498,9 @@ export class AgentManager {
     if (!agentProc) return false;
     if (this.delivering.has(id)) return false;
     const { status } = agentProc.agent;
-    // Only deliver to agents that aren't actively running and have a session to resume
-    if ((status === "idle" || status === "restored") && !!agentProc.agent.claudeSessionId) {
+    // Only deliver to agents that aren't actively running and have a session to resume.
+    // Stalled agents also receive deliveries to attempt recovery.
+    if ((status === "idle" || status === "restored" || status === "stalled") && !!agentProc.agent.claudeSessionId) {
       this.delivering.add(id);
       return true;
     }
@@ -512,6 +529,82 @@ export class AgentManager {
     if (agentProc) {
       agentProc.agent.lastActivity = new Date().toISOString();
     }
+  }
+
+  /** WI-5: Pause an agent by sending SIGSTOP to its process group.
+   *  Agents spawn with `detached: true`, giving them their own process group. */
+  pause(id: string): boolean {
+    const agentProc = this.agents.get(id);
+    if (!agentProc) return false;
+    const { agent, proc } = agentProc;
+    if (agent.status !== "running" && agent.status !== "stalled") return false;
+    if (!proc || proc.exitCode !== null || proc.pid == null) return false;
+
+    try {
+      process.kill(-proc.pid, "SIGSTOP");
+    } catch {
+      return false;
+    }
+
+    agent.status = "paused";
+    agent.lastActivity = new Date().toISOString();
+    saveAgentState(agent);
+    this.handleEvent(id, {
+      type: "system",
+      subtype: "paused",
+      message: "Agent paused via SIGSTOP. Send /resume to continue.",
+    });
+    return true;
+  }
+
+  /** WI-5: Resume a paused agent by sending SIGCONT to its process group.
+   *  If SIGCONT fails (e.g. stale connections after long pause), falls back to
+   *  killing the process — the next message delivery will respawn via --resume. */
+  resume(id: string): boolean {
+    const agentProc = this.agents.get(id);
+    if (!agentProc) return false;
+    const { agent, proc } = agentProc;
+    if (agent.status !== "paused") return false;
+    if (!proc || proc.pid == null) return false;
+
+    try {
+      process.kill(-proc.pid, "SIGCONT");
+    } catch {
+      // Process group gone — mark as idle so message delivery can respawn
+      agent.status = "idle";
+      agent.lastActivity = new Date().toISOString();
+      saveAgentState(agent);
+      this.handleEvent(id, {
+        type: "system",
+        subtype: "resumed",
+        message: "Resume failed (process gone). Agent marked idle for respawn.",
+      });
+      return true;
+    }
+
+    // Verify the process is actually alive after SIGCONT — it may have exited
+    // while paused (zombie state) and process.kill() won't throw for zombies.
+    if (proc.exitCode !== null) {
+      agent.status = "idle";
+      agent.lastActivity = new Date().toISOString();
+      saveAgentState(agent);
+      this.handleEvent(id, {
+        type: "system",
+        subtype: "resumed",
+        message: "Process exited while paused. Agent marked idle for respawn.",
+      });
+      return true;
+    }
+
+    agent.status = "running";
+    agent.lastActivity = new Date().toISOString();
+    saveAgentState(agent);
+    this.handleEvent(id, {
+      type: "system",
+      subtype: "resumed",
+      message: "Agent resumed via SIGCONT.",
+    });
+    return true;
   }
 
   async getEvents(id: string): Promise<StreamEvent[]> {
@@ -686,6 +779,15 @@ export class AgentManager {
 
   /** Internal destroy implementation — runs after lifecycle lock is released. */
   private async doDestroy(id: string, agentProc: AgentProcess): Promise<void> {
+    // Finalize cost record in SQLite before cleanup — the data was already
+    // upserted independently of the agent map, so this just sets closedAt.
+    if (this.costTracker) {
+      this.costTracker.finalize(id);
+    }
+
+    // Flush any pending event batches before destroy so no events are lost
+    this.flushEventBatch(id, agentProc);
+
     // Remove process handlers BEFORE killing to prevent the close handler from
     // re-saving agent state after we delete it (race condition that caused
     // destroyed agents to be restored on server restart).
@@ -756,6 +858,7 @@ export class AgentManager {
     this.killed = true;
     clearInterval(this.cleanupInterval);
     clearInterval(this.flushInterval);
+    clearInterval(this.watchdogInterval);
 
     console.log("[kill-switch] emergencyDestroyAll — starting nuclear shutdown");
 
@@ -764,6 +867,12 @@ export class AgentManager {
 
     // SIGKILL all tracked processes immediately
     for (const [id, agentProc] of this.agents) {
+      // Clear WI-1 batch timers
+      if (agentProc.persistTimer) clearTimeout(agentProc.persistTimer);
+      agentProc.persistTimer = null;
+      agentProc.persistBatch = "";
+      agentProc.listenerBatch = [];
+
       const proc = agentProc.proc;
       if (proc) {
         proc.stdout?.removeAllListeners();
@@ -814,8 +923,11 @@ export class AgentManager {
   dispose(): void {
     clearInterval(this.cleanupInterval);
     clearInterval(this.flushInterval);
+    clearInterval(this.watchdogInterval);
     this.flushAllStates();
-    for (const agentProc of this.agents.values()) {
+    for (const [id, agentProc] of this.agents) {
+      // Flush any pending event batches before shutdown
+      this.flushEventBatch(id, agentProc);
       if (agentProc.proc && !agentProc.proc.killed) {
         killProcessGroup(agentProc.proc);
       }
@@ -834,21 +946,25 @@ export class AgentManager {
     return dirs;
   }
 
-  /** Attach stdout/stderr/close handlers to a spawned process. */
+  /** Attach stdout/stderr/close handlers to a spawned process.
+   *  Uses batched line processing (WI-1) to prevent event loop saturation
+   *  when many agents produce output simultaneously. */
   private attachProcessHandlers(id: string, agentProc: AgentProcess, proc: ReturnType<typeof spawn>): void {
     proc.stdout?.on("data", (chunk: Buffer) => {
       agentProc.lineBuffer += chunk.toString();
-      const lines = agentProc.lineBuffer.split("\n");
-      agentProc.lineBuffer = lines.pop() || "";
 
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const event = JSON.parse(line) as StreamEvent;
-          this.handleEvent(id, event);
-        } catch {
-          this.handleEvent(id, { type: "raw", text: line });
-        }
+      // Backpressure: pause stdout if lineBuffer exceeds 1 MB to prevent
+      // unbounded memory growth when agents produce output faster than we parse
+      if (agentProc.lineBuffer.length > 1_048_576 && proc.stdout) {
+        proc.stdout.pause();
+      }
+
+      // Schedule batch processing on next tick instead of processing synchronously
+      // in the data handler. This yields the event loop between data chunks so
+      // SSE heartbeats and API responses can be served.
+      if (!agentProc.processingScheduled) {
+        agentProc.processingScheduled = true;
+        setImmediate(() => this.processLineBuffer(id, agentProc, proc));
       }
     });
 
@@ -872,6 +988,11 @@ export class AgentManager {
       }
 
       this.handleEvent(id, { type: "done", exitCode: code ?? undefined });
+
+      // Flush any pending batches immediately on close — listeners need
+      // to see events (especially "done") before state transitions happen
+      this.flushEventBatch(id, agentProc);
+
       const ap = this.agents.get(id);
       if (ap) {
         ap.agent.status = code === 0 ? "idle" : "error";
@@ -882,17 +1003,63 @@ export class AgentManager {
 
       // Notify idle listeners so queued messages can be delivered
       if (code === 0) {
-        for (const listener of this.idleListeners) {
-          try {
-            listener(id);
-          } catch (err: unknown) {
-            console.warn("[agents] Idle listener error:", errorMessage(err));
-          }
-        }
+        this.notifyIdleListeners(id);
       }
     });
   }
 
+  /** Process buffered stdout lines in batches of 50, yielding to the event
+   *  loop between batches via setImmediate. This prevents a burst of output
+   *  from one agent from starving SSE heartbeats and API requests. */
+  private processLineBuffer(id: string, agentProc: AgentProcess, proc: ReturnType<typeof spawn>): void {
+    agentProc.processingScheduled = false;
+
+    // Agent may have been destroyed while processing was queued via setImmediate
+    if (!this.agents.has(id)) return;
+
+    const lines = agentProc.lineBuffer.split("\n");
+    agentProc.lineBuffer = lines.pop() || "";
+
+    const BATCH_SIZE = 50;
+    let offset = 0;
+
+    const processBatch = () => {
+      // Agent may have been destroyed while processing was queued
+      if (!this.agents.has(id)) return;
+
+      const end = Math.min(offset + BATCH_SIZE, lines.length);
+      for (let i = offset; i < end; i++) {
+        const line = lines[i];
+        if (!line.trim()) continue;
+        try {
+          const event = JSON.parse(line) as StreamEvent;
+          this.handleEvent(id, event);
+        } catch {
+          this.handleEvent(id, { type: "raw", text: line });
+        }
+      }
+
+      offset = end;
+
+      if (offset < lines.length) {
+        // More lines to process — yield to event loop then continue
+        setImmediate(processBatch);
+      } else {
+        // Done processing — resume stdout if paused due to backpressure
+        if (proc.stdout?.isPaused?.()) {
+          proc.stdout.resume();
+        }
+      }
+    };
+
+    processBatch();
+  }
+
+  /** Handle a single event: extract metadata immediately, batch persistence
+   *  and listener notification. Metadata (session_id, usage) is processed
+   *  synchronously since it affects agent state. Disk writes and listener
+   *  notifications are coalesced into 16 ms batches to reduce I/O calls and
+   *  SSE write pressure. */
   private handleEvent(id: string, event: StreamEvent): void {
     const agentProc = this.agents.get(id);
     if (!agentProc) return;
@@ -907,6 +1074,13 @@ export class AgentManager {
     // each carrying the same usage snapshot. We deduplicate by message ID so each
     // API call's tokens are counted exactly once.
     if (event.type === "assistant") {
+      // Fix H1: Reset stallCount when real output arrives from a stalled agent
+      if (agentProc.agent.status === "stalled" && (event.subtype === "text" || event.subtype === "tool_use")) {
+        agentProc.stallCount = 0;
+        agentProc.agent.status = "running";
+        saveAgentState(agentProc.agent);
+      }
+
       const msg = event.message as Record<string, unknown> | undefined;
       const msgId = msg?.id as string | undefined;
       const usage = msg?.usage as
@@ -921,6 +1095,12 @@ export class AgentManager {
       if (msgId && usage && !agentProc.seenMessageIds.has(msgId)) {
         agentProc.seenMessageIds.add(msgId);
 
+        // Cap seenMessageIds to prevent unbounded growth (Performance H2)
+        if (agentProc.seenMessageIds.size > 1000) {
+          const arr = Array.from(agentProc.seenMessageIds);
+          agentProc.seenMessageIds = new Set(arr.slice(-500));
+        }
+
         const tokensIn =
           (usage.input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0);
         const tokensOut = usage.output_tokens ?? 0;
@@ -934,6 +1114,7 @@ export class AgentManager {
             estimatedCost: prev.estimatedCost + cost,
           };
           saveAgentState(agentProc.agent);
+          this.upsertCostTracker(agentProc);
         }
       }
     }
@@ -955,34 +1136,81 @@ export class AgentManager {
           estimatedCost: prev.estimatedCost + totalCost,
         };
         saveAgentState(agentProc.agent);
+        this.upsertCostTracker(agentProc);
       }
     }
 
     agentProc.agent.lastActivity = new Date().toISOString();
 
-    // Persist sanitized event to JSONL (strip secrets, async write queue to avoid interleaving)
+    // Batch persist: accumulate sanitized JSONL lines and flush with 16ms timer.
+    // This turns N appendFile calls into 1, reducing I/O syscalls dramatically.
     const sanitized = sanitizeEvent(event);
-    const line = `${JSON.stringify(sanitized)}\n`;
-    const filePath = path.join(EVENTS_DIR, `${id}.jsonl`);
-    const prev = this.writeQueues.get(id) ?? Promise.resolve();
-    const next = prev
-      .then(() =>
-        appendFile(filePath, line).catch((err: unknown) => {
-          console.warn(`[agents] Failed to persist event for ${id}:`, errorMessage(err));
-        }),
-      )
-      .then(() => {
-        if (this.writeQueues.get(id) === next) {
-          this.writeQueues.set(id, Promise.resolve());
-        }
-      });
-    this.writeQueues.set(id, next);
+    agentProc.persistBatch += `${JSON.stringify(sanitized)}\n`;
 
-    for (const listener of agentProc.listeners) {
-      try {
-        listener(event);
-      } catch (err: unknown) {
-        console.warn("[agents] Listener error:", errorMessage(err));
+    // Batch listener notification: buffer events for 16ms (one frame) before
+    // notifying SSE listeners, reducing the number of res.write() calls.
+    agentProc.listenerBatch.push(event);
+
+    if (!agentProc.persistTimer) {
+      agentProc.persistTimer = setTimeout(() => this.flushEventBatch(id, agentProc), 16);
+    }
+  }
+
+  /** Persist usage snapshot to SQLite cost tracker. Only called when usage actually changes. */
+  private upsertCostTracker(agentProc: AgentProcess): void {
+    if (!this.costTracker || !agentProc.agent.usage) return;
+    this.costTracker.upsert({
+      agentId: agentProc.agent.id,
+      agentName: agentProc.agent.name,
+      model: agentProc.agent.model,
+      tokensIn: agentProc.agent.usage.tokensIn,
+      tokensOut: agentProc.agent.usage.tokensOut,
+      estimatedCost: agentProc.agent.usage.estimatedCost,
+      createdAt: agentProc.agent.createdAt,
+    });
+  }
+
+  /** Flush batched event persistence and listener notifications for an agent.
+   *  Called by the 16ms coalesce timer or synchronously on process close. */
+  private flushEventBatch(id: string, agentProc: AgentProcess): void {
+    // Clear timer
+    if (agentProc.persistTimer) {
+      clearTimeout(agentProc.persistTimer);
+      agentProc.persistTimer = null;
+    }
+
+    // Flush persistence batch — single appendFile for all accumulated events
+    const batch = agentProc.persistBatch;
+    agentProc.persistBatch = "";
+    if (batch) {
+      const filePath = path.join(EVENTS_DIR, `${id}.jsonl`);
+      const prev = this.writeQueues.get(id) ?? Promise.resolve();
+      const next = prev
+        .then(() =>
+          appendFile(filePath, batch).catch((err: unknown) => {
+            console.warn(`[agents] Failed to persist events for ${id}:`, errorMessage(err));
+          }),
+        )
+        .then(() => {
+          if (this.writeQueues.get(id) === next) {
+            this.writeQueues.set(id, Promise.resolve());
+          }
+        });
+      this.writeQueues.set(id, next);
+    }
+
+    // Flush listener batch — notify all listeners with buffered events
+    const events = agentProc.listenerBatch;
+    agentProc.listenerBatch = [];
+    if (events.length > 0) {
+      for (const event of events) {
+        for (const listener of agentProc.listeners) {
+          try {
+            listener(event);
+          } catch (err: unknown) {
+            console.warn("[agents] Listener error:", errorMessage(err));
+          }
+        }
       }
     }
   }
@@ -1008,13 +1236,126 @@ export class AgentManager {
     }
   }
 
+  private static readonly PAUSED_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
   private cleanupExpired(): void {
     const now = Date.now();
     for (const [id, agentProc] of [...this.agents]) {
       const lastActivity = new Date(agentProc.agent.lastActivity).getTime();
+      // Paused agents get an extended 24-hour TTL instead of indefinite exemption
+      if (agentProc.agent.status === "paused") {
+        if (now - lastActivity > AgentManager.PAUSED_TTL_MS) {
+          console.log(`Cleaning up paused agent ${id} (exceeded 24h TTL)`);
+          this.destroy(id);
+        }
+        continue;
+      }
       if (now - lastActivity > SESSION_TTL_MS) {
         console.log(`Cleaning up expired agent ${id}`);
         this.destroy(id);
+      }
+    }
+  }
+
+  /** WI-4: Watchdog — detects dead processes, stalled agents, and start timeouts.
+   *  Runs every 30s. Skips agents with active lifecycle locks to avoid races. */
+  private static readonly START_TIMEOUT_MS = 2 * 60_000; // 2 minutes
+  private static readonly STALL_TIMEOUT_MS = 10 * 60_000; // 10 minutes
+  private static readonly MAX_STALL_COUNT = 3;
+
+  /** Notify all idle listeners for an agent. Encapsulates the for-loop + try/catch pattern. */
+  private notifyIdleListeners(id: string): void {
+    for (const listener of this.idleListeners) {
+      try {
+        listener(id);
+      } catch (err: unknown) {
+        console.warn("[agents] Idle listener error:", errorMessage(err));
+      }
+    }
+  }
+
+  private watchdogCheck(): void {
+    const now = Date.now();
+    for (const [id, agentProc] of this.agents) {
+      const { agent, proc } = agentProc;
+
+      // Skip agents with active lifecycle locks — they're in the middle of
+      // a message() or destroy() operation. Also skip paused agents.
+      if (this.lifecycleLocks.has(id)) continue;
+      if (agent.status === "destroying" || agent.status === "killing" || agent.status === "paused") continue;
+
+      // 1. Dead process detection: exitCode is set when the process has exited.
+      //    proc.killed is unreliable (only set if WE killed it).
+      if (proc && proc.exitCode !== null && agent.status === "running") {
+        const exitCode = proc.exitCode;
+        console.warn(
+          `[watchdog] Dead process detected for agent ${agent.name} (${id.slice(0, 8)}), exit code ${exitCode}`,
+        );
+        agent.status = exitCode === 0 ? "idle" : "error";
+        agent.lastActivity = new Date().toISOString();
+        saveAgentState(agent);
+        this.handleEvent(id, {
+          type: "system",
+          subtype: "watchdog",
+          message: `Process exited unexpectedly (code ${exitCode}). Status changed to ${agent.status}.`,
+        });
+        // Notify idle listeners if exit was clean
+        if (exitCode === 0) {
+          this.notifyIdleListeners(id);
+        }
+        continue;
+      }
+
+      // 2. Start timeout: agent stuck in "starting" for > 2 minutes
+      if (agent.status === "starting") {
+        const createdAt = new Date(agent.createdAt).getTime();
+        if (now - createdAt > AgentManager.START_TIMEOUT_MS) {
+          console.warn(`[watchdog] Start timeout for agent ${agent.name} (${id.slice(0, 8)})`);
+          agent.status = "error";
+          agent.lastActivity = new Date().toISOString();
+          saveAgentState(agent);
+          this.handleEvent(id, {
+            type: "system",
+            subtype: "watchdog",
+            message: "Agent failed to start within 2 minutes. Status changed to error.",
+          });
+        }
+        continue;
+      }
+
+      // 3. Stall detection: running agent with no output for > 10 minutes
+      //    AND process is still alive (exitCode is null)
+      if (agent.status === "running" && proc && proc.exitCode === null) {
+        const lastActivityTs = new Date(agent.lastActivity).getTime();
+        if (now - lastActivityTs > AgentManager.STALL_TIMEOUT_MS) {
+          agentProc.stallCount++;
+          if (agentProc.stallCount >= AgentManager.MAX_STALL_COUNT) {
+            // Too many consecutive stalls — escalate to error
+            console.warn(
+              `[watchdog] Agent ${agent.name} (${id.slice(0, 8)}) stalled ${AgentManager.MAX_STALL_COUNT} times — marking as error`,
+            );
+            agent.status = "error";
+            saveAgentState(agent);
+            this.handleEvent(id, {
+              type: "system",
+              subtype: "watchdog",
+              message: `Agent stalled ${AgentManager.MAX_STALL_COUNT} consecutive times. Marked as error.`,
+            });
+          } else {
+            console.warn(
+              `[watchdog] Stall detected for agent ${agent.name} (${id.slice(0, 8)}) — no output for 10+ minutes (stall ${agentProc.stallCount}/${AgentManager.MAX_STALL_COUNT})`,
+            );
+            agent.status = "stalled";
+            saveAgentState(agent);
+            this.handleEvent(id, {
+              type: "system",
+              subtype: "watchdog",
+              message: `No output for 10+ minutes (stall ${agentProc.stallCount}/${AgentManager.MAX_STALL_COUNT}). Send a message to attempt recovery.`,
+            });
+            // Notify idle listeners so stalled agents can receive queued messages
+            this.notifyIdleListeners(id);
+          }
+        }
       }
     }
   }
@@ -1273,12 +1614,15 @@ export class AgentManager {
       "CLAUDE_HOME",
       // Shared context
       "SHARED_CONTEXT_DIR",
+      // npm cache (persistent across sessions)
+      "npm_config_cache",
     ];
 
     const env: NodeJS.ProcessEnv = {
       SHELL: "/bin/sh",
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
       AGENT_AUTH_TOKEN: generateServiceToken(agentId),
+      ...(existsSync("/persistent/npm-cache") && { npm_config_cache: "/persistent/npm-cache" }),
     };
 
     for (const key of ALLOWED_ENV_KEYS) {

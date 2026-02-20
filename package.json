@@ -29,11 +29,13 @@
   "homepage": "https://github.com/simonstaton/ClaudeSwarm#readme",
   "dependencies": {
     "@google-cloud/storage": "^7.15.0",
+    "better-sqlite3": "12.6.2",
     "express": "^5.2.1",
     "tsx": "^4.21.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.0",
+    "@types/better-sqlite3": "7.6.13",
     "@types/express": "^5.0.6",
     "@types/node": "^25.2.3",
     "concurrently": "^9.1.0",

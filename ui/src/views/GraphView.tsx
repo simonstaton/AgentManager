@@ -8,7 +8,6 @@ import { useAgentPolling } from "../hooks/useAgentPolling";
 import { useApi } from "../hooks/useApi";
 import { useKillSwitchContext } from "../killSwitch";
 
-// ── Layout constants ──────────────────────────────────────────────────────────
 const NODE_W = 200;
 const NODE_H = 96;
 const H_GAP = 60; // horizontal gap between siblings
@@ -88,7 +87,6 @@ function computeLayout(topology: SwarmTopology): LayoutNode[] {
   });
 }
 
-// ── Status colours ────────────────────────────────────────────────────────────
 function statusColor(status: TopologyNode["status"]): { fill: string; stroke: string; text: string } {
   switch (status) {
     case "running":
@@ -106,13 +104,11 @@ function statusColor(status: TopologyNode["status"]): { fill: string; stroke: st
   }
 }
 
-// ── Edge path (cubic bezier, top→bottom) ─────────────────────────────────────
 function edgePath(sx: number, sy: number, tx: number, ty: number): string {
   const midY = (sy + ty) / 2;
   return `M ${sx} ${sy} C ${sx} ${midY}, ${tx} ${midY}, ${tx} ${ty}`;
 }
 
-// ── Tooltip ───────────────────────────────────────────────────────────────────
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
@@ -159,7 +155,6 @@ function Tooltip({ node }: { node: TopologyNode }) {
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
 export function GraphView() {
   const api = useApi();
   const { agents } = useAgentPolling();

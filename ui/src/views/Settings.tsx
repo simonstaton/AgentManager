@@ -6,8 +6,6 @@ import type { ClaudeConfigFile, ContextFile, createApi } from "../api";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Skeleton, TreeListSkeleton } from "../components/Skeleton";
 
-// ── Generic file tree utilities ─────────────────────────────────────────────
-
 interface TreeNode<T = undefined> {
   name: string;
   fullPath: string;
@@ -68,8 +66,6 @@ function allFolderPaths(keys: string[]): Set<string> {
   }
   return folders;
 }
-
-// ── Generic tree list component ──────────────────────────────────────────────
 
 function TreeList<T>({
   nodes,
@@ -144,8 +140,6 @@ function TreeList<T>({
   );
 }
 
-// ── Shared editor state hook ──────────────────────────────────────────────
-
 function useFileEditor() {
   const [content, setContent] = useState("");
   const savedContentRef = useRef("");
@@ -205,8 +199,6 @@ function useFileEditor() {
   };
 }
 
-// ── Folder toggle helper ─────────────────────────────────────────────────
-
 function useFolderToggle(initial: Set<string> = new Set()) {
   const [expanded, setExpanded] = useState(initial);
 
@@ -222,7 +214,6 @@ function useFolderToggle(initial: Set<string> = new Set()) {
   return { expanded, setExpanded, toggle };
 }
 
-// ── Shared Context Panel ────────────────────────────────────────────────────
 export function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
   const [files, setFiles] = useState<ContextFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -419,7 +410,6 @@ export function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
   );
 }
 
-// ── Claude Config Panel ─────────────────────────────────────────────────────
 const CATEGORY_LABELS: Record<string, { label: string; description: string }> = {
   core: { label: "Core Config", description: "Main Claude configuration files" },
   skills: { label: "Skills / Commands", description: "Custom slash commands shared across agents" },
@@ -766,7 +756,6 @@ export function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
   );
 }
 
-// ── API Key Panel ───────────────────────────────────────────────────────────
 export function ApiKeyPanel({ api }: { api: ReturnType<typeof createApi> }) {
   const [hint, setHint] = useState("");
   const [mode, setMode] = useState<"openrouter" | "anthropic">("openrouter");
@@ -844,7 +833,6 @@ export function ApiKeyPanel({ api }: { api: ReturnType<typeof createApi> }) {
   );
 }
 
-// ── Guardrails Panel ────────────────────────────────────────────────────────
 export function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

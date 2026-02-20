@@ -123,7 +123,7 @@ mkdir -p /shared-context
 
 # ── 5. Init persistent storage if GCS FUSE is mounted ───────────────────────
 if [ -d /persistent ] && mountpoint -q /persistent 2>/dev/null; then
-  mkdir -p /persistent/repos /persistent/tools /persistent/shared-context
+  mkdir -p /persistent/repos /persistent/tools /persistent/shared-context /persistent/npm-cache
   export SHARED_CONTEXT_DIR=/persistent/shared-context
   echo "Persistent storage (GCS FUSE) active"
 

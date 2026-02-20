@@ -3,7 +3,7 @@
 export interface Agent {
   id: string;
   name: string;
-  status: "starting" | "running" | "idle" | "error" | "restored";
+  status: "starting" | "running" | "idle" | "error" | "restored" | "killing" | "destroying" | "paused" | "stalled";
   workspaceDir: string;
   claudeSessionId?: string;
   createdAt: string;
@@ -47,7 +47,7 @@ export interface StreamEvent {
 export interface TopologyNode {
   id: string;
   name: string;
-  status: "starting" | "running" | "idle" | "error" | "restored";
+  status: "starting" | "running" | "idle" | "error" | "restored" | "killing" | "destroying" | "paused" | "stalled";
   role?: string;
   model: string;
   depth: number;
@@ -206,6 +206,22 @@ export function createApi(authFetch: AuthFetch) {
     async destroyAgent(id: string): Promise<void> {
       const res = await authFetch(`/api/agents/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to destroy agent");
+    },
+
+    async pauseAgent(id: string): Promise<void> {
+      const res = await authFetch(`/api/agents/${id}/pause`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || "Failed to pause agent");
+      }
+    },
+
+    async resumeAgent(id: string): Promise<void> {
+      const res = await authFetch(`/api/agents/${id}/resume`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || "Failed to resume agent");
+      }
     },
 
     async readContext(filename: string): Promise<string> {
@@ -427,6 +443,20 @@ export function createApi(authFetch: AuthFetch) {
       }
     },
 
+    // Download agent logs as a text file
+    async downloadAgentLogs(id: string, agentName: string): Promise<void> {
+      const res = await authFetch(`/api/agents/${id}/logs?format=text`);
+      if (!res.ok) throw new Error("Failed to download logs");
+      const text = await res.text();
+      const blob = new Blob([text], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${agentName}-log.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+
     // Cost / usage
     async fetchCostSummary(): Promise<{
       totalTokens: number;
@@ -440,9 +470,44 @@ export function createApi(authFetch: AuthFetch) {
         createdAt: string;
         status: string;
       }>;
+      allTime: {
+        totalCost: number;
+        totalTokensIn: number;
+        totalTokensOut: number;
+        totalRecords: number;
+      };
     }> {
       const res = await authFetch("/api/cost/summary");
       if (!res.ok) throw new Error(`Failed to fetch cost data: ${res.statusText}`);
+      return res.json();
+    },
+
+    async fetchCostHistory(limit = 500): Promise<{
+      records: Array<{
+        agentId: string;
+        agentName: string;
+        model: string;
+        tokensIn: number;
+        tokensOut: number;
+        estimatedCost: number;
+        createdAt: string;
+        closedAt: string | null;
+      }>;
+      summary: {
+        allTimeCost: number;
+        allTimeTokensIn: number;
+        allTimeTokensOut: number;
+        totalRecords: number;
+      };
+    }> {
+      const res = await authFetch(`/api/cost/history?limit=${limit}`);
+      if (!res.ok) throw new Error(`Failed to fetch cost history: ${res.statusText}`);
+      return res.json();
+    },
+
+    async resetCostHistory(): Promise<{ ok: boolean; deleted: number }> {
+      const res = await authFetch("/api/cost/history", { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to reset cost history");
       return res.json();
     },
   };

@@ -24,7 +24,7 @@ interface UseAgentStreamReturn {
 
 // Maximum number of events to keep in memory to prevent unbounded growth
 // Older events beyond this limit will be discarded
-const MAX_EVENTS = 5000;
+const MAX_EVENTS = 2000;
 
 /**
  * Create a fingerprint for a StreamEvent to detect duplicates.
@@ -72,7 +72,13 @@ function cleanupStream(
 
 export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
   const api = useApi();
-  const [events, setEvents] = useState<StreamEvent[]>([]);
+  // Mutable ref holds the actual events array — avoids creating new arrays on every SSE event.
+  // React state holds only the count, which triggers re-renders.
+  const eventsRef = useRef<StreamEvent[]>([]);
+  const [_eventCount, setEventCount] = useState(0);
+  // Expose events as a stable reference that consumers read from.
+  // _eventCount above is only used to trigger re-renders when events are added.
+  const events = eventsRef.current;
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<(() => void) | null>(null);
@@ -109,7 +115,8 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
       generationRef.current++;
 
       // Clear events to free memory immediately
-      setEvents([]);
+      eventsRef.current = [];
+      setEventCount(0);
       setIsStreaming(false);
       setError(null);
       serverEventCountRef.current = 0;
@@ -135,7 +142,8 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
 
       if (!incremental) {
         // Full reconnect — clear existing events since the server replays full history
-        setEvents([]);
+        eventsRef.current = [];
+        setEventCount(0);
         serverEventCountRef.current = 0;
         seenFingerprintsRef.current.clear();
       }
@@ -165,11 +173,11 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
                   const fps = Array.from(seenFingerprintsRef.current);
                   seenFingerprintsRef.current = new Set(fps.slice(-MAX_EVENTS));
                 }
-                setEvents((prev) => {
-                  const updated = [...prev, value];
-                  // Limit array size to prevent memory leak with long-running agents
-                  return updated.length > MAX_EVENTS ? updated.slice(-MAX_EVENTS) : updated;
-                });
+                eventsRef.current.push(value);
+                if (eventsRef.current.length > MAX_EVENTS) {
+                  eventsRef.current = eventsRef.current.slice(-MAX_EVENTS);
+                }
+                setEventCount((c) => c + 1);
               }
             } else {
               // Agent switched — cancel the reader which propagates to the
@@ -236,11 +244,11 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
                 const fps = Array.from(seenFingerprintsRef.current);
                 seenFingerprintsRef.current = new Set(fps.slice(-MAX_EVENTS));
               }
-              setEvents((prev) => {
-                const updated = [...prev, value];
-                // Limit array size to prevent memory leak with long-running agents
-                return updated.length > MAX_EVENTS ? updated.slice(-MAX_EVENTS) : updated;
-              });
+              eventsRef.current.push(value);
+              if (eventsRef.current.length > MAX_EVENTS) {
+                eventsRef.current = eventsRef.current.slice(-MAX_EVENTS);
+              }
+              setEventCount((c) => c + 1);
             }
           } else {
             // Agent switched — abort the fetch to close the server-side SSE
@@ -294,17 +302,18 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
   }, [agentId, doReconnect]);
 
   const clearEvents = useCallback(() => {
-    setEvents([]);
+    eventsRef.current = [];
+    setEventCount(0);
     setError(null);
     seenFingerprintsRef.current.clear();
   }, []);
 
   const injectEvent = useCallback((event: StreamEvent) => {
-    setEvents((prev) => {
-      const updated = [...prev, event];
-      // Limit array size to prevent memory leak
-      return updated.length > MAX_EVENTS ? updated.slice(-MAX_EVENTS) : updated;
-    });
+    eventsRef.current.push(event);
+    if (eventsRef.current.length > MAX_EVENTS) {
+      eventsRef.current = eventsRef.current.slice(-MAX_EVENTS);
+    }
+    setEventCount((c) => c + 1);
   }, []);
 
   // Cleanup on unmount — abort all active streams and timers

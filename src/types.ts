@@ -1,7 +1,16 @@
 import type { ChildProcess } from "node:child_process";
 import type { Request } from "express";
 
-export type AgentStatus = "starting" | "running" | "idle" | "error" | "restored" | "killing" | "destroying";
+export type AgentStatus =
+  | "starting"
+  | "running"
+  | "idle"
+  | "error"
+  | "restored"
+  | "killing"
+  | "destroying"
+  | "paused"
+  | "stalled";
 
 export interface AgentUsage {
   tokensIn: number;
@@ -92,6 +101,16 @@ export interface AgentProcess {
   listeners: Set<(event: StreamEvent) => void>;
   /** Track which API message IDs we have already counted usage for. */
   seenMessageIds: Set<string>;
+  /** WI-1: Prevents multiple setImmediate scheduling for line processing. */
+  processingScheduled: boolean;
+  /** WI-1: Accumulated JSONL lines for batched disk write. */
+  persistBatch: string;
+  /** WI-1: Timer for coalesced disk writes (16ms window). */
+  persistTimer: ReturnType<typeof setTimeout> | null;
+  /** WI-1: Events buffered for coalesced listener notification. */
+  listenerBatch: StreamEvent[];
+  /** WI-4: Consecutive stall detection count — escalates to error after threshold. */
+  stallCount: number;
 }
 
 export interface AuthPayload {
