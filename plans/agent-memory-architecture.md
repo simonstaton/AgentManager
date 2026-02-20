@@ -218,4 +218,4 @@ src/
 
 ---
 
-*Phase 4.2 - Agent Memory Architecture | ClaudeSwarm V3*
+*Phase 4.2 - Agent Memory Architecture | AgentConductor V3*

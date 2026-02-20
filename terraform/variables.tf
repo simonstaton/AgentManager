@@ -16,7 +16,7 @@ variable "openrouter_api_key" {
 }
 
 variable "agent_api_key" {
-  description = "API key for authenticating to the Swarm service"
+  description = "API key for authenticating to the AgentConductor service"
   type        = string
   sensitive   = true
 }

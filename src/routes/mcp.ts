@@ -215,7 +215,7 @@ export function createMcpRouter() {
           "Authentication Successful!",
           `<div style="font-size:1.2em;font-weight:bold;color:#333;margin:20px 0">${safeServer.toUpperCase()}</div>
           <p>Your ${safeServer} account has been successfully connected.</p>
-          <p>You can now close this window and return to Claude Swarm.</p>
+          <p>You can now close this window and return to AgentConductor.</p>
           <p>All agents will have access to your ${safeServer} account.</p>
           <div class="hint">This window can be closed.</div>`,
           true,

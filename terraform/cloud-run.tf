@@ -1,5 +1,5 @@
 resource "google_cloud_run_v2_service" "swarm" {
-  name     = "claude-swarm"
+  name     = "claude-swarm" # keep old slug until infra migration (renaming destroys the service)
   location = var.region
 
   template {
@@ -173,5 +173,5 @@ resource "google_cloud_run_v2_service" "swarm" {
   }
 
   # No public access - require IAM authentication
-  # To grant access: gcloud run services add-iam-policy-binding claude-swarm --member=user:you@email.com --role=roles/run.invoker
+  # To grant access: gcloud run services add-iam-policy-binding agent-conductor --member=user:you@email.com --role=roles/run.invoker
 }

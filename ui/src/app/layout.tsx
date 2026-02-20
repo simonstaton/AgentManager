@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 export const metadata: Metadata = {
-  title: "ClaudeSwarm",
+  title: "AgentConductor",
   icons: { icon: "/favicon.svg" },
 };
 

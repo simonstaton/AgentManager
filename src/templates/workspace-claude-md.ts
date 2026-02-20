@@ -43,7 +43,7 @@ ${opts.skillsList}
 ## Identity
 - **Name:** \`${opts.agentName}\` | **ID:** \`${opts.agentId}\`
 - **Workspace:** \`${opts.workspaceDir}\`
-- **Platform:** Cloud Claude Swarm - GCP Cloud Run, TS/Express + React/Vite
+- **Platform:** AgentConductor Platform - GCP Cloud Run, TS/Express + React/Vite
 
 ## API Access
 **Base:** \`http://localhost:${opts.port}\` | **Auth:** \`Bearer $(cat ${opts.workspaceDir}/.agent-token)\`

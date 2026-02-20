@@ -6,7 +6,7 @@ data "google_project" "project" {
 resource "google_billing_budget" "monthly_budget" {
   count           = var.billing_account_id != "" ? 1 : 0
   billing_account = var.billing_account_id
-  display_name    = "ClaudeSwarm Monthly Budget"
+  display_name    = "AgentConductor Monthly Budget"
 
   budget_filter {
     projects = ["projects/${data.google_project.project[0].number}"]

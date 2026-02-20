@@ -1,7 +1,7 @@
 {
-  "name": "ClaudeSwarm",
+  "name": "agent-conductor",
   "version": "2.0.0",
-  "description": "Cloud Hosted Claude Swarm Platform",
+  "description": "Conduct autonomous agents at scale safely",
   "scripts": {
     "setup": "npm install && cd ui && npm install && cd .. && mkdir -p shared-context && npm run dev",
     "dev": "npx concurrently \"node --env-file=.env --import tsx server.ts\" \"cd ui && npm run dev -- -p 3000\"",

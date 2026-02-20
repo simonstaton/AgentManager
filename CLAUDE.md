@@ -1,7 +1,7 @@
-# ClaudeSwarm Platform
+# AgentConductor Platform
 
 ## What is this?
-A platform for running Claude agent swarms via a web UI backed by Cloud Run. Agents run Claude CLI processes with `--dangerously-skip-permissions` in isolated workspaces.
+A platform for conducting autonomous agents via a web UI backed by Cloud Run. Agents run Claude CLI processes with `--dangerously-skip-permissions` in isolated workspaces.
 
 ## Project structure
 - `server.ts` - Express server: API + static React SPA serving
@@ -131,16 +131,16 @@ Agents can use bare repos in `/persistent/repos/` with git worktrees for fast ch
 - Fetch before creating worktrees to get latest refs: `git -C repos/repo.git fetch --all`
 
 ## Running the UI (self-serve for agents)
-Agents can clone, build, and run the Claude Swarm UI locally for self-learning, validation, and test-driven prompting.
+Agents can clone, build, and run the AgentConductor UI locally for self-learning, validation, and test-driven prompting.
 
 **Quick start (from agent workspace):**
 ```bash
 # 1. Clone via worktree (if bare repo exists) or fresh clone
-git -C repos/claude-swarm.git worktree add ../swarm-workdir main
-# OR: git clone https://github.com/your-org/claude-swarm.git swarm-workdir
+git -C repos/agent-conductor.git worktree add ../workdir main
+# OR: git clone https://github.com/your-org/agent-conductor.git workdir
 
 # 2. Install dependencies
-cd swarm-workdir && npm install && cd ui && npm install && cd ..
+cd workdir && npm install && cd ui && npm install && cd ..
 
 # 3. Create minimal .env for local dev
 cat > .env << 'ENVEOF'

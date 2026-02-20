@@ -1,5 +1,5 @@
 resource "google_storage_bucket" "swarm_data" {
-  name     = "${var.project_id}-claude-swarm-data"
+  name     = "${var.project_id}-claude-swarm-data" # keep old slug until infra migration (renaming destroys bucket + data)
   location = var.region
 
   uniform_bucket_level_access = true

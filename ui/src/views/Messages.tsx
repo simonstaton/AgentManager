@@ -14,7 +14,7 @@ export function Messages() {
   const killSwitch = useKillSwitchContext();
 
   useEffect(() => {
-    document.title = "Messages - ClaudeSwarm";
+    document.title = "Messages - AgentConductor";
   }, []);
 
   return (

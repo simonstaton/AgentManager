@@ -2,7 +2,7 @@ project_id        = "your-gcp-project-id"
 region            = "europe-west2"
 openrouter_api_key = "sk-or-v1-..."
 agent_api_key     = "your-login-key-here"
-image             = "europe-west2-docker.pkg.dev/your-project/claude-swarm/claude-swarm:latest"
+image             = "europe-west2-docker.pkg.dev/your-project/claude-swarm/claude-swarm:latest"  # rename to agent-conductor after infra migration
 
 # Cloud Run access — who can invoke the service
 # Use ["allUsers"] for public access (app has its own JWT auth)

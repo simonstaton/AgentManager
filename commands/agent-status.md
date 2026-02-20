@@ -1,6 +1,6 @@
 # Agent Status
 
-Get a quick overview of all agents in the swarm - their status, roles, current tasks, and recent activity. This runs a single script that gathers everything in one go.
+Get a quick overview of all agents on the platform - their status, roles, current tasks, and recent activity. This runs a single script that gathers everything in one go.
 
 Run the following bash script (adjust the variables from your CLAUDE.md if needed):
 
