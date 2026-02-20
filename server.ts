@@ -43,23 +43,8 @@ function formatDeliveryPrompt(header: string, content: string, replyToId: string
   return `${header}\n<message-content>\n${content}\n</message-content>\n\n(Reply by sending a message back to agent ID: ${replyToId})`;
 }
 
-let uncaughtExceptionCount = 0;
-const MAX_UNCAUGHT_EXCEPTIONS = 3;
-
-process.on("uncaughtException", (err) => {
-  uncaughtExceptionCount++;
-  console.error(
-    `[FATAL] Uncaught exception (${uncaughtExceptionCount}/${MAX_UNCAUGHT_EXCEPTIONS}) at ${new Date().toISOString()}:`,
-    err.stack || err,
-  );
-  if (uncaughtExceptionCount >= MAX_UNCAUGHT_EXCEPTIONS) {
-    console.error(`[FATAL] ${MAX_UNCAUGHT_EXCEPTIONS} uncaught exceptions reached - exiting to avoid corrupted state`);
-    process.exit(1);
-  }
-});
-process.on("unhandledRejection", (reason) => {
-  console.error(`[FATAL] Unhandled rejection at ${new Date().toISOString()}:`, reason);
-});
+// Exception handlers will be set up after server and agentManager are initialized
+let exceptionHandlersSetup = false;
 
 const app = express();
 
@@ -480,6 +465,58 @@ async function start() {
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(1), 10_000);
   };
+
+  // Set up uncaught exception and unhandled rejection handlers.
+  // On first occurrence, log with full stack trace, attempt graceful shutdown, then exit.
+  if (!exceptionHandlersSetup) {
+    exceptionHandlersSetup = true;
+
+    process.on("uncaughtException", (err) => {
+      console.error(`[FATAL] Uncaught exception at ${new Date().toISOString()}:`, err.stack || err);
+      console.error("[FATAL] Attempting graceful shutdown...");
+
+      // Close HTTP server
+      server.close(() => {
+        console.error("[FATAL] HTTP server closed");
+      });
+
+      // Destroy all agents
+      try {
+        agentManager.emergencyDestroyAll();
+      } catch (destroyErr) {
+        console.error("[FATAL] Error during agent destruction:", destroyErr instanceof Error ? destroyErr.message : String(destroyErr));
+      }
+
+      // Exit after a brief delay to allow logs to flush
+      setTimeout(() => {
+        console.error("[FATAL] Exiting due to uncaught exception");
+        process.exit(1);
+      }, 1000);
+    });
+
+    process.on("unhandledRejection", (reason) => {
+      console.error(`[FATAL] Unhandled rejection at ${new Date().toISOString()}:`, reason);
+      console.error("[FATAL] Attempting graceful shutdown...");
+
+      // Close HTTP server
+      server.close(() => {
+        console.error("[FATAL] HTTP server closed");
+      });
+
+      // Destroy all agents
+      try {
+        agentManager.emergencyDestroyAll();
+      } catch (destroyErr) {
+        console.error("[FATAL] Error during agent destruction:", destroyErr instanceof Error ? destroyErr.message : String(destroyErr));
+      }
+
+      // Exit after a brief delay to allow logs to flush
+      setTimeout(() => {
+        console.error("[FATAL] Exiting due to unhandled rejection");
+        process.exit(1);
+      }, 1000);
+    });
+  }
 
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
