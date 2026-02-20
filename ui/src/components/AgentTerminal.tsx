@@ -7,6 +7,10 @@ import type { StreamEvent } from "../api";
 /** Block kinds visible in simple mode (non-technical view) */
 const SIMPLE_MODE_KINDS = new Set<TerminalBlock["kind"]>(["text", "user_prompt", "result"]);
 
+/** How long (ms) after the last confirmed "at bottom" event to keep treating layout-shift
+ *  false-negatives as still-at-bottom. Covers PromptInput resize and dynamic block heights. */
+const SCROLL_LAG_TOLERANCE_MS = 1500;
+
 // Stable component refs for Virtuoso - extracted outside the component to
 // prevent creating new objects on every render (which defeats Virtuoso's
 // internal memoization and causes unnecessary re-renders).
@@ -15,6 +19,8 @@ const virtuosoComponents = { Header: VirtuosoSpacer, Footer: VirtuosoSpacer };
 
 interface AgentTerminalProps {
   events: StreamEvent[];
+  /** Increment to force-scroll to bottom (e.g. when the user sends a message) */
+  scrollToBottomTrigger?: number;
 }
 
 // Parsed renderable block from raw stream events
@@ -25,12 +31,16 @@ export interface TerminalBlock {
   meta?: Record<string, unknown>;
 }
 
-export function AgentTerminal({ events }: AgentTerminalProps) {
+export function AgentTerminal({ events, scrollToBottomTrigger }: AgentTerminalProps) {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const [simpleMode, setSimpleMode] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [newMessageCount, setNewMessageCount] = useState(0);
   const prevBlockCountRef = useRef(0);
+  // Timestamp of when the user was last detected at the bottom.
+  // Used by followOutput to tolerate transient "not at bottom" states caused by
+  // layout shifts (e.g. PromptInput resize) or dynamic block height measurement.
+  const lastAtBottomRef = useRef(Date.now());
 
   // Incremental parsing: only parse new events since last render
   const parsedRef = useRef<{ upTo: number; blocks: TerminalBlock[] }>({ upTo: 0, blocks: [] });
@@ -81,17 +91,22 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
     }
   }, [isAtBottom]);
 
-  // followOutput keeps scroll pinned to the bottom when new items arrive,
-  // but only if the user hasn't manually scrolled up.
-  // Using "auto" instead of "smooth" to prevent the smooth-scroll animation
-  // from fighting with the user's scroll wheel, which causes a visible
-  // 0px/3px oscillation at the bottom.
+  // followOutput keeps scroll pinned to the bottom when new items arrive.
+  // We check both Virtuoso's atBottom parameter AND a time-based fallback:
+  // layout shifts (PromptInput resize, dynamic block heights) can briefly
+  // report atBottom=false even though the user hasn't scrolled up. The 1.5s
+  // window prevents these transient false-negatives from breaking auto-scroll.
   const followOutput = useCallback((atBottom: boolean) => {
-    return atBottom ? ("auto" as const) : false;
+    if (atBottom) return "auto" as const;
+    const recentlyAtBottom = Date.now() - lastAtBottomRef.current < SCROLL_LAG_TOLERANCE_MS;
+    return recentlyAtBottom ? ("auto" as const) : false;
   }, []);
 
   const handleAtBottomStateChange = useCallback((atBottom: boolean) => {
     setIsAtBottom(atBottom);
+    if (atBottom) {
+      lastAtBottomRef.current = Date.now();
+    }
   }, []);
 
   const scrollToBottom = useCallback(() => {
@@ -100,6 +115,21 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
       behavior: "smooth",
     });
   }, []);
+
+  // Force-scroll to bottom when the parent signals (e.g. user sent a message).
+  // Resets tracking state so followOutput will keep the view pinned as the
+  // agent's response streams in.
+  useEffect(() => {
+    if (scrollToBottomTrigger) {
+      lastAtBottomRef.current = Date.now();
+      setIsAtBottom(true);
+      setNewMessageCount(0);
+      virtuosoRef.current?.scrollToIndex({
+        index: "LAST",
+        behavior: "auto",
+      });
+    }
+  }, [scrollToBottomTrigger]);
 
   const showNewMessages = !isAtBottom && newMessageCount > 0;
 

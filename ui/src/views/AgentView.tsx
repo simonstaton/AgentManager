@@ -38,6 +38,7 @@ export function AgentView({ agentId }: { agentId: string }) {
   const { toast } = useToast();
   const [grades, setGrades] = useState<GradeResult[]>([]);
   const [showApproveConfirm, setShowApproveConfirm] = useState<string | null>(null);
+  const [scrollTrigger, setScrollTrigger] = useState(0);
 
   // Set page title based on agent name
   useEffect(() => {
@@ -156,6 +157,7 @@ export function AgentView({ agentId }: { agentId: string }) {
 
   const handleSendMessage = (prompt: string, attachments?: Attachment[]) => {
     sendMessage(prompt, undefined, undefined, attachments);
+    setScrollTrigger((c) => c + 1);
   };
 
   const handleSearchFiles = useCallback(
@@ -441,7 +443,7 @@ export function AgentView({ agentId }: { agentId: string }) {
             ))}
 
           {/* Terminal */}
-          <AgentTerminal events={events} />
+          <AgentTerminal events={events} scrollToBottomTrigger={scrollTrigger} />
 
           {/* Input */}
           <PromptInput
