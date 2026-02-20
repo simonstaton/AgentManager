@@ -275,16 +275,22 @@ async function deleteGCSPrefixes(prefixes: string[]): Promise<void> {
         try {
           if (prefix.endsWith("/")) {
             const [files] = await bucket.getFiles({ prefix });
-            await Promise.all(files.map((f: { delete: () => Promise<unknown> }) => f.delete().catch(() => {})));
+            await Promise.all(files.map((f: { delete: () => Promise<unknown> }) => f.delete().catch((err) => {
+              console.error(`[storage] Failed to delete GCS file ${prefix}:`, err instanceof Error ? err.message : String(err));
+            })));
             deleted += files.length;
           } else {
             await bucket
               .file(prefix)
               .delete()
-              .catch(() => {});
+              .catch((err) => {
+                console.error(`[storage] Failed to delete GCS file ${prefix}:`, err instanceof Error ? err.message : String(err));
+              });
             deleted++;
           }
-        } catch {}
+        } catch (err) {
+          console.error(`[storage] Error deleting GCS prefix ${prefix}:`, err instanceof Error ? err.message : String(err));
+        }
       }),
     );
     await yieldToEventLoop();
@@ -334,7 +340,9 @@ export async function cleanupAgentClaudeData(workspaceDir: string): Promise<void
 
   if (cleaned > 0) {
     console.log(`[cleanup] Removed ${cleaned} claude-home entries for workspace ${match[1].slice(0, 8)}`);
-    deleteGCSPrefixes(gcsToDelete).catch(() => {});
+    deleteGCSPrefixes(gcsToDelete).catch((err) => {
+      console.error(`[storage] Failed to delete GCS prefixes for cleanup:`, err instanceof Error ? err.message : String(err));
+    });
   }
 }
 

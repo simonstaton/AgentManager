@@ -423,7 +423,9 @@ export class AgentManager {
 
         this.attachProcessHandlers(id, ap, proc);
       });
-    const lockPromise = spawnAfterKill.catch(() => {});
+    const lockPromise = spawnAfterKill.catch((err) => {
+      console.error(`[agents] Error spawning agent ${id.slice(0, 8)}:`, err instanceof Error ? err.message : String(err));
+    });
     this.lifecycleLocks.set(id, lockPromise);
     // Clean up the lock entry once the spawn completes so the watchdog can monitor this agent
     lockPromise.then(() => {
@@ -779,7 +781,9 @@ export class AgentManager {
     const destroyOp = prevLock.then(() => this.doDestroy(id, agentProc));
     this.lifecycleLocks.set(
       id,
-      destroyOp.catch(() => {}),
+      destroyOp.catch((err) => {
+        console.error(`[agents] Error destroying agent ${id.slice(0, 8)}:`, err instanceof Error ? err.message : String(err));
+      }),
     );
 
     // Mark agent as destroying immediately so canDeliver/canInterrupt return false
@@ -913,8 +917,12 @@ export class AgentManager {
       // Fire-and-forget cleanup - emergencyDestroyAll is synchronous by design
       // (nuclear kill path) so we don't await, but must use .catch() since
       // removeAgentState is async and try/catch won't catch promise rejections.
-      removeAgentState(id).catch(() => {});
-      unlink(path.join(EVENTS_DIR, `${id}.jsonl`)).catch(() => {});
+      removeAgentState(id).catch((err) => {
+        console.error(`[agents] Failed to remove state for agent ${id.slice(0, 8)}:`, err instanceof Error ? err.message : String(err));
+      });
+      unlink(path.join(EVENTS_DIR, `${id}.jsonl`)).catch((err) => {
+        console.error(`[agents] Failed to remove events file for agent ${id.slice(0, 8)}:`, err instanceof Error ? err.message : String(err));
+      });
     }
 
     this.agents.clear();
@@ -1017,7 +1025,9 @@ export class AgentManager {
         ap.agent.lastActivity = new Date().toISOString();
         saveAgentState(ap.agent);
       }
-      debouncedSyncToGCS().catch(() => {});
+      debouncedSyncToGCS().catch((err) => {
+        console.error(`[agents] Failed to sync GCS after agent ${id.slice(0, 8)} exit:`, err instanceof Error ? err.message : String(err));
+      });
 
       // Notify idle listeners so queued messages can be delivered
       if (code === 0) {

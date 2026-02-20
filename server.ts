@@ -158,7 +158,9 @@ let keepAliveInterval: ReturnType<typeof setInterval> | null = null;
 function startKeepAlive() {
   if (keepAliveInterval) return;
   console.log("[keepalive] Starting - agents exist, keeping instance alive");
-  fetch(`http://localhost:${KEEPALIVE_PORT}/api/health`).catch(() => {});
+  fetch(`http://localhost:${KEEPALIVE_PORT}/api/health`).catch((err) => {
+    console.warn("[keepalive] Initial health check failed:", err instanceof Error ? err.message : String(err));
+  });
   keepAliveInterval = setInterval(async () => {
     if (agentManager.list().length === 0) {
       stopKeepAlive();

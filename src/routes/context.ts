@@ -95,7 +95,9 @@ export function createContextRouter() {
 
     fs.mkdirSync(path.dirname(filepath), { recursive: true });
     fs.writeFileSync(filepath, content, "utf-8");
-    syncContextFile(name).catch(() => {});
+    syncContextFile(name).catch((err) => {
+      console.error(`[context] Failed to sync context file ${name}:`, err instanceof Error ? err.message : String(err));
+    });
     res.json({ ok: true });
   });
 
@@ -121,7 +123,9 @@ export function createContextRouter() {
     }
 
     fs.unlinkSync(filepath);
-    deleteContextFile(name).catch(() => {});
+    deleteContextFile(name).catch((err) => {
+      console.error(`[context] Failed to delete context file ${name}:`, err instanceof Error ? err.message : String(err));
+    });
     res.json({ ok: true });
   });
 
