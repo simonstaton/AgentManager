@@ -24,6 +24,9 @@ export interface Agent {
   capabilities?: string[];
   currentTask?: string;
   parentId?: string;
+  gitBranch?: string;
+  gitRepo?: string;
+  gitWorktree?: string;
 }
 
 export type MessageType = "task" | "result" | "question" | "info" | "status" | "interrupt";
@@ -165,6 +168,16 @@ export interface ClaudeConfigFile {
   description: string;
   category: string;
   deletable: boolean;
+}
+
+export interface Repository {
+  name: string;
+  dirName: string;
+  url: string | null;
+  path: string;
+  hasActiveAgents: boolean;
+  activeAgentCount: number;
+  activeAgents: Array<{ id: string; name: string }>;
 }
 
 export type RiskLevel = "low" | "medium" | "high";
@@ -761,6 +774,31 @@ export function createApi(authFetch: AuthFetch) {
         throw new Error((data as { error?: string }).error || "Failed to approve grade");
       }
       return res.json();
+    },
+
+    // Repositories
+    async listRepositories(): Promise<{ repositories: Repository[] }> {
+      const res = await authFetch("/api/repositories");
+      if (!res.ok) throw new Error("Failed to list repositories");
+      return res.json();
+    },
+
+    async cloneRepository(url: string): Promise<Response> {
+      return authFetch("/api/repositories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+    },
+
+    async deleteRepository(name: string): Promise<void> {
+      const res = await authFetch(`/api/repositories/${encodeURIComponent(name)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || "Failed to remove repository");
+      }
     },
   };
 }

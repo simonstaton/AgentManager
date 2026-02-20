@@ -3,6 +3,7 @@
 import { Badge } from "@fanvue/ui";
 import type { Agent } from "../api";
 import { STATUS_BADGE_VARIANT, STATUS_LABELS, timeAgo } from "../constants";
+import { formatRepo } from "../utils/git";
 
 interface AgentCardProps {
   agent: Agent;
@@ -11,6 +12,8 @@ interface AgentCardProps {
 }
 
 export function AgentCard({ agent, onClick, parentName }: AgentCardProps) {
+  const hasGitInfo = agent.gitBranch || agent.gitRepo;
+
   return (
     <button
       type="button"
@@ -28,6 +31,15 @@ export function AgentCard({ agent, onClick, parentName }: AgentCardProps) {
       </div>
 
       {agent.currentTask && <p className="text-xs text-zinc-400 mb-2 truncate">{agent.currentTask}</p>}
+
+      {hasGitInfo && (
+        <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 mb-2 truncate font-mono">
+          {agent.gitRepo && <span className="truncate">{formatRepo(agent.gitRepo)}</span>}
+          {agent.gitRepo && agent.gitBranch && <span className="text-zinc-600">:</span>}
+          {agent.gitBranch && <span className="text-emerald-400/70 truncate">{agent.gitBranch}</span>}
+          {agent.gitWorktree && <span className="text-zinc-600 ml-1">wt</span>}
+        </div>
+      )}
 
       <div className="flex items-center gap-2 text-xs text-zinc-400 flex-wrap">
         <span>{agent.model.replace("claude-", "").split("-202")[0]}</span>

@@ -1,0 +1,268 @@
+import { execFile, spawn } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import { promisify } from "node:util";
+import express, { type Request, type Response } from "express";
+import type { AgentManager } from "../agents";
+
+const execFileAsync = promisify(execFile);
+const PERSISTENT_REPOS = "/persistent/repos";
+
+/** Track in-progress clones to prevent TOCTOU duplicate-clone races. */
+const cloningRepos = new Set<string>();
+
+/** Extract a repository name from an HTTPS or SSH git URL. */
+function extractRepoName(url: string): string | null {
+  // HTTPS: https://github.com/org/repo.git or https://github.com/org/repo
+  // SSH:   git@github.com:org/repo.git
+  const match = url.match(/\/([^/]+?)(?:\.git)?\s*$/) || url.match(/:([^/]+?)(?:\.git)?\s*$/);
+  return match ? match[1] : null;
+}
+
+/** Validate that a string looks like a git remote URL (HTTPS or SSH). */
+function isValidGitUrl(url: string): boolean {
+  // HTTPS
+  if (/^https?:\/\/.+\/.+/.test(url)) return true;
+  // SSH
+  if (/^[\w.-]+@[\w.-]+:.+/.test(url)) return true;
+  return false;
+}
+
+/** Get the remote origin URL for a bare repo. */
+async function getRemoteUrl(repoPath: string): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync("git", ["-C", repoPath, "config", "--get", "remote.origin.url"], {
+      encoding: "utf-8",
+      timeout: 5_000,
+    });
+    return stdout.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Check if any active agent has a worktree linked to this repo. */
+async function getActiveAgentsForRepo(
+  repoPath: string,
+  agentManager: AgentManager,
+): Promise<Array<{ id: string; name: string }>> {
+  const activeAgents: Array<{ id: string; name: string }> = [];
+  const activeWorkspaceDirs = agentManager.getActiveWorkspaceDirs();
+  if (activeWorkspaceDirs.size === 0) return activeAgents;
+
+  try {
+    const { stdout } = await execFileAsync("git", ["-C", repoPath, "worktree", "list", "--porcelain"], {
+      encoding: "utf-8",
+      timeout: 10_000,
+    });
+
+    const agents = agentManager.list();
+    for (const block of stdout.split("\n\n")) {
+      const wtLine = block.split("\n").find((l) => l.startsWith("worktree "));
+      if (!wtLine) continue;
+      const wtPath = wtLine.replace("worktree ", "");
+      // Skip the bare repo itself
+      if (wtPath === repoPath) continue;
+
+      // Check if this worktree belongs to an active agent workspace
+      const wsMatch = wtPath.match(/^(\/tmp\/workspace-[a-f0-9-]+)/);
+      if (wsMatch && activeWorkspaceDirs.has(wsMatch[1])) {
+        const agent = agents.find((a) => a.workspaceDir === wsMatch[1]);
+        if (agent) {
+          activeAgents.push({ id: agent.id, name: agent.name });
+        }
+      }
+    }
+  } catch {
+    // git worktree list may fail if repo is empty/invalid
+  }
+
+  return activeAgents;
+}
+
+export function createRepositoriesRouter(agentManager: AgentManager) {
+  const router = express.Router();
+
+  // List all persistent repositories
+  router.get("/api/repositories", async (_req: Request, res: Response) => {
+    try {
+      if (!fs.existsSync(PERSISTENT_REPOS)) {
+        res.json({ repositories: [] });
+        return;
+      }
+
+      const entries = fs.readdirSync(PERSISTENT_REPOS).filter((f) => f.endsWith(".git"));
+      const repositories = await Promise.all(
+        entries.map(async (entry) => {
+          const repoPath = path.join(PERSISTENT_REPOS, entry);
+          const url = await getRemoteUrl(repoPath);
+          const activeAgents = await getActiveAgentsForRepo(repoPath, agentManager);
+          return {
+            name: entry.replace(/\.git$/, ""),
+            dirName: entry,
+            url,
+            path: repoPath,
+            hasActiveAgents: activeAgents.length > 0,
+            activeAgentCount: activeAgents.length,
+            activeAgents,
+          };
+        }),
+      );
+
+      res.json({ repositories });
+    } catch (err) {
+      console.error("[repositories] Failed to list repos:", err);
+      res.status(500).json({ error: "Failed to list repositories" });
+    }
+  });
+
+  // Clone a new repository (SSE streaming for progress)
+  router.post("/api/repositories", (req: Request, res: Response) => {
+    const { url } = req.body ?? {};
+
+    if (!url || typeof url !== "string") {
+      res.status(400).json({ error: "url is required" });
+      return;
+    }
+
+    const trimmedUrl = url.trim();
+    if (!isValidGitUrl(trimmedUrl)) {
+      res.status(400).json({ error: "Invalid git URL. Provide an HTTPS or SSH URL." });
+      return;
+    }
+
+    const repoName = extractRepoName(trimmedUrl);
+    if (!repoName) {
+      res.status(400).json({ error: "Could not extract repository name from URL" });
+      return;
+    }
+
+    const targetDir = path.join(PERSISTENT_REPOS, `${repoName}.git`);
+
+    // Guard against TOCTOU: check both in-progress clones and existing dirs
+    if (cloningRepos.has(repoName) || fs.existsSync(targetDir)) {
+      res.status(409).json({ error: `Repository "${repoName}" already exists` });
+      return;
+    }
+    cloningRepos.add(repoName);
+
+    // Ensure /persistent/repos/ exists
+    fs.mkdirSync(PERSISTENT_REPOS, { recursive: true });
+
+    // Set up SSE
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    });
+
+    const sendEvent = (data: Record<string, unknown>) => {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    sendEvent({ type: "clone-start", repo: repoName, url: trimmedUrl });
+
+    const proc = spawn("git", ["clone", "--bare", "--progress", trimmedUrl, targetDir], {
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 300_000, // 5 minute timeout
+    });
+
+    let stderr = "";
+
+    proc.stdout?.on("data", (chunk: Buffer) => {
+      const text = chunk.toString().trim();
+      if (text) sendEvent({ type: "clone-progress", text });
+    });
+
+    proc.stderr?.on("data", (chunk: Buffer) => {
+      const text = chunk.toString().trim();
+      stderr += `${text}\n`;
+      // git clone --progress writes progress to stderr
+      if (text) sendEvent({ type: "clone-progress", text });
+    });
+
+    proc.on("close", (code) => {
+      cloningRepos.delete(repoName);
+      if (code === 0) {
+        sendEvent({ type: "clone-complete", repo: repoName });
+        console.log(`[repositories] Cloned ${trimmedUrl} -> ${targetDir}`);
+      } else {
+        // Clean up partial clone
+        try {
+          fs.rmSync(targetDir, { recursive: true, force: true });
+        } catch {}
+        sendEvent({ type: "clone-error", error: `Clone failed (exit code ${code})`, details: stderr.slice(-500) });
+        console.error(`[repositories] Clone failed for ${trimmedUrl}: exit code ${code}`);
+      }
+      res.end();
+    });
+
+    proc.on("error", (err) => {
+      cloningRepos.delete(repoName);
+      try {
+        fs.rmSync(targetDir, { recursive: true, force: true });
+      } catch {}
+      sendEvent({ type: "clone-error", error: `Clone process error: ${err.message}` });
+      console.error(`[repositories] Clone process error for ${trimmedUrl}:`, err);
+      res.end();
+    });
+
+    // Handle client disconnect
+    req.on("close", () => {
+      if (!proc.killed) {
+        proc.kill("SIGTERM");
+      }
+    });
+  });
+
+  // Delete a repository
+  router.delete("/api/repositories/:name", async (req: Request, res: Response) => {
+    const name = req.params.name as string;
+    const dirName = name.endsWith(".git") ? name : `${name}.git`;
+    const repoPath = path.join(PERSISTENT_REPOS, dirName);
+
+    // Prevent path traversal before any filesystem access
+    const resolved = path.resolve(repoPath);
+    if (!resolved.startsWith(path.resolve(PERSISTENT_REPOS) + path.sep)) {
+      res.status(400).json({ error: "Invalid repository name" });
+      return;
+    }
+
+    if (!fs.existsSync(repoPath)) {
+      res.status(404).json({ error: `Repository "${name}" not found` });
+      return;
+    }
+
+    // Check for active agents
+    const activeAgents = await getActiveAgentsForRepo(repoPath, agentManager);
+    if (activeAgents.length > 0) {
+      const agentNames = activeAgents.map((a) => a.name).join(", ");
+      res.status(409).json({
+        error: `Cannot remove repository — ${activeAgents.length} active agent(s) are using it: ${agentNames}. Destroy these agents first.`,
+        activeAgents,
+      });
+      return;
+    }
+
+    try {
+      // Prune any stale worktrees first
+      try {
+        await execFileAsync("git", ["-C", repoPath, "worktree", "prune"], {
+          encoding: "utf-8",
+          timeout: 10_000,
+        });
+      } catch {
+        // May fail if repo is corrupted - proceed with deletion anyway
+      }
+
+      fs.rmSync(repoPath, { recursive: true, force: true });
+      console.log(`[repositories] Removed repository: ${dirName}`);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error(`[repositories] Failed to remove ${dirName}:`, err);
+      res.status(500).json({ error: "Failed to remove repository" });
+    }
+  });
+
+  return router;
+}

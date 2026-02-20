@@ -330,6 +330,9 @@ export class AgentManager {
         this.upsertCostTracker(agentProc);
       }
 
+      // Populate cached git info asynchronously (fire-and-forget)
+      this.refreshGitInfo(agent.id).catch(() => {});
+
       logger.info(`[restore] Restored agent ${agent.name} — status: ${agent.status}`, { agentId: agent.id });
     }
   }
@@ -460,6 +463,9 @@ export class AgentManager {
         saveAgentState(ap.agent);
       }
     });
+
+    // Populate cached git info asynchronously (fire-and-forget)
+    this.refreshGitInfo(id).catch(() => {});
 
     const userPromptEvent: StreamEvent = {
       type: "user_prompt",
@@ -903,6 +909,16 @@ export class AgentManager {
     };
   }
 
+  /** Refresh cached git info on an agent (async, fire-and-forget safe). */
+  async refreshGitInfo(id: string): Promise<void> {
+    const agentProc = this.agents.get(id);
+    if (!agentProc) return;
+    const gitInfo = await getGitInfo(agentProc.agent.workspaceDir);
+    agentProc.agent.gitBranch = gitInfo.branch ?? undefined;
+    agentProc.agent.gitRepo = gitInfo.repo ?? undefined;
+    agentProc.agent.gitWorktree = gitInfo.worktreePath ?? undefined;
+  }
+
   /** Return runtime metadata for a single agent (PID, git info, uptime, etc.). */
   async getMetadata(id: string): Promise<AgentMetadata | null> {
     const agentProc = this.agents.get(id);
@@ -910,6 +926,10 @@ export class AgentManager {
     const { agent, proc } = agentProc;
     const uptimeMs = Date.now() - new Date(agent.createdAt).getTime();
     const gitInfo = await getGitInfo(agent.workspaceDir);
+    // Update cached git info on the agent object
+    agent.gitBranch = gitInfo.branch ?? undefined;
+    agent.gitRepo = gitInfo.repo ?? undefined;
+    agent.gitWorktree = gitInfo.worktreePath ?? undefined;
     return {
       pid: proc?.pid ?? null,
       uptime: uptimeMs,

@@ -18,6 +18,7 @@ import { useAgentStream } from "../hooks/useAgentStream";
 import { useApi } from "../hooks/useApi";
 import { usePageVisible } from "../hooks/usePageVisible";
 import { useKillSwitchContext } from "../killSwitch";
+import { formatRepo } from "../utils/git";
 
 export function AgentView({ agentId }: { agentId: string }) {
   const id = agentId;
@@ -279,12 +280,25 @@ export function AgentView({ agentId }: { agentId: string }) {
         <main id="main-content" className="flex-1 flex flex-col overflow-hidden">
           {/* Agent header */}
           <header className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-zinc-900/30">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               {agent ? (
                 <>
-                  <h2 className="text-sm font-medium">{agent.name}</h2>
+                  <h2 className="text-sm font-medium shrink-0">{agent.name}</h2>
                   <StatusBadge status={agent.status} />
                   {grades.length > 0 && <RiskBadge risk={grades[grades.length - 1].overallRisk} />}
+                  {(agent.gitBranch || agent.gitRepo) && (
+                    <span
+                      className="text-[11px] font-mono text-zinc-500 truncate"
+                      title={[agent.gitRepo, agent.gitBranch, agent.gitWorktree ? `worktree: ${agent.gitWorktree}` : ""]
+                        .filter(Boolean)
+                        .join(" | ")}
+                    >
+                      {agent.gitRepo && <span>{formatRepo(agent.gitRepo)}</span>}
+                      {agent.gitRepo && agent.gitBranch && <span className="text-zinc-600">:</span>}
+                      {agent.gitBranch && <span className="text-emerald-400/70">{agent.gitBranch}</span>}
+                      {agent.gitWorktree && <span className="text-zinc-600 ml-1">(wt)</span>}
+                    </span>
+                  )}
                 </>
               ) : (
                 <AgentHeaderSkeleton />

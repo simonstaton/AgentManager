@@ -39,7 +39,7 @@ export function Sidebar({ agents, activeId }: SidebarProps) {
               key={agent.id}
               href={`/agents/${agent.id}/`}
               aria-current={activeId === agent.id ? "page" : undefined}
-              className={`w-full flex items-center gap-2 px-3 py-2.5 rounded text-sm text-left transition-colors ${
+              className={`w-full flex items-start gap-2 px-3 py-2.5 rounded text-sm text-left transition-colors ${
                 activeId === agent.id
                   ? "bg-zinc-800 text-zinc-100"
                   : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
@@ -48,9 +48,17 @@ export function Sidebar({ agents, activeId }: SidebarProps) {
               <Badge
                 variant={STATUS_BADGE_VARIANT[agent.status] || "default"}
                 leftDot
-                className="[&]:p-0 [&]:bg-transparent [&]:text-transparent [&]:overflow-hidden [&]:w-1.5 [&]:h-1.5 [&]:min-w-0"
+                className="[&]:p-0 [&]:bg-transparent [&]:text-transparent [&]:overflow-hidden [&]:w-1.5 [&]:h-1.5 [&]:min-w-0 mt-1"
               />
-              <span className="truncate">{agent.name}</span>
+              <div className="min-w-0 flex-1">
+                <span className="truncate block">{agent.name}</span>
+                {agent.gitBranch && (
+                  <span className="text-[10px] font-mono text-zinc-600 truncate block">
+                    <span className="text-emerald-400/60">{agent.gitBranch}</span>
+                    {agent.gitWorktree && <span className="text-zinc-700"> wt</span>}
+                  </span>
+                )}
+              </div>
             </Link>
           ))}
         </nav>

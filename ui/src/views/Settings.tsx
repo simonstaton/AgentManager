@@ -2,7 +2,7 @@
 
 import { Alert, Button, PasswordField, TextField } from "@fanvue/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ClaudeConfigFile, ContextFile, createApi } from "../api";
+import type { ClaudeConfigFile, ContextFile, createApi, Repository } from "../api";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Skeleton, TreeListSkeleton } from "../components/Skeleton";
 
@@ -1035,6 +1035,277 @@ export function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) 
             </Alert>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+export function RepositoriesPanel({ api }: { api: ReturnType<typeof createApi> }) {
+  const [repos, setRepos] = useState<Repository[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newUrl, setNewUrl] = useState("");
+  const [cloning, setCloning] = useState(false);
+  const [cloneOutput, setCloneOutput] = useState<string[]>([]);
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error">("success");
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const outputRef = useRef<HTMLPreElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const messageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup on unmount: abort any in-flight clone and clear pending timers
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      if (messageTimerRef.current) clearTimeout(messageTimerRef.current);
+    };
+  }, []);
+
+  const refresh = useCallback(async () => {
+    try {
+      const data = await api.listRepositories();
+      setRepos(data.repositories);
+    } catch (err) {
+      console.error("[RepositoriesPanel] refresh failed", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [api]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  // Auto-scroll clone output
+  // biome-ignore lint/correctness/useExhaustiveDependencies: cloneOutput change triggers the scroll
+  useEffect(() => {
+    if (outputRef.current) {
+      outputRef.current.scrollTop = outputRef.current.scrollHeight;
+    }
+  }, [cloneOutput]);
+
+  const showMessage = (msg: string, type: "success" | "error") => {
+    setMessage(msg);
+    setMessageType(type);
+    if (messageTimerRef.current) clearTimeout(messageTimerRef.current);
+    messageTimerRef.current = setTimeout(() => setMessage(""), 5000);
+  };
+
+  const startClone = async () => {
+    const url = newUrl.trim();
+    if (!url || cloning) return;
+
+    if (!/^https?:\/\/.+\/.+/.test(url) && !/^[\w.-]+@[\w.-]+:.+/.test(url)) {
+      showMessage("Invalid git URL. Provide an HTTPS or SSH URL.", "error");
+      return;
+    }
+
+    setCloning(true);
+    setCloneOutput([]);
+    setMessage("");
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const res = await api.cloneRepository(url);
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: "Clone request failed" }));
+        showMessage(data.error || "Clone request failed", "error");
+        setCloning(false);
+        return;
+      }
+
+      // Read SSE stream
+      const reader = res.body?.getReader();
+      if (!reader) {
+        showMessage("No response stream", "error");
+        setCloning(false);
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      try {
+        while (!controller.signal.aborted) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const event = JSON.parse(line.slice(6));
+              if (event.type === "clone-progress" && event.text) {
+                setCloneOutput((prev) => {
+                  const next = [...prev, event.text as string];
+                  return next.length > 200 ? next.slice(-200) : next;
+                });
+              } else if (event.type === "clone-complete") {
+                showMessage(`Repository "${event.repo}" cloned successfully`, "success");
+                setNewUrl("");
+                await refresh();
+              } else if (event.type === "clone-error") {
+                showMessage(event.error || "Clone failed", "error");
+              }
+            } catch {
+              // skip unparseable
+            }
+          }
+        }
+      } finally {
+        reader.cancel();
+      }
+    } catch (err) {
+      if (!controller.signal.aborted) {
+        showMessage(err instanceof Error ? err.message : "Clone failed", "error");
+      }
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
+      setCloning(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    try {
+      await api.deleteRepository(pendingDelete);
+      showMessage(`Repository "${pendingDelete}" removed`, "success");
+      setPendingDelete(null);
+      await refresh();
+    } catch (err) {
+      showMessage(err instanceof Error ? err.message : "Failed to remove repository", "error");
+      setPendingDelete(null);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="max-w-2xl space-y-6">
+        <Skeleton className="h-4 w-64 mb-4" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-2xl space-y-6">
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Remove repository"
+        description={`Are you sure you want to remove "${pendingDelete}"? This will delete the bare repo from persistent storage. Agents will no longer be able to access it.`}
+        confirmLabel={deleting ? "Removing..." : "Remove"}
+        cancelLabel="Cancel"
+        variant="destructive"
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
+
+      <div>
+        <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-1">Persistent Repositories</p>
+        <p className="text-xs text-zinc-400">
+          Manage bare git repositories in persistent storage. Cloned repos are available to all agents via worktrees.
+        </p>
+      </div>
+
+      {/* Clone form */}
+      <div>
+        <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">Clone Repository</p>
+        <div className="flex gap-2">
+          <TextField
+            value={newUrl}
+            onChange={(e) => setNewUrl(e.target.value)}
+            placeholder="https://github.com/org/repo.git or git@github.com:org/repo.git"
+            onKeyDown={(e) => e.key === "Enter" && startClone()}
+            size="40"
+            fullWidth
+            disabled={cloning}
+          />
+          <Button
+            variant="primary"
+            size="40"
+            onClick={startClone}
+            disabled={!newUrl.trim() || cloning}
+            loading={cloning}
+          >
+            Clone
+          </Button>
+        </div>
+      </div>
+
+      {/* Clone output */}
+      {cloneOutput.length > 0 && (
+        <pre
+          ref={outputRef}
+          className="max-h-40 overflow-y-auto p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-zinc-400 font-mono whitespace-pre-wrap"
+        >
+          {cloneOutput.join("\n")}
+        </pre>
+      )}
+
+      {/* Messages */}
+      {message && <Alert variant={messageType === "error" ? "error" : "success"}>{message}</Alert>}
+
+      {/* Repo list */}
+      <div>
+        <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">Repositories ({repos.length})</p>
+
+        {repos.length === 0 ? (
+          <div className="px-4 py-8 rounded-lg bg-zinc-900 border border-zinc-800 text-center">
+            <p className="text-sm text-zinc-400">No repositories cloned yet</p>
+            <p className="text-xs text-zinc-400 mt-1">Clone a repository above to get started</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {repos.map((repo) => (
+              <div
+                key={repo.name}
+                className="flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-800 group"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-zinc-200">{repo.name}</span>
+                    {repo.hasActiveAgents && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-900/50 text-amber-400">
+                        {repo.activeAgentCount} active agent{repo.activeAgentCount !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </div>
+                  {repo.url && <p className="text-xs text-zinc-400 font-mono truncate mt-0.5">{repo.url}</p>}
+                </div>
+                <Button
+                  variant="secondary"
+                  size="24"
+                  onClick={() => {
+                    if (repo.hasActiveAgents) {
+                      const names = repo.activeAgents.map((a) => a.name).join(", ");
+                      showMessage(
+                        `Cannot remove — ${repo.activeAgentCount} active agent(s) using this repo: ${names}`,
+                        "error",
+                      );
+                    } else {
+                      setPendingDelete(repo.name);
+                    }
+                  }}
+                  className="text-zinc-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-3"
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

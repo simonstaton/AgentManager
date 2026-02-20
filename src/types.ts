@@ -41,6 +41,10 @@ export interface Agent {
   parentId?: string;
   /** Layer 4: Spawn depth, set immutably at creation time. Depth 1 = top-level agent. */
   depth: number;
+  /** Cached git info (populated asynchronously after spawn). */
+  gitBranch?: string;
+  gitRepo?: string;
+  gitWorktree?: string;
   /** Cumulative token usage across all sessions for this agent. */
   usage?: {
     tokensIn: number;
