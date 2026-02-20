@@ -96,6 +96,7 @@ COPY --chown=agent:agent --from=deps /app/node_modules ./node_modules
 COPY --chown=agent:agent package.json tsconfig.json server.ts ./
 COPY --chown=agent:agent src/ ./src/
 COPY --chown=agent:agent mcp/ ./mcp/
+COPY --chown=agent:agent scripts/ ./scripts/
 
 # Copy entrypoint
 COPY --chown=agent:agent entrypoint.sh ./
