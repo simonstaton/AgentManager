@@ -91,6 +91,18 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
             </button>
             <button
               type="button"
+              onClick={() => router.push("/tasks")}
+              aria-current={pathname === "/tasks" ? "page" : undefined}
+              className={`px-3 py-1.5 text-sm rounded transition-colors ${
+                pathname === "/tasks"
+                  ? "bg-zinc-700 text-zinc-100"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+              }`}
+            >
+              Tasks
+            </button>
+            <button
+              type="button"
               onClick={() => router.push("/messages")}
               aria-current={pathname === "/messages" ? "page" : undefined}
               className={`px-3 py-1.5 text-sm rounded transition-colors ${

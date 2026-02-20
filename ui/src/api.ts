@@ -68,6 +68,56 @@ export interface SwarmTopology {
   edges: TopologyEdge[];
 }
 
+export type TaskStatus = "pending" | "assigned" | "running" | "completed" | "failed" | "blocked" | "cancelled";
+export type TaskPriority = 0 | 1 | 2 | 3 | 4;
+
+export interface TaskNode {
+  id: string;
+  title: string;
+  description: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  ownerAgentId: string | null;
+  parentTaskId: string | null;
+  input: Record<string, unknown> | null;
+  expectedOutput: Record<string, unknown> | null;
+  acceptanceCriteria: string | null;
+  requiredCapabilities: string[];
+  dependsOn: string[];
+  version: number;
+  retryCount: number;
+  maxRetries: number;
+  timeoutMs: number | null;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+}
+
+export interface TaskSummary {
+  total: number;
+  byStatus: Record<TaskStatus, number>;
+  blockedChains: number;
+}
+
+export interface OrchestratorStatus {
+  running: boolean;
+  taskSummary: TaskSummary;
+  recentEvents: OrchestratorEvent[];
+  agentProfiles: Array<{
+    agentId: string;
+    totalCompleted: number;
+    totalFailed: number;
+    topCapabilities: Array<{ capability: string; successRate: number }>;
+  }>;
+}
+
+export interface OrchestratorEvent {
+  type: string;
+  timestamp: string;
+  details: Record<string, unknown>;
+}
+
 export interface AgentMetadata {
   pid: number | null;
   uptime: number;
@@ -81,7 +131,6 @@ export interface AgentMetadata {
   model: string;
   sessionId: string | null;
 }
-
 export interface ContextFile {
   name: string;
   size: number;
@@ -541,6 +590,102 @@ export function createApi(authFetch: AuthFetch) {
     async resetCostHistory(): Promise<{ ok: boolean; deleted: number }> {
       const res = await authFetch("/api/cost/history", { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to reset cost history");
+      return res.json();
+    },
+
+    // Tasks
+    async fetchTasks(opts?: { status?: TaskStatus; ownerAgentId?: string; limit?: number }): Promise<TaskNode[]> {
+      const params = new URLSearchParams();
+      if (opts?.status) params.set("status", opts.status);
+      if (opts?.ownerAgentId) params.set("ownerAgentId", opts.ownerAgentId);
+      if (opts?.limit) params.set("limit", String(opts.limit));
+      const res = await authFetch(`/api/tasks?${params}`);
+      if (!res.ok) throw new Error("Failed to fetch tasks");
+      return res.json();
+    },
+
+    async fetchTaskSummary(): Promise<TaskSummary> {
+      const res = await authFetch("/api/tasks/summary");
+      if (!res.ok) throw new Error("Failed to fetch task summary");
+      return res.json();
+    },
+
+    async createTask(data: {
+      title: string;
+      description?: string;
+      priority?: TaskPriority;
+      dependsOn?: string[];
+      requiredCapabilities?: string[];
+    }): Promise<TaskNode> {
+      const res = await authFetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || "Failed to create task");
+      }
+      return res.json();
+    },
+
+    async deleteTask(id: string): Promise<void> {
+      const res = await authFetch(`/api/tasks/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete task");
+    },
+
+    async clearAllTasks(): Promise<{ deleted: number }> {
+      const res = await authFetch("/api/tasks?confirm=true", { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to clear tasks");
+      return res.json();
+    },
+
+    async assignTask(taskId: string, agentId: string): Promise<TaskNode> {
+      const res = await authFetch(`/api/tasks/${taskId}/assign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentId }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || "Failed to assign task");
+      }
+      return res.json();
+    },
+
+    async cancelTask(taskId: string): Promise<TaskNode> {
+      const res = await authFetch(`/api/tasks/${taskId}/cancel`, { method: "POST" });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || "Failed to cancel task");
+      }
+      return res.json();
+    },
+
+    async retryTask(taskId: string): Promise<TaskNode> {
+      const res = await authFetch(`/api/tasks/${taskId}/retry`, { method: "POST" });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || "Failed to retry task");
+      }
+      return res.json();
+    },
+
+    async fetchOrchestratorStatus(): Promise<OrchestratorStatus> {
+      const res = await authFetch("/api/orchestrator/status");
+      if (!res.ok) throw new Error("Failed to fetch orchestrator status");
+      return res.json();
+    },
+
+    async fetchOrchestratorEvents(limit = 50): Promise<OrchestratorEvent[]> {
+      const res = await authFetch(`/api/orchestrator/events?limit=${limit}`);
+      if (!res.ok) throw new Error("Failed to fetch orchestrator events");
+      return res.json();
+    },
+
+    async triggerAssignment(): Promise<{ assignments: Array<{ taskId: string; agentId: string }> }> {
+      const res = await authFetch("/api/orchestrator/assign", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to trigger assignment");
       return res.json();
     },
 
