@@ -1,4 +1,4 @@
-# SWARM V3 Upgrade Plan
+# AgentConductor V3 Upgrade Plan
 **Stability | Performance | Intelligence | Coordination**
 *February 2026*
 
@@ -70,4 +70,4 @@ Two features have dedicated implementation plans:
 
 ---
 
-*Swarm V3 Upgrade Plan | February 2026*
+*AgentConductor V3 Upgrade Plan | February 2026*

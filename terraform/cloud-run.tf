@@ -1,5 +1,5 @@
 resource "google_cloud_run_v2_service" "swarm" {
-  name     = "agent-conductor"
+  name     = "claude-swarm" # keep old slug until infra migration (renaming destroys the service)
   location = var.region
 
   template {

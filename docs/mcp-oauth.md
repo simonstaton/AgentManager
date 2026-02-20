@@ -37,10 +37,10 @@ The MCP OAuth integration allows human operators to authenticate with external s
 ### OAuth Flow
 
 ```
-┌──────┐                ┌─────────────┐                ┌──────────┐
-│ User │                │ AgentConductor│                │ MCP      │
-│      │                │   Platform  │                │ Server   │
-└──┬───┘                └──────┬──────┘                └────┬─────┘
+┌──────┐                ┌────────────────┐              ┌──────────┐
+│ User │                │ AgentConductor │              │ MCP      │
+│      │                │    Platform    │              │ Server   │
+└──┬───┘                └───────┬────────┘              └────┬─────┘
    │                           │                            │
    │ 1. POST /api/mcp/auth/figma                           │
    ├──────────────────────────>│                            │

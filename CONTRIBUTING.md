@@ -20,7 +20,7 @@ Contributions are welcome. Fork the repo, make your changes, and open a pull req
 ### Clone and install
 
 ```bash
-git clone https://github.com/simonstaton/ClaudeSwarm.git
+git clone https://github.com/simonstaton/ClaudeSwarm.git AgentConductor
 cd AgentConductor
 
 # Install server dependencies

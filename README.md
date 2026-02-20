@@ -40,7 +40,7 @@ Claude Code's `--output-format stream-json` gives typed JSON events (not termina
 
 **1. Clone the repository**
 ```bash
-git clone https://github.com/simonstaton/ClaudeSwarm.git
+git clone https://github.com/simonstaton/ClaudeSwarm.git AgentConductor
 cd AgentConductor
 ```
 
@@ -263,7 +263,7 @@ echo '{"killed":true,"reason":"emergency"}' | gsutil cp - gs://your-bucket/kill-
 4. **Review GCS** - check shared-context for any payloads agents may have left behind
 5. **If the API is unreachable** - upload the kill switch file to GCS, or delete the Cloud Run service entirely:
    ```bash
-   gcloud run services delete agent-conductor --region=$REGION
+   gcloud run services delete claude-swarm --region=$REGION
    ```
 
 ### Limitations
@@ -293,12 +293,12 @@ export REGION=us-central1
 
 # Option A: Build remotely with Cloud Build (recommended, no local Docker needed)
 gcloud builds submit \
-  --tag $REGION-docker.pkg.dev/$PROJECT_ID/agent-conductor/agent-conductor:latest \
+  --tag $REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest \
   --project=$PROJECT_ID --region=$REGION
 
 # Option B: Build locally with Docker
-docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/agent-conductor/agent-conductor:latest .
-docker push $REGION-docker.pkg.dev/$PROJECT_ID/agent-conductor/agent-conductor:latest
+docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest .
+docker push $REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest
 ```
 
 ### Step 2: Configure Terraform variables
@@ -337,7 +337,7 @@ This creates:
 The service is private by default. Grant yourself permission to invoke it:
 
 ```bash
-gcloud run services add-iam-policy-binding agent-conductor \
+gcloud run services add-iam-policy-binding claude-swarm \
   --region=$REGION \
   --member="user:your-email@example.com" \
   --role="roles/run.invoker"
@@ -350,7 +350,7 @@ Get your service URL and open it in a browser:
 ```bash
 terraform output service_url
 # or
-gcloud run services describe agent-conductor --region=$REGION --format='value(status.url)'
+gcloud run services describe claude-swarm --region=$REGION --format='value(status.url)'
 ```
 
 Log in with the `api_key` you set in `terraform.tfvars`. Start creating agents.
@@ -438,7 +438,7 @@ Then run `terraform apply` and redeploy. Terraform stores the token in Secret Ma
 **Quick update without Terraform** - update the secret directly:
 ```bash
 echo -n "github_pat_new_token_here" | gcloud secrets versions add github-token --data-file=- --project=$PROJECT_ID
-gcloud run services update agent-conductor --region=$REGION --project=$PROJECT_ID
+gcloud run services update claude-swarm --region=$REGION --project=$PROJECT_ID
 ```
 
 ## Security
@@ -477,7 +477,7 @@ Secrets are in GCP Secret Manager, injected into Cloud Run as env vars by Terraf
 echo -n "new-value" | gcloud secrets versions add SECRET_NAME --data-file=-
 
 # Redeploy to pick up new secrets
-gcloud run services update agent-conductor --region=$REGION
+gcloud run services update claude-swarm --region=$REGION
 ```
 
 ### Adding a new secret
@@ -585,7 +585,7 @@ commands/              # Slash command skills
 ui/                    # Next.js App Router (Tailwind v4 + @fanvue/ui)
   src/
     app/               # Next.js App Router pages and layouts
-    components/        # Header, Sidebar, AgentCard, AgentTerminal, PromptInput, MessageFeed, SwarmGraph, TaskGraph
+    components/        # Header, Sidebar, AgentCard, AgentTerminal, PromptInput, MessageFeed, GraphView, TaskGraph
     hooks/             # useAgentStream (SSE management)
     api.ts             # API client with SSE parsing
     auth.tsx           # Auth context (JWT in sessionStorage)

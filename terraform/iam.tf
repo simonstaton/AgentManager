@@ -1,5 +1,5 @@
 resource "google_service_account" "swarm" {
-  account_id   = "agent-conductor-sa"
+  account_id   = "claude-swarm-sa" # keep old slug until infra migration (renaming destroys IAM bindings)
   display_name = "AgentConductor Service Account"
 }
 

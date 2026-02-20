@@ -47,8 +47,8 @@ Then apply and redeploy:
 ```bash
 cd terraform
 terraform apply
-gcloud run services update agent-conductor \
-  --image=$REGION-docker.pkg.dev/$PROJECT_ID/agent-conductor/agent-conductor:latest \
+gcloud run services update claude-swarm \
+  --image=$REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest \
   --region=$REGION --project=$PROJECT_ID
 ```
 

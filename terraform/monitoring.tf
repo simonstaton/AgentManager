@@ -11,7 +11,7 @@
 # All policies are skipped (count = 0) when that variable is empty.
 
 locals {
-  swarm_service_name = "agent-conductor"
+  swarm_service_name = "claude-swarm" # keep old slug until infra migration
   alert_channels     = var.alert_notification_email != "" ? [google_monitoring_notification_channel.email_alerts[0].name] : []
   enable_alerts      = var.alert_notification_email != "" ? 1 : 0
 }
@@ -47,7 +47,7 @@ resource "google_monitoring_alert_policy" "high_error_rate" {
     display_name = "5xx response rate > 5/min"
 
     condition_threshold {
-      # Filter to 5xx responses on the agent-conductor Cloud Run service
+      # Filter to 5xx responses on the Cloud Run service
       filter = join(" AND ", [
         "resource.type = \"cloud_run_revision\"",
         "resource.labels.service_name = \"${local.swarm_service_name}\"",
