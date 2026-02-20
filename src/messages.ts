@@ -221,8 +221,7 @@ export class MessageBus {
       const tmpPath = `${this.messagesFile}.tmp`;
       // Write one JSON object per line (JSONL) for efficient append-based reads and
       // incremental restore — same pattern as agent-events in persistence.ts
-      const content =
-        this.messages.length > 0 ? `${this.messages.map((m) => JSON.stringify(m)).join("\n")}\n` : "";
+      const content = this.messages.length > 0 ? `${this.messages.map((m) => JSON.stringify(m)).join("\n")}\n` : "";
       await writeFile(tmpPath, content, "utf-8");
       await rename(tmpPath, this.messagesFile);
     } catch (err: unknown) {

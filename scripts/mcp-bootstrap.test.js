@@ -3,7 +3,6 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { describe, it, expect, beforeEach, afterEach } = require('vitest');
 const { injectApiKeySuffix, mergeMcpSettings, loadStoredToken } = require('./mcp-bootstrap.js');
 
 // ---------------------------------------------------------------------------

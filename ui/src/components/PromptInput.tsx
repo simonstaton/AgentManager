@@ -45,6 +45,7 @@ export interface PromptInputDefaultValues {
   name?: string;
   model?: string;
   maxTurns?: number;
+  dangerouslySkipPermissions?: boolean;
 }
 
 interface PromptInputProps {
@@ -160,6 +161,12 @@ export function PromptInput({
     if (defaultValues.name !== undefined) setAgentName(defaultValues.name);
     if (defaultValues.model !== undefined) setAgentModel(defaultValues.model);
     if (defaultValues.maxTurns !== undefined) setAgentMaxTurns(defaultValues.maxTurns);
+    if (defaultValues.dangerouslySkipPermissions !== undefined) {
+      setAgentSkipPermissions(defaultValues.dangerouslySkipPermissions);
+    } else {
+      // Templates should not silently inherit the previous dangerous setting.
+      setAgentSkipPermissions(false);
+    }
     setShowCreateConfig(true);
     onDefaultsApplied?.();
     // Focus the textarea so user can edit or just hit enter
@@ -276,7 +283,18 @@ export function PromptInput({
     setShowSlashMenu(false);
     setShowFileMenu(false);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
-  }, [value, attachments, disabled, onSubmit, slashCommands, createMode, agentName, agentModel, agentMaxTurns, agentSkipPermissions]);
+  }, [
+    value,
+    attachments,
+    disabled,
+    onSubmit,
+    slashCommands,
+    createMode,
+    agentName,
+    agentModel,
+    agentMaxTurns,
+    agentSkipPermissions,
+  ]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     // Autocomplete navigation
@@ -603,7 +621,11 @@ export function PromptInput({
             />
           </div>
           <div className="shrink-0 flex flex-col justify-end pb-0.5">
-            <label htmlFor="create-agent-skip-permissions" className="flex items-center gap-1.5 cursor-pointer select-none" title="Bypass all tool permission prompts (--dangerously-skip-permissions)">
+            <label
+              htmlFor="create-agent-skip-permissions"
+              className="flex items-center gap-1.5 cursor-pointer select-none"
+              title="Bypass Claude tool approval prompts (--dangerously-skip-permissions). Does not bypass OS/container filesystem or network restrictions."
+            >
               <input
                 id="create-agent-skip-permissions"
                 type="checkbox"

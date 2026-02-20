@@ -6,7 +6,6 @@ import path from "node:path";
 import readline from "node:readline";
 import { promisify } from "node:util";
 import type { CostTracker } from "./cost-tracker";
-import { logger } from "./logger";
 import {
   ALLOWED_MODELS,
   DEFAULT_MODEL,
@@ -15,6 +14,7 @@ import {
   MAX_CHILDREN_PER_AGENT,
   SESSION_TTL_MS,
 } from "./guardrails";
+import { logger } from "./logger";
 import { EVENTS_DIR, loadAllAgentStates, removeAgentState, saveAgentState, writeTombstone } from "./persistence";
 import { sanitizeEvent } from "./sanitize";
 import { cleanupAgentClaudeData, debouncedSyncToGCS } from "./storage";
@@ -222,6 +222,15 @@ export class AgentManager {
         eventBufferTotal: 0,
       };
       this.agents.set(agent.id, agentProc);
+
+      // Rehydrate all-time billing on startup for agents with existing usage.
+      if (
+        (agent.usage?.tokensIn ?? 0) > 0 ||
+        (agent.usage?.tokensOut ?? 0) > 0 ||
+        (agent.usage?.estimatedCost ?? 0) > 0
+      ) {
+        this.upsertCostTracker(agentProc);
+      }
       logger.info(`[restore] Restored agent ${agent.name} — status: ${agent.status}`, { agentId: agent.id });
     }
   }
@@ -285,6 +294,7 @@ export class AgentManager {
       name,
       status: "starting",
       workspaceDir,
+      dangerouslySkipPermissions: opts.dangerouslySkipPermissions === true,
       createdAt: now,
       lastActivity: now,
       model,
@@ -398,7 +408,16 @@ export class AgentManager {
     const resumeId = targetSessionId || agentProc.agent.claudeSessionId;
 
     const model = agentProc.agent.model;
-    const args = this.buildClaudeArgs({ prompt, maxTurns, model }, model, resumeId);
+    const args = this.buildClaudeArgs(
+      {
+        prompt,
+        maxTurns,
+        model,
+        dangerouslySkipPermissions: agentProc.agent.dangerouslySkipPermissions === true,
+      },
+      model,
+      resumeId,
+    );
     const env = this.workspace.buildEnv(id);
 
     // Kill old process and await its exit before spawning new one.
@@ -440,7 +459,10 @@ export class AgentManager {
         this.attachProcessHandlers(id, ap, proc);
       });
     const lockPromise = spawnAfterKill.catch((err) => {
-      console.error(`[agents] Error spawning agent ${id.slice(0, 8)}:`, err instanceof Error ? err.message : String(err));
+      console.error(
+        `[agents] Error spawning agent ${id.slice(0, 8)}:`,
+        err instanceof Error ? err.message : String(err),
+      );
     });
     this.lifecycleLocks.set(id, lockPromise);
     // Clean up the lock entry once the spawn completes so the watchdog can monitor this agent
@@ -512,10 +534,7 @@ export class AgentManager {
     // Only deliver to agents that aren't actively running and have a session to resume.
     // Stalled agents also receive deliveries to attempt recovery.
     // Disconnected agents are not auto-delivered to - they must be manually destroyed.
-    if (
-      (status === "idle" || status === "restored" || status === "stalled") &&
-      !!agentProc.agent.claudeSessionId
-    ) {
+    if ((status === "idle" || status === "restored" || status === "stalled") && !!agentProc.agent.claudeSessionId) {
       this.delivering.add(id);
       return true;
     }
@@ -801,7 +820,10 @@ export class AgentManager {
     this.lifecycleLocks.set(
       id,
       destroyOp.catch((err) => {
-        console.error(`[agents] Error destroying agent ${id.slice(0, 8)}:`, err instanceof Error ? err.message : String(err));
+        console.error(
+          `[agents] Error destroying agent ${id.slice(0, 8)}:`,
+          err instanceof Error ? err.message : String(err),
+        );
       }),
     );
 
@@ -856,7 +878,10 @@ export class AgentManager {
       await unlink(workingMemoryPath);
     } catch (err: unknown) {
       if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-        logger.warn(`[agents] Failed to remove working memory for ${agentProc.agent.name}`, { error: errorMessage(err), agentId: agentProc.agent.id });
+        logger.warn(`[agents] Failed to remove working memory for ${agentProc.agent.name}`, {
+          error: errorMessage(err),
+          agentId: agentProc.agent.id,
+        });
       }
     }
 
@@ -937,10 +962,16 @@ export class AgentManager {
       // (nuclear kill path) so we don't await, but must use .catch() since
       // removeAgentState is async and try/catch won't catch promise rejections.
       removeAgentState(id).catch((err) => {
-        console.error(`[agents] Failed to remove state for agent ${id.slice(0, 8)}:`, err instanceof Error ? err.message : String(err));
+        console.error(
+          `[agents] Failed to remove state for agent ${id.slice(0, 8)}:`,
+          err instanceof Error ? err.message : String(err),
+        );
       });
       unlink(path.join(EVENTS_DIR, `${id}.jsonl`)).catch((err) => {
-        console.error(`[agents] Failed to remove events file for agent ${id.slice(0, 8)}:`, err instanceof Error ? err.message : String(err));
+        console.error(
+          `[agents] Failed to remove events file for agent ${id.slice(0, 8)}:`,
+          err instanceof Error ? err.message : String(err),
+        );
       });
     }
 
@@ -1045,7 +1076,10 @@ export class AgentManager {
         saveAgentState(ap.agent);
       }
       debouncedSyncToGCS().catch((err) => {
-        console.error(`[agents] Failed to sync GCS after agent ${id.slice(0, 8)} exit:`, err instanceof Error ? err.message : String(err));
+        console.error(
+          `[agents] Failed to sync GCS after agent ${id.slice(0, 8)} exit:`,
+          err instanceof Error ? err.message : String(err),
+        );
       });
 
       // Notify idle listeners so queued messages can be delivered

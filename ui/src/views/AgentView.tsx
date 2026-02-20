@@ -414,7 +414,9 @@ export function AgentView({ agentId }: { agentId: string }) {
           {/* Input */}
           <PromptInput
             onSubmit={handleSendMessage}
-            disabled={!agent || agent.status === "error" || agent.status === "paused" || agent.status === "disconnected"}
+            disabled={
+              !agent || agent.status === "error" || agent.status === "paused" || agent.status === "disconnected"
+            }
             placeholder={getPlaceholder()}
             onSearchFiles={handleSearchFiles}
             onSlashCommand={handleSlashCommand}

@@ -9,6 +9,7 @@ export interface AgentTemplate {
   model: string;
   maxTurns: number;
   prompt: string;
+  dangerouslySkipPermissions?: boolean;
 }
 
 export const agentTemplates: AgentTemplate[] = [

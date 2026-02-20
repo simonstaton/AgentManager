@@ -1,6 +1,7 @@
 import express, { type Request, type Response } from "express";
-import type { Scheduler } from "../scheduler";
+import type { JobType, Scheduler } from "../scheduler";
 import type { AuthenticatedRequest } from "../types";
+import { param } from "../utils/express";
 
 /**
  * Scheduler route handler.
@@ -19,7 +20,7 @@ export function createSchedulerRouter(scheduler: Scheduler) {
 
   /** GET /api/scheduler/jobs/:id - Get a single scheduled job. */
   router.get("/api/scheduler/jobs/:id", (req: Request, res: Response) => {
-    const job = scheduler.get(req.params.id);
+    const job = scheduler.get(param(req.params.id));
     if (!job) {
       res.status(404).json({ error: "Job not found" });
       return;
@@ -30,7 +31,7 @@ export function createSchedulerRouter(scheduler: Scheduler) {
   /** POST /api/scheduler/jobs - Create a new scheduled job. */
   router.post("/api/scheduler/jobs", (req: Request, res: Response) => {
     const authReq = req as AuthenticatedRequest;
-    if (authReq.tokenType === "agent-service") {
+    if (authReq.user?.sub === "agent-service") {
       res.status(403).json({ error: "Agents cannot create scheduled jobs" });
       return;
     }
@@ -69,7 +70,7 @@ export function createSchedulerRouter(scheduler: Scheduler) {
     }
 
     try {
-      const job = scheduler.create({ name, cronExpression, jobType, payload });
+      const job = scheduler.create({ name, cronExpression, jobType: jobType as JobType, payload });
       res.status(201).json(job);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -80,12 +81,12 @@ export function createSchedulerRouter(scheduler: Scheduler) {
   /** DELETE /api/scheduler/jobs/:id - Delete a scheduled job. */
   router.delete("/api/scheduler/jobs/:id", (req: Request, res: Response) => {
     const authReq = req as AuthenticatedRequest;
-    if (authReq.tokenType === "agent-service") {
+    if (authReq.user?.sub === "agent-service") {
       res.status(403).json({ error: "Agents cannot delete scheduled jobs" });
       return;
     }
 
-    const deleted = scheduler.delete(req.params.id);
+    const deleted = scheduler.delete(param(req.params.id));
     if (!deleted) {
       res.status(404).json({ error: "Job not found" });
       return;
@@ -95,7 +96,7 @@ export function createSchedulerRouter(scheduler: Scheduler) {
 
   /** POST /api/scheduler/jobs/:id/pause - Pause a scheduled job. */
   router.post("/api/scheduler/jobs/:id/pause", (req: Request, res: Response) => {
-    const job = scheduler.pause(req.params.id);
+    const job = scheduler.pause(param(req.params.id));
     if (!job) {
       res.status(404).json({ error: "Job not found" });
       return;
@@ -105,7 +106,7 @@ export function createSchedulerRouter(scheduler: Scheduler) {
 
   /** POST /api/scheduler/jobs/:id/resume - Resume a paused job. */
   router.post("/api/scheduler/jobs/:id/resume", (req: Request, res: Response) => {
-    const job = scheduler.resume(req.params.id);
+    const job = scheduler.resume(param(req.params.id));
     if (!job) {
       res.status(404).json({ error: "Job not found" });
       return;

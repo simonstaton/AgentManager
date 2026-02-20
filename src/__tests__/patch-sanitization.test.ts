@@ -49,7 +49,9 @@ describe("validatePatchAgent", () => {
       const res = mockRes();
       validatePatchAgent(mockReq({ capabilities: ["admin"] }), res, next);
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining("capabilities") }));
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.stringContaining("capabilities") }),
+      );
       expect(next).not.toHaveBeenCalled();
     });
 

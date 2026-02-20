@@ -4,6 +4,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { TaskGraphEvent } from "./task-graph";
 import { TaskGraph } from "./task-graph";
 
+function requireTask<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error("Expected task to exist in test setup");
+  return value;
+}
+
 const TEST_DB_DIR = "/tmp/task-graph-test";
 const TEST_DB_PATH = path.join(TEST_DB_DIR, "test-task-graph.db");
 
@@ -224,11 +229,11 @@ describe("TaskGraph", () => {
       const task = tg.createTask({ title: "Start Me" });
       tg.assignTask(task.id, "agent-1", task.version);
 
-      const assigned = tg.getTask(task.id)!;
+      const assigned = requireTask(tg.getTask(task.id));
       const result = tg.startTask(task.id, assigned.version);
       expect(result).toBe(true);
 
-      const running = tg.getTask(task.id)!;
+      const running = requireTask(tg.getTask(task.id));
       expect(running.status).toBe("running");
     });
   });
@@ -237,14 +242,14 @@ describe("TaskGraph", () => {
     it("completes a task and sets completedAt", () => {
       const task = tg.createTask({ title: "Complete Me" });
       tg.assignTask(task.id, "agent-1", task.version);
-      const assigned = tg.getTask(task.id)!;
+      const assigned = requireTask(tg.getTask(task.id));
       tg.startTask(task.id, assigned.version);
-      const running = tg.getTask(task.id)!;
+      const running = requireTask(tg.getTask(task.id));
 
       const { success } = tg.completeTask(task.id, running.version);
       expect(success).toBe(true);
 
-      const completed = tg.getTask(task.id)!;
+      const completed = requireTask(tg.getTask(task.id));
       expect(completed.status).toBe("completed");
       expect(completed.completedAt).not.toBeNull();
     });
@@ -257,9 +262,9 @@ describe("TaskGraph", () => {
 
       // Complete the dependency
       tg.assignTask(dep.id, "agent-1", dep.version);
-      const assigned = tg.getTask(dep.id)!;
+      const assigned = requireTask(tg.getTask(dep.id));
       tg.startTask(dep.id, assigned.version);
-      const running = tg.getTask(dep.id)!;
+      const running = requireTask(tg.getTask(dep.id));
       const { success, unblockedTasks } = tg.completeTask(dep.id, running.version);
 
       expect(success).toBe(true);
@@ -277,9 +282,9 @@ describe("TaskGraph", () => {
 
       // Complete only dep1
       tg.assignTask(dep1.id, "agent-1", dep1.version);
-      const assigned = tg.getTask(dep1.id)!;
+      const assigned = requireTask(tg.getTask(dep1.id));
       tg.startTask(dep1.id, assigned.version);
-      const running = tg.getTask(dep1.id)!;
+      const running = requireTask(tg.getTask(dep1.id));
       const { unblockedTasks } = tg.completeTask(dep1.id, running.version);
 
       expect(unblockedTasks).toHaveLength(0);
@@ -291,15 +296,15 @@ describe("TaskGraph", () => {
     it("fails a task with an error message", () => {
       const task = tg.createTask({ title: "Fail Me" });
       tg.assignTask(task.id, "agent-1", task.version);
-      const assigned = tg.getTask(task.id)!;
+      const assigned = requireTask(tg.getTask(task.id));
       tg.startTask(task.id, assigned.version);
-      const running = tg.getTask(task.id)!;
+      const running = requireTask(tg.getTask(task.id));
 
       const { success, canRetry } = tg.failTask(task.id, running.version, "Something broke");
       expect(success).toBe(true);
       expect(canRetry).toBe(true);
 
-      const failed = tg.getTask(task.id)!;
+      const failed = requireTask(tg.getTask(task.id));
       expect(failed.status).toBe("failed");
       expect(failed.errorMessage).toBe("Something broke");
       expect(failed.retryCount).toBe(1);
@@ -310,9 +315,9 @@ describe("TaskGraph", () => {
       const dependent = tg.createTask({ title: "Blocked", dependsOn: [dep.id] });
 
       tg.assignTask(dep.id, "agent-1", dep.version);
-      const assigned = tg.getTask(dep.id)!;
+      const assigned = requireTask(tg.getTask(dep.id));
       tg.startTask(dep.id, assigned.version);
-      const running = tg.getTask(dep.id)!;
+      const running = requireTask(tg.getTask(dep.id));
 
       const { blockedTasks } = tg.failTask(dep.id, running.version, "Failed");
       expect(blockedTasks).toHaveLength(1);
@@ -322,9 +327,9 @@ describe("TaskGraph", () => {
     it("reports canRetry false when retries exhausted", () => {
       const task = tg.createTask({ title: "No Retries", maxRetries: 1 });
       tg.assignTask(task.id, "agent-1", task.version);
-      const a1 = tg.getTask(task.id)!;
+      const a1 = requireTask(tg.getTask(task.id));
       tg.startTask(task.id, a1.version);
-      const r1 = tg.getTask(task.id)!;
+      const r1 = requireTask(tg.getTask(task.id));
 
       // First failure (retryCount becomes 1, maxRetries is 1)
       const { canRetry } = tg.failTask(r1.id, r1.version, "Failed once");
@@ -338,18 +343,18 @@ describe("TaskGraph", () => {
       const result = tg.cancelTask(task.id, task.version);
       expect(result).toBe(true);
 
-      const cancelled = tg.getTask(task.id)!;
+      const cancelled = requireTask(tg.getTask(task.id));
       expect(cancelled.status).toBe("cancelled");
     });
 
     it("cannot cancel a completed task", () => {
       const task = tg.createTask({ title: "Done" });
       tg.assignTask(task.id, "agent-1", task.version);
-      const a = tg.getTask(task.id)!;
+      const a = requireTask(tg.getTask(task.id));
       tg.startTask(task.id, a.version);
-      const r = tg.getTask(task.id)!;
+      const r = requireTask(tg.getTask(task.id));
       tg.completeTask(task.id, r.version);
-      const c = tg.getTask(task.id)!;
+      const c = requireTask(tg.getTask(task.id));
 
       const result = tg.cancelTask(task.id, c.version);
       expect(result).toBe(false);
@@ -360,15 +365,15 @@ describe("TaskGraph", () => {
     it("retries a failed task", () => {
       const task = tg.createTask({ title: "Retry Me" });
       tg.assignTask(task.id, "agent-1", task.version);
-      const a = tg.getTask(task.id)!;
+      const a = requireTask(tg.getTask(task.id));
       tg.startTask(task.id, a.version);
-      const r = tg.getTask(task.id)!;
+      const r = requireTask(tg.getTask(task.id));
       tg.failTask(task.id, r.version, "Oops");
 
       const result = tg.retryTask(task.id, "agent-2");
       expect(result).toBe(true);
 
-      const retried = tg.getTask(task.id)!;
+      const retried = requireTask(tg.getTask(task.id));
       expect(retried.status).toBe("assigned");
       expect(retried.ownerAgentId).toBe("agent-2");
       expect(retried.errorMessage).toBeNull();
@@ -377,15 +382,15 @@ describe("TaskGraph", () => {
     it("resets to pending when no agent specified", () => {
       const task = tg.createTask({ title: "Retry Pending" });
       tg.assignTask(task.id, "agent-1", task.version);
-      const a = tg.getTask(task.id)!;
+      const a = requireTask(tg.getTask(task.id));
       tg.startTask(task.id, a.version);
-      const r = tg.getTask(task.id)!;
+      const r = requireTask(tg.getTask(task.id));
       tg.failTask(task.id, r.version, "Oops");
 
       const result = tg.retryTask(task.id);
       expect(result).toBe(true);
 
-      const retried = tg.getTask(task.id)!;
+      const retried = requireTask(tg.getTask(task.id));
       expect(retried.status).toBe("pending");
       expect(retried.ownerAgentId).toBeNull();
     });
@@ -399,9 +404,9 @@ describe("TaskGraph", () => {
     it("cannot retry when retries exhausted", () => {
       const task = tg.createTask({ title: "Exhausted", maxRetries: 0 });
       tg.assignTask(task.id, "agent-1", task.version);
-      const a = tg.getTask(task.id)!;
+      const a = requireTask(tg.getTask(task.id));
       tg.startTask(task.id, a.version);
-      const r = tg.getTask(task.id)!;
+      const r = requireTask(tg.getTask(task.id));
       tg.failTask(task.id, r.version, "Oops");
 
       const result = tg.retryTask(task.id);
@@ -423,29 +428,29 @@ describe("TaskGraph", () => {
 
       // Complete A -> unblocks B and C
       tg.assignTask(a.id, "agent-1", a.version);
-      const a1 = tg.getTask(a.id)!;
+      const a1 = requireTask(tg.getTask(a.id));
       tg.startTask(a.id, a1.version);
-      const a2 = tg.getTask(a.id)!;
+      const a2 = requireTask(tg.getTask(a.id));
       const { unblockedTasks: afterA } = tg.completeTask(a.id, a2.version);
       expect(afterA.map((t) => t.title).sort()).toEqual(["B", "C"]);
       expect(tg.getTask(d.id)?.status).toBe("blocked"); // D still blocked
 
       // Complete B -> D still blocked (C not done)
-      const bFresh = tg.getTask(b.id)!;
+      const bFresh = requireTask(tg.getTask(b.id));
       tg.assignTask(b.id, "agent-1", bFresh.version);
-      const b1 = tg.getTask(b.id)!;
+      const b1 = requireTask(tg.getTask(b.id));
       tg.startTask(b.id, b1.version);
-      const b2 = tg.getTask(b.id)!;
+      const b2 = requireTask(tg.getTask(b.id));
       const { unblockedTasks: afterB } = tg.completeTask(b.id, b2.version);
       expect(afterB).toHaveLength(0);
       expect(tg.getTask(d.id)?.status).toBe("blocked");
 
       // Complete C -> D unblocked
-      const cFresh = tg.getTask(c.id)!;
+      const cFresh = requireTask(tg.getTask(c.id));
       tg.assignTask(c.id, "agent-1", cFresh.version);
-      const c1 = tg.getTask(c.id)!;
+      const c1 = requireTask(tg.getTask(c.id));
       tg.startTask(c.id, c1.version);
-      const c2 = tg.getTask(c.id)!;
+      const c2 = requireTask(tg.getTask(c.id));
       const { unblockedTasks: afterC } = tg.completeTask(c.id, c2.version);
       expect(afterC).toHaveLength(1);
       expect(afterC[0].id).toBe(d.id);
@@ -500,7 +505,7 @@ describe("TaskGraph", () => {
       tg.recordTaskOutcome("agent-1", ["testing"], true);
       tg.recordTaskOutcome("agent-1", ["testing"], false);
 
-      const profile = tg.getCapabilityProfile("agent-1")!;
+      const profile = requireTask(tg.getCapabilityProfile("agent-1"));
       expect(profile.totalCompleted).toBe(2);
       expect(profile.totalFailed).toBe(1);
       // Success rate uses exponential moving average, hard to assert exact value
@@ -561,7 +566,7 @@ describe("TaskGraph", () => {
       const t2 = tg.createTask({ title: "Also Assigned" });
       tg.assignTask(t1.id, "agent-1", t1.version);
       tg.assignTask(t2.id, "agent-1", t2.version);
-      const a2 = tg.getTask(t2.id)!;
+      const a2 = requireTask(tg.getTask(t2.id));
       tg.startTask(t2.id, a2.version);
 
       const count = tg.cleanupForAgent("agent-1");

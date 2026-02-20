@@ -75,6 +75,7 @@ export function validateAgentSpec(spec: {
   model?: string;
   name?: string;
   maxTurns?: unknown;
+  dangerouslySkipPermissions?: unknown;
 }): string | null {
   if (typeof spec.prompt !== "string" || !(spec.prompt as string).trim()) {
     return "prompt is required and must be a non-empty string";
@@ -94,6 +95,9 @@ export function validateAgentSpec(spec: {
   }
   if (spec.name !== undefined) {
     spec.name = sanitizeAgentName(spec.name);
+  }
+  if (spec.dangerouslySkipPermissions !== undefined && typeof spec.dangerouslySkipPermissions !== "boolean") {
+    return "dangerouslySkipPermissions must be a boolean";
   }
   for (const pattern of BLOCKED_COMMAND_PATTERNS) {
     if (pattern.test(spec.prompt as string)) {
@@ -173,7 +177,7 @@ export function validatePatchAgent(req: Request, res: Response, next: NextFuncti
   const providedFields = Object.keys(body);
 
   // Check for unauthorized fields
-  const unauthorizedFields = providedFields.filter((field) => !Object.prototype.hasOwnProperty.call(ALLOWED_FIELDS, field));
+  const unauthorizedFields = providedFields.filter((field) => !Object.hasOwn(ALLOWED_FIELDS, field));
   if (unauthorizedFields.length > 0) {
     res.status(400).json({ error: `Unauthorized fields: ${unauthorizedFields.join(", ")}` });
     return;

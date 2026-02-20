@@ -35,6 +35,7 @@ export function Dashboard() {
         name: selectedTemplate.name,
         model: selectedTemplate.model,
         maxTurns: selectedTemplate.maxTurns,
+        dangerouslySkipPermissions: selectedTemplate.dangerouslySkipPermissions,
       }
     : undefined;
 

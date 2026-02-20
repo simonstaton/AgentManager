@@ -124,7 +124,10 @@ export function createContextRouter() {
 
     fs.unlinkSync(filepath);
     deleteContextFile(name).catch((err) => {
-      console.error(`[context] Failed to delete context file ${name}:`, err instanceof Error ? err.message : String(err));
+      console.error(
+        `[context] Failed to delete context file ${name}:`,
+        err instanceof Error ? err.message : String(err),
+      );
     });
     res.json({ ok: true });
   });

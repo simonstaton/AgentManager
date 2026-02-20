@@ -46,6 +46,20 @@ describe("validateCreateAgent", () => {
     expect(next).toHaveBeenCalled();
   });
 
+  it("accepts boolean dangerouslySkipPermissions", () => {
+    const res = mockRes();
+    validateCreateAgent(mockReq({ prompt: "Hello world", dangerouslySkipPermissions: true }), res, next);
+    expect(next).toHaveBeenCalled();
+  });
+
+  it("rejects non-boolean dangerouslySkipPermissions", () => {
+    const res = mockRes();
+    validateCreateAgent(mockReq({ prompt: "Hello world", dangerouslySkipPermissions: "true" }), res, next);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ error: "dangerouslySkipPermissions must be a boolean" });
+    expect(next).not.toHaveBeenCalled();
+  });
+
   it("rejects invalid model", () => {
     const res = mockRes();
     validateCreateAgent(mockReq({ prompt: "test", model: "gpt-4" }), res, next);

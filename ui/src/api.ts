@@ -15,6 +15,7 @@ export interface Agent {
     | "stalled"
     | "disconnected";
   workspaceDir: string;
+  dangerouslySkipPermissions?: boolean;
   claudeSessionId?: string;
   createdAt: string;
   lastActivity: string;

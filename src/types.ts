@@ -29,6 +29,8 @@ export interface Agent {
   name: string;
   status: AgentStatus;
   workspaceDir: string;
+  /** If true, Claude CLI runs with --dangerously-skip-permissions for this agent. */
+  dangerouslySkipPermissions?: boolean;
   claudeSessionId?: string;
   createdAt: string;
   lastActivity: string;

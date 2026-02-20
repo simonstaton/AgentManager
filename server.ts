@@ -2,7 +2,6 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import express from "express";
-import { logger } from "./src/logger";
 import { AgentManager } from "./src/agents";
 import { authMiddleware } from "./src/auth";
 import { corsMiddleware } from "./src/cors";
@@ -10,6 +9,7 @@ import { CostTracker } from "./src/cost-tracker";
 import { initDepCache } from "./src/dep-cache";
 import { GradeStore } from "./src/grading";
 import { isKilled, loadPersistedState, startGcsKillSwitchPoll } from "./src/kill-switch";
+import { logger } from "./src/logger";
 import { MessageBus } from "./src/messages";
 import { Orchestrator } from "./src/orchestrator";
 import { cleanupStaleState, hasTombstone } from "./src/persistence";
@@ -298,7 +298,11 @@ agentManager.onIdle((agentId) => {
     const prompt = formatDeliveryPrompt(`[Message from ${sender} - type: ${next.type}]`, next.content, next.from);
 
     try {
-      logger.info("[auto-deliver] Delivering queued message to now-idle agent", { agentId, sender, msgType: next.type });
+      logger.info("[auto-deliver] Delivering queued message to now-idle agent", {
+        agentId,
+        sender,
+        msgType: next.type,
+      });
       agentManager.message(agentId, prompt);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
@@ -486,7 +490,10 @@ async function start() {
       try {
         agentManager.emergencyDestroyAll();
       } catch (destroyErr) {
-        console.error("[FATAL] Error during agent destruction:", destroyErr instanceof Error ? destroyErr.message : String(destroyErr));
+        console.error(
+          "[FATAL] Error during agent destruction:",
+          destroyErr instanceof Error ? destroyErr.message : String(destroyErr),
+        );
       }
 
       // Exit after a brief delay to allow logs to flush
@@ -509,7 +516,10 @@ async function start() {
       try {
         agentManager.emergencyDestroyAll();
       } catch (destroyErr) {
-        console.error("[FATAL] Error during agent destruction:", destroyErr instanceof Error ? destroyErr.message : String(destroyErr));
+        console.error(
+          "[FATAL] Error during agent destruction:",
+          destroyErr instanceof Error ? destroyErr.message : String(destroyErr),
+        );
       }
 
       // Exit after a brief delay to allow logs to flush

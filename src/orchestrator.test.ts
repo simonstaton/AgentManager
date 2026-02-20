@@ -7,6 +7,11 @@ import type { TaskMessage } from "./task-graph";
 import { TaskGraph } from "./task-graph";
 import type { Agent } from "./types";
 
+function requireTask<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error("Expected task to exist in test setup");
+  return value;
+}
+
 const TEST_DB_DIR = "/tmp/orchestrator-test";
 const TEST_DB_PATH = path.join(TEST_DB_DIR, "test-orchestrator.db");
 
@@ -208,7 +213,7 @@ describe("Orchestrator", () => {
     it("accepts a successful result", () => {
       const task = tg.createTask({ title: "Complete Me" });
       tg.assignTask(task.id, "agent-1", task.version);
-      const a = tg.getTask(task.id)!;
+      const a = requireTask(tg.getTask(task.id));
       tg.startTask(task.id, a.version);
 
       const outcome = orchestrator.submitResult({
@@ -230,7 +235,7 @@ describe("Orchestrator", () => {
       const blocked = tg.createTask({ title: "Blocked", dependsOn: [dep.id] });
 
       tg.assignTask(dep.id, "agent-1", dep.version);
-      const a = tg.getTask(dep.id)!;
+      const a = requireTask(tg.getTask(dep.id));
       tg.startTask(dep.id, a.version);
 
       const outcome = orchestrator.submitResult({
@@ -254,7 +259,7 @@ describe("Orchestrator", () => {
 
       const task = tg.createTask({ title: "Fail Then Retry", maxRetries: 3 });
       tg.assignTask(task.id, "agent-1", task.version);
-      const a = tg.getTask(task.id)!;
+      const a = requireTask(tg.getTask(task.id));
       tg.startTask(task.id, a.version);
 
       const outcome = orchestrator.submitResult({
@@ -269,7 +274,7 @@ describe("Orchestrator", () => {
       expect(outcome.accepted).toBe(true);
 
       // The orchestrator should attempt recovery (retry with agent-2)
-      const updated = tg.getTask(task.id)!;
+      const updated = requireTask(tg.getTask(task.id));
       // Task should have been retried (either pending or assigned to agent-2)
       expect(["pending", "assigned"]).toContain(updated.status);
     });
@@ -308,7 +313,7 @@ describe("Orchestrator", () => {
         requiredCapabilities: ["testing"],
       });
       tg.assignTask(task.id, "agent-1", task.version);
-      const a = tg.getTask(task.id)!;
+      const a = requireTask(tg.getTask(task.id));
       tg.startTask(task.id, a.version);
 
       orchestrator.submitResult({
@@ -337,7 +342,7 @@ describe("Orchestrator", () => {
       // Note: blocked task starts as "blocked" status, so we need to handle this
       // The blocked task owner needs to be set for notification
       tg.assignTask(dep.id, "agent-1", dep.version);
-      const a = tg.getTask(dep.id)!;
+      const a = requireTask(tg.getTask(dep.id));
       tg.startTask(dep.id, a.version);
 
       orchestrator.submitResult({
@@ -350,7 +355,7 @@ describe("Orchestrator", () => {
       });
 
       // Blocked task should remain blocked
-      const updatedBlocked = tg.getTask(blocked.id)!;
+      const updatedBlocked = requireTask(tg.getTask(blocked.id));
       expect(updatedBlocked.status).toBe("blocked");
     });
   });

@@ -1,11 +1,15 @@
-import { type FSWatcher, rmSync, watch } from "node:fs";
+import { existsSync, type FSWatcher, mkdirSync, rmSync, watch, writeFileSync } from "node:fs";
 import fsPromises from "node:fs/promises";
 import path from "node:path";
 import { errorMessage } from "./types";
 import { getContextDir } from "./utils/context";
 import { walkDir } from "./utils/files";
 
-const fileExists = (p: string): Promise<boolean> => fsPromises.access(p).then(() => true, () => false);
+const fileExists = (p: string): Promise<boolean> =>
+  fsPromises.access(p).then(
+    () => true,
+    () => false,
+  );
 
 const GCS_BUCKET = process.env.GCS_BUCKET;
 const HOME = process.env.HOME || "/home/agent";
@@ -95,7 +99,7 @@ async function uploadDir(localDir: string, prefix: string): Promise<void> {
   const gcs = await getStorage();
   if (!gcs || !GCS_BUCKET) return;
 
-  if (!await fileExists(localDir)) return;
+  if (!(await fileExists(localDir))) return;
 
   try {
     await retryWithBackoff(async () => {
@@ -136,7 +140,7 @@ async function downloadFile(gcsPath: string, localPath: string): Promise<void> {
 async function uploadFile(localPath: string, gcsPath: string): Promise<void> {
   const gcs = await getStorage();
   if (!gcs || !GCS_BUCKET) return;
-  if (!await fileExists(localPath)) return;
+  if (!(await fileExists(localPath))) return;
   try {
     await retryWithBackoff(async () => {
       const bucket = gcs.bucket(GCS_BUCKET);
@@ -276,21 +280,34 @@ async function deleteGCSPrefixes(prefixes: string[]): Promise<void> {
         try {
           if (prefix.endsWith("/")) {
             const [files] = await bucket.getFiles({ prefix });
-            await Promise.all(files.map((f: { delete: () => Promise<unknown> }) => f.delete().catch((err) => {
-              console.error(`[storage] Failed to delete GCS file ${prefix}:`, err instanceof Error ? err.message : String(err));
-            })));
+            await Promise.all(
+              files.map((f: { delete: () => Promise<unknown> }) =>
+                f.delete().catch((err: unknown) => {
+                  console.error(
+                    `[storage] Failed to delete GCS file ${prefix}:`,
+                    err instanceof Error ? err.message : String(err),
+                  );
+                }),
+              ),
+            );
             deleted += files.length;
           } else {
             await bucket
               .file(prefix)
               .delete()
-              .catch((err) => {
-                console.error(`[storage] Failed to delete GCS file ${prefix}:`, err instanceof Error ? err.message : String(err));
+              .catch((err: unknown) => {
+                console.error(
+                  `[storage] Failed to delete GCS file ${prefix}:`,
+                  err instanceof Error ? err.message : String(err),
+                );
               });
             deleted++;
           }
-        } catch (err) {
-          console.error(`[storage] Error deleting GCS prefix ${prefix}:`, err instanceof Error ? err.message : String(err));
+        } catch (err: unknown) {
+          console.error(
+            `[storage] Error deleting GCS prefix ${prefix}:`,
+            err instanceof Error ? err.message : String(err),
+          );
         }
       }),
     );
@@ -342,7 +359,10 @@ export async function cleanupAgentClaudeData(workspaceDir: string): Promise<void
   if (cleaned > 0) {
     console.log(`[cleanup] Removed ${cleaned} claude-home entries for workspace ${match[1].slice(0, 8)}`);
     deleteGCSPrefixes(gcsToDelete).catch((err) => {
-      console.error(`[storage] Failed to delete GCS prefixes for cleanup:`, err instanceof Error ? err.message : String(err));
+      console.error(
+        `[storage] Failed to delete GCS prefixes for cleanup:`,
+        err instanceof Error ? err.message : String(err),
+      );
     });
   }
 }
@@ -366,7 +386,7 @@ export async function syncFromGCS(): Promise<void> {
 
 export async function syncContextFile(filename: string): Promise<void> {
   const localPath = path.join(SHARED_CONTEXT_DIR, filename);
-  if (!await fileExists(localPath)) return;
+  if (!(await fileExists(localPath))) return;
   await uploadFile(localPath, `shared-context/${filename}`);
 }
 
