@@ -132,9 +132,6 @@ ${opts.contextIndex || "(no files yet)"}
 3. Use \`GET /api/context/file?name=...\` to fetch only those files
 4. If unsure, read 1-2 most likely files - don't read everything
 
-## Working Memory
-Your working memory file is \`shared-context/working-memory-${opts.agentName}.md\` - it has been pre-created for you. You MUST keep it updated as you work (see home-claude.md for the required format). Prefer \`PUT /api/context/file\` for updates; direct file writes are a fallback when filesystem access is available.
-
 ## Key Behaviors
 - Connect to \`GET /api/messages/stream?agentId=${opts.agentId}\` on startup to receive messages from other agents in real-time
 - Announce status via message bus when starting/finishing work

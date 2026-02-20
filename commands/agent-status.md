@@ -50,14 +50,6 @@ try:
 except: print('  (failed to parse messages)')
 "
 
-echo ""
-echo "=== WORKING MEMORY FILES ==="
-for f in shared-context/working-memory-*.md; do
-  [ -f "\$f" ] || continue
-  echo "--- \$(basename \$f) ---"
-  head -6 "\$f"
-  echo ""
-done
 ```
 
 Summarise what you find concisely. Do NOT send any messages to other agents - this is read-only.

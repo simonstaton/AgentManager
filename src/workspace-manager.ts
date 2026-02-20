@@ -56,14 +56,10 @@ function buildSharedContextIndex(sharedContextDir: string): string {
     entries.push(`- **${relPath}** (${sizeKb}KB): ${summary}`);
   }
 
-  // Sort: working-memory first, then guides/ last, then alphabetical
+  // Sort: guides/ last, then alphabetical
   entries.sort((a, b) => {
-    const aWm = a.includes("working-memory");
-    const bWm = b.includes("working-memory");
     const aGuide = a.includes("guides/");
     const bGuide = b.includes("guides/");
-    if (aWm && !bWm) return -1;
-    if (!aWm && bWm) return 1;
     if (aGuide && !bGuide) return 1;
     if (!aGuide && bGuide) return -1;
     return a.localeCompare(b);
@@ -106,18 +102,7 @@ export class WorkspaceManager {
       }
     }
 
-    // Seed initial working memory file so the agent (and other agents) can
-    // see it immediately - agents are instructed to keep it updated.
-    const wmPath = path.join(getContextDir(), `working-memory-${agentName}.md`);
-    if (!existsSync(wmPath)) {
-      const timestamp = new Date().toISOString().replace("T", " ").slice(0, 19);
-      writeFileSync(
-        wmPath,
-        `<!-- summary: Working memory for ${agentName} -->\n# Working Memory - ${agentName}\n\n## Current Task\nStarting up - reading instructions\n\n## Status\nactive\n\n## Context\n- Agent just spawned\n\n## Recent Actions\n- ${timestamp} - Agent created, workspace initialized\n\n## Next Steps\n- Read CLAUDE.md and shared context\n- Begin assigned task\n`,
-      );
-    }
-
-    // Write workspace CLAUDE.md so agents know about shared context and working memory
+    // Write workspace CLAUDE.md so agents know about shared context
     this.writeWorkspaceClaudeMd(workspaceDir, agentName, agentId);
 
     // Write fresh auth token file - agents read this before each API call

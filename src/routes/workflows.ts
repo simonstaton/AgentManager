@@ -99,8 +99,7 @@ ${workflowId}
 - Create a feature branch named after the Linear issue (e.g., \`feat/TEAM-123-description\`)
 - The PR description should reference the Linear issue URL
 - Keep the team small and focused - don't over-spawn agents
-- If you encounter blockers, report them as a "status" message with the workflow ID in metadata
-- Update your working memory as you progress`;
+- If you encounter blockers, report them as a "status" message with the workflow ID in metadata`;
 }
 
 export function createWorkflowsRouter(agentManager: AgentManager, messageBus: MessageBus) {

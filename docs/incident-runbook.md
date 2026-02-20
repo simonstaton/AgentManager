@@ -205,12 +205,6 @@ curl -X POST \
   http://localhost:8080/api/messages/<MSG_ID>/read
 ```
 
-**Step 5 - Update working memory to reflect resolution**
-```bash
-# Edit shared-context/working-memory-<AGENT_SHORT_ID>.md
-# Mark task as failed and document what happened
-```
-
 ### Escalation
 
 - If multiple agents stuck simultaneously -> suspect platform-level issue -> P0 escalation
@@ -298,9 +292,6 @@ gcloud run services update agent-manager \
 ```bash
 # List large objects that may be loaded into memory
 gsutil ls -l gs://<BUCKET>/shared-context/ | sort -rn | head -10
-
-# Remove stale working-memory files from terminated agents
-gsutil rm gs://<BUCKET>/shared-context/working-memory-<OLD_AGENT_ID>.md
 ```
 
 **Verify recovery**
@@ -448,7 +439,6 @@ curl -H "Authorization: Bearer $(cat /tmp/workspace-*/.agent-token)" \
 ### Symptoms
 
 - Agents cannot read/write `shared-context/` files
-- Working memory updates fail silently or with ENOENT-equivalent
 - `persistence.ts` logs show GCS errors: `Error: 403 Forbidden`, `Error: 404 Not Found`, `Error: 500 Internal`
 - Agent spawning fails because template files cannot be read from GCS
 - Messages or agent state not persisting across restarts
@@ -524,10 +514,6 @@ gsutil ls -l gs://<BUCKET>/shared-context/ | awk '$1 < 50 {print $3}'
 
 # Restore from versioned backup (if versioning enabled)
 gsutil cp gs://<BUCKET>/<OBJECT>#<VERSION_ID> gs://<BUCKET>/<OBJECT>
-
-# Or re-initialize working memory from template
-gsutil cp gs://<BUCKET>/shared-context/templates/working-memory-template.md \
-  gs://<BUCKET>/shared-context/working-memory-<AGENT_ID>.md
 ```
 
 **Step 4 - Force agent re-sync**

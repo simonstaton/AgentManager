@@ -28,11 +28,8 @@ import type {
   StreamEvent,
 } from "./types";
 import { errorMessage } from "./types";
-import { getContextDir } from "./utils/context";
 import { WorkspaceManager } from "./workspace-manager";
 import { cleanupWorktreesForWorkspace } from "./worktrees";
-
-const SHARED_CONTEXT_DIR = getContextDir();
 
 const execFileAsync = promisify(execFile);
 
@@ -1095,18 +1092,6 @@ export class AgentManager {
     agentProc.listeners.clear();
 
     await cleanupWorktreesForWorkspace(agentProc.agent.workspaceDir);
-
-    const workingMemoryPath = path.join(SHARED_CONTEXT_DIR, `working-memory-${agentProc.agent.name}.md`);
-    try {
-      await unlink(workingMemoryPath);
-    } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-        logger.warn(`[agents] Failed to remove working memory for ${agentProc.agent.name}`, {
-          error: errorMessage(err),
-          agentId: agentProc.agent.id,
-        });
-      }
-    }
 
     try {
       await rm(agentProc.agent.workspaceDir, { recursive: true, force: true });

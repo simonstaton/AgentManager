@@ -34,7 +34,7 @@ Your responsibilities:
 On startup:
 - Read CLAUDE.md if it exists to understand the project
 - Check the agent registry to see who's already running
-- Check shared-context/ for any relevant project state or working memory
+- Check shared-context/ for any relevant project state
 - Review any unread messages
 
 Always think about the most efficient way to parallelize work. Be the human's single point of contact - they shouldn't need to manage individual agents directly.`,

@@ -399,10 +399,8 @@ function cleanupOrphanedProcesses(): void {
   }
 }
 
-/** Remove stale /tmp/workspace-* directories that don't belong to any restored agent,
- *  and clean up orphaned working-memory files in shared-context. */
+/** Remove stale /tmp/workspace-* directories that don't belong to any restored agent. */
 function cleanupStaleWorkspaces(manager: AgentManager): void {
-  // Clean stale workspace directories
   try {
     const activeWorkspaces = manager.getActiveWorkspaceDirs();
     const entries = fs.readdirSync("/tmp").filter((f) => f.startsWith("workspace-"));
@@ -423,23 +421,17 @@ function cleanupStaleWorkspaces(manager: AgentManager): void {
     // /tmp not readable - skip
   }
 
-  // Clean orphaned working-memory files from shared-context
-  const contextDir = getContextDir();
+  // Remove any leftover working-memory-*.md files (feature removed)
   try {
-    const activeNames = new Set(manager.list().map((a) => a.name));
+    const contextDir = getContextDir();
     const wmFiles = fs.readdirSync(contextDir).filter((f) => f.startsWith("working-memory-") && f.endsWith(".md"));
-    let cleanedWm = 0;
     for (const file of wmFiles) {
-      const agentName = file.replace("working-memory-", "").replace(".md", "");
-      if (!activeNames.has(agentName)) {
-        try {
-          fs.unlinkSync(path.join(contextDir, file));
-          cleanedWm++;
-        } catch {}
-      }
+      try {
+        fs.unlinkSync(path.join(contextDir, file));
+      } catch {}
     }
-    if (cleanedWm > 0) {
-      logger.info(`[cleanup] Removed ${cleanedWm} orphaned working-memory file(s)`);
+    if (wmFiles.length > 0) {
+      logger.info(`[cleanup] Removed ${wmFiles.length} stale working-memory file(s)`);
     }
   } catch {
     // shared-context not readable - skip

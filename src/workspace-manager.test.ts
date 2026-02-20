@@ -42,15 +42,6 @@ describe("WorkspaceManager", () => {
       expect(existsSync(contextLink)).toBe(true);
     });
 
-    it("creates working memory file", () => {
-      wm.ensureWorkspace(TEST_WORKSPACE, "test-agent", "agent-123");
-      const wmPath = path.join(TEST_CONTEXT_DIR, "working-memory-test-agent.md");
-      expect(existsSync(wmPath)).toBe(true);
-      const content = readFileSync(wmPath, "utf-8");
-      expect(content).toContain("Working Memory - test-agent");
-      expect(content).toContain("summary: Working memory for test-agent");
-    });
-
     it("writes CLAUDE.md in workspace", () => {
       wm.ensureWorkspace(TEST_WORKSPACE, "test-agent", "agent-123");
       const claudeMdPath = path.join(TEST_WORKSPACE, "CLAUDE.md");
@@ -68,19 +59,6 @@ describe("WorkspaceManager", () => {
       expect(token.length).toBeGreaterThan(0);
       // JWT format: header.payload.signature
       expect(token.split(".")).toHaveLength(3);
-    });
-
-    it("does not overwrite existing working memory", () => {
-      const wmPath = path.join(TEST_CONTEXT_DIR, "working-memory-test-agent.md");
-      mkdirSync(TEST_CONTEXT_DIR, { recursive: true });
-      const existingContent = "# Existing content\nDo not overwrite";
-      const { writeFileSync } = require("node:fs");
-      writeFileSync(wmPath, existingContent);
-
-      wm.ensureWorkspace(TEST_WORKSPACE, "test-agent", "agent-123");
-
-      const content = readFileSync(wmPath, "utf-8");
-      expect(content).toBe(existingContent);
     });
 
     it("is idempotent - calling twice does not fail", () => {
