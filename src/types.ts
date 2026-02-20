@@ -117,6 +117,20 @@ export interface AgentProcess {
   eventBufferTotal: number;
 }
 
+export interface AgentMetadata {
+  pid: number | null;
+  uptime: number;
+  workingDir: string;
+  repo: string | null;
+  branch: string | null;
+  worktreePath: string | null;
+  tokensIn: number;
+  tokensOut: number;
+  estimatedCost: number;
+  model: string;
+  sessionId: string | null;
+}
+
 export interface AuthPayload {
   sub: string;
   iat: number;

@@ -3,6 +3,7 @@
 import { Badge, Button } from "@fanvue/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Agent } from "../api";
+import { AgentMetadataPanel } from "../components/AgentMetadataPanel";
 import { AgentTerminal } from "../components/AgentTerminal";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Header } from "../components/Header";
@@ -314,6 +315,9 @@ export function AgentView({ agentId }: { agentId: string }) {
               )}
             </div>
           </header>
+
+          {/* Metadata panel */}
+          {id && <AgentMetadataPanel agentId={id} />}
 
           {/* Stalled warning banner */}
           {agent?.status === "stalled" && (

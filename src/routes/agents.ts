@@ -311,6 +311,17 @@ export function createAgentsRouter(
     res.json(agent);
   });
 
+  // Agent runtime metadata (PID, git info, uptime, etc.)
+  router.get("/api/agents/:id/metadata", async (req: Request, res: Response) => {
+    const id = param(req.params.id);
+    const metadata = await agentManager.getMetadata(id);
+    if (!metadata) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    res.json(metadata);
+  });
+
   // Token usage and cost for a single agent
   router.get("/api/agents/:id/usage", (req: Request, res: Response) => {
     const id = param(req.params.id);

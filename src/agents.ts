@@ -1,7 +1,8 @@
-import { execFileSync, spawn } from "node:child_process";
+import { execFile, execFileSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { appendFile, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
+import { appendFile, readFile, readdir, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
+import { promisify } from "node:util";
 import path from "node:path";
 import readline from "node:readline";
 import type { CostTracker } from "./cost-tracker";
@@ -16,13 +17,61 @@ import {
 import { EVENTS_DIR, loadAllAgentStates, removeAgentState, saveAgentState, writeTombstone } from "./persistence";
 import { sanitizeEvent } from "./sanitize";
 import { cleanupAgentClaudeData, debouncedSyncToGCS } from "./storage";
-import type { Agent, AgentProcess, AgentUsage, CreateAgentRequest, PromptAttachment, StreamEvent } from "./types";
+import type { Agent, AgentMetadata, AgentProcess, AgentUsage, CreateAgentRequest, PromptAttachment, StreamEvent } from "./types";
 import { errorMessage } from "./types";
 import { getContextDir } from "./utils/context";
 import { WorkspaceManager } from "./workspace-manager";
 import { cleanupWorktreesForWorkspace } from "./worktrees";
 
 const SHARED_CONTEXT_DIR = getContextDir();
+
+const execFileAsync = promisify(execFile);
+
+async function gitCmd(cwd: string, args: string[]): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync("git", args, { cwd, encoding: "utf-8", timeout: 3_000 });
+    return stdout.trim();
+  } catch {
+    return null;
+  }
+}
+
+async function getGitInfo(
+  workspaceDir: string,
+): Promise<{ repo: string | null; branch: string | null; worktreePath: string | null }> {
+  const result = { repo: null as string | null, branch: null as string | null, worktreePath: null as string | null };
+
+  const topLevel = await gitCmd(workspaceDir, ["rev-parse", "--show-toplevel"]);
+  if (topLevel) {
+    result.branch = await gitCmd(topLevel, ["rev-parse", "--abbrev-ref", "HEAD"]);
+    result.repo = await gitCmd(topLevel, ["remote", "get-url", "origin"]);
+    const commonDir = await gitCmd(topLevel, ["rev-parse", "--git-common-dir"]);
+    const gitDir = await gitCmd(topLevel, ["rev-parse", "--git-dir"]);
+    if (commonDir && gitDir && path.resolve(topLevel, commonDir) !== path.resolve(topLevel, gitDir)) {
+      result.worktreePath = topLevel;
+    }
+    return result;
+  }
+
+  try {
+    const entries = await readdir(workspaceDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+      const subdir = path.join(workspaceDir, entry.name);
+      const branch = await gitCmd(subdir, ["rev-parse", "--abbrev-ref", "HEAD"]);
+      if (branch) {
+        result.branch = branch;
+        result.repo = await gitCmd(subdir, ["remote", "get-url", "origin"]);
+        result.worktreePath = subdir;
+        return result;
+      }
+    }
+  } catch {
+    // readdir may fail if workspace doesn't exist
+  }
+
+  return result;
+}
 
 /** Harmless stderr noise from Claude CLI startup that should not surface as errors. */
 const STDERR_NOISE_RE = /apiKeyHelper did not return a valid value|Error getting API key from apiKeyHelper/;
@@ -614,6 +663,29 @@ export class AgentManager {
       estimatedCost: Math.round((agent.usage?.estimatedCost ?? 0) * 1e6) / 1e6,
       model: agent.model,
       sessionStart: agent.createdAt,
+    };
+  }
+
+
+  /** Return runtime metadata for a single agent (PID, git info, uptime, etc.). */
+  async getMetadata(id: string): Promise<AgentMetadata | null> {
+    const agentProc = this.agents.get(id);
+    if (!agentProc) return null;
+    const { agent, proc } = agentProc;
+    const uptimeMs = Date.now() - new Date(agent.createdAt).getTime();
+    const gitInfo = await getGitInfo(agent.workspaceDir);
+    return {
+      pid: proc?.pid ?? null,
+      uptime: uptimeMs,
+      workingDir: agent.workspaceDir,
+      repo: gitInfo.repo,
+      branch: gitInfo.branch,
+      worktreePath: gitInfo.worktreePath,
+      tokensIn: agent.usage?.tokensIn ?? 0,
+      tokensOut: agent.usage?.tokensOut ?? 0,
+      estimatedCost: Math.round((agent.usage?.estimatedCost ?? 0) * 1e6) / 1e6,
+      model: agent.model,
+      sessionId: agent.claudeSessionId ?? null,
     };
   }
 

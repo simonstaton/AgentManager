@@ -68,6 +68,20 @@ export interface SwarmTopology {
   edges: TopologyEdge[];
 }
 
+export interface AgentMetadata {
+  pid: number | null;
+  uptime: number;
+  workingDir: string;
+  repo: string | null;
+  branch: string | null;
+  worktreePath: string | null;
+  tokensIn: number;
+  tokensOut: number;
+  estimatedCost: number;
+  model: string;
+  sessionId: string | null;
+}
+
 export interface ContextFile {
   name: string;
   size: number;
@@ -95,6 +109,12 @@ export function createApi(authFetch: AuthFetch) {
     async getAgent(id: string): Promise<Agent> {
       const res = await authFetch(`/api/agents/${id}`);
       if (!res.ok) throw new Error("Agent not found");
+      return res.json();
+    },
+
+    async getAgentMetadata(id: string): Promise<AgentMetadata> {
+      const res = await authFetch(`/api/agents/${id}/metadata`);
+      if (!res.ok) throw new Error("Failed to fetch agent metadata");
       return res.json();
     },
 
