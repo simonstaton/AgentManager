@@ -16,6 +16,7 @@ const TYPE_BADGE: Record<string, BadgeVariant> = {
   question: "info",
   info: "default",
   status: "default",
+  interrupt: "error",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -24,6 +25,7 @@ const TYPE_LABELS: Record<string, string> = {
   question: "Question",
   info: "Info",
   status: "Status",
+  interrupt: "Interrupt",
 };
 
 function agentName(id: string, agents: { id: string; name: string }[]): string {
@@ -44,17 +46,61 @@ export function MessageFeed({ api, agents }: MessageFeedProps) {
 
   const refresh = useCallback(async () => {
     try {
-      const msgs = await api.fetchMessages({ limit: 50 });
+      const msgs = await api.fetchMessages({ limit: 200 });
       setMessages(msgs);
     } catch (err) {
       console.error("[MessageFeed] refresh failed", err);
     }
   }, [api]);
 
+  // SSE real-time stream with polling fallback
   useEffect(() => {
+    // Initial load of existing messages
     refresh();
-    const interval = setInterval(refresh, 5000);
-    return () => clearInterval(interval);
+
+    let es: EventSource | null = null;
+    let fallbackInterval: ReturnType<typeof setInterval> | null = null;
+
+    try {
+      es = new EventSource("/api/messages/stream");
+
+      es.onmessage = (event) => {
+        try {
+          const msg: AgentMessage = JSON.parse(event.data);
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === msg.id)) return prev;
+            const next = [...prev, msg];
+            return next.length > 200 ? next.slice(-200) : next;
+          });
+        } catch {
+          // Ignore malformed SSE data
+        }
+      };
+
+      es.onerror = () => {
+        // SSE disconnected — poll as fallback until reconnect
+        if (!fallbackInterval) {
+          fallbackInterval = setInterval(refresh, 5000);
+        }
+      };
+
+      es.onopen = () => {
+        // SSE reconnected — stop polling, re-fetch to catch missed messages
+        if (fallbackInterval) {
+          clearInterval(fallbackInterval);
+          fallbackInterval = null;
+        }
+        refresh();
+      };
+    } catch {
+      // EventSource not supported — fall back to polling
+      fallbackInterval = setInterval(refresh, 5000);
+    }
+
+    return () => {
+      es?.close();
+      if (fallbackInterval) clearInterval(fallbackInterval);
+    };
   }, [refresh]);
 
   // Auto-scroll to bottom when new messages arrive
@@ -144,6 +190,8 @@ export function MessageFeed({ api, agents }: MessageFeedProps) {
               <option value="task">Task</option>
               <option value="question">Question</option>
               <option value="status">Status</option>
+              <option value="result">Result</option>
+              <option value="interrupt">Interrupt</option>
             </select>
           </div>
           <TextField
