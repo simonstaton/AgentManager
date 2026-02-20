@@ -159,7 +159,9 @@ Before writing code:
 - Check if there's a shared component or utility that already does what you need
 - Look at how similar features are implemented elsewhere in the codebase
 
-Run the project's lint/typecheck commands after making changes. Fix any issues you introduce.`,
+Run the project's lint/typecheck commands after making changes. Fix any issues you introduce.
+
+After creating a PR, monitor CI with \`gh pr checks --watch --fail-fast\`. If checks fail, read the logs (\`gh run view <run-id> --log-failed\`), fix the code, push, and re-check until CI passes. Never just poll and report "still pending" — actively fix failures.`,
   },
   {
     id: "backend-dev",
@@ -191,7 +193,9 @@ Before writing code:
 - Check how similar endpoints/features are implemented
 - Understand the data model and relationships
 
-Run the project's lint/typecheck/test commands after making changes. Fix any issues you introduce.`,
+Run the project's lint/typecheck/test commands after making changes. Fix any issues you introduce.
+
+After creating a PR, monitor CI with \`gh pr checks --watch --fail-fast\`. If checks fail, read the logs (\`gh run view <run-id> --log-failed\`), fix the code, push, and re-check until CI passes. Never just poll and report "still pending" — actively fix failures.`,
   },
   {
     id: "fullstack-dev",
@@ -224,7 +228,9 @@ Principles:
 - Validate on both client and server
 - Write clean commit-ready code - no TODOs, no commented-out code, no debug logs
 
-Run the project's lint/typecheck/test commands after making changes. Fix any issues you introduce.`,
+Run the project's lint/typecheck/test commands after making changes. Fix any issues you introduce.
+
+After creating a PR, monitor CI with \`gh pr checks --watch --fail-fast\`. If checks fail, read the logs (\`gh run view <run-id> --log-failed\`), fix the code, push, and re-check until CI passes. Never just poll and report "still pending" — actively fix failures.`,
   },
   {
     id: "devops",
