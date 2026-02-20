@@ -1,6 +1,6 @@
 resource "google_service_account" "swarm" {
-  account_id   = "claude-swarm-sa"
-  display_name = "Claude Swarm Service Account"
+  account_id   = "agent-conductor-sa"
+  display_name = "AgentConductor Service Account"
 }
 
 # Secret Manager access

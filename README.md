@@ -1,6 +1,6 @@
-# ClaudeSwarm
+# AgentConductor
 
-Run persistent Claude agent swarms from a single self-hosted UI. Spawn agents, watch them work in real-time, coordinate via a message bus, and kill them all with one button when they start merging PRs without asking.
+Conduct autonomous agents at scale safely. You lead. Agents execute. Human-on-the-loop, NOT human-in-the-loop. Orchestrate AI work like a manager, not a prompt juggler.
 
 <p align="center">
   <a href="https://github.com/simonstaton/ClaudeSwarm/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
@@ -8,18 +8,18 @@ Run persistent Claude agent swarms from a single self-hosted UI. Spawn agents, w
   <a href="https://github.com/simonstaton/ClaudeSwarm/actions"><img src="https://img.shields.io/github/actions/workflow/status/simonstaton/ClaudeSwarm/ci.yml" alt="CI"></a>
 </p>
 
-> One evening, an orchestrator agent decided the best way to accomplish its task was to spawn a dozen sub-agents. Those sub-agents reviewed each other's pull requests, approved them, merged them and deployed to GCP while I was AFK. The invoice was educational. That's why ClaudeSwarm has a [6-layer kill switch](#kill-switch).
+> One evening, an orchestrator agent decided the best way to accomplish its task was to spawn a dozen sub-agents. Those sub-agents reviewed each other's pull requests, approved them, merged them and deployed to GCP while I was AFK. The invoice was educational. That's why AgentConductor has a [6-layer kill switch](#kill-switch).
 
 <p align="center">
   <img src="assets/screenshot-dashboard.png" alt="Agent dashboard with templates and model selection" width="48%">
   <img src="assets/screenshot-kill-switch.png" alt="Emergency kill switch dialog" width="48%">
   <img src="assets/screenshot-costs.png" alt="Cost tracking dashboard with per-agent token usage and spend" width="100%">
-  <img src="assets/screenshot-graph.png" alt="Swarm graph visualization with parent-child topology" width="100%">
+  <img src="assets/screenshot-graph.png" alt="Agent graph visualization with parent-child topology" width="100%">
 </p>
 
 ## What this actually is
 
-ClaudeSwarm runs [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI processes. Each agent is a real Claude Code session with full tool access (file editing, bash, git, MCP integrations) running in an isolated workspace. The platform handles the operational side:
+AgentConductor runs [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI processes. Each agent is a real Claude Code session with full tool access (file editing, bash, git, MCP integrations) running in an isolated workspace. The platform handles the operational side:
 
 - **Agents persist across restarts.** State syncs to GCS. Cloud Run scales to zero, agents resume on wake.
 - **6-layer emergency kill switch.** Process kill -> token rotation -> GCS remote kill. [Built because I needed it](#kill-switch).
@@ -32,16 +32,16 @@ Not a wrapper around the Anthropic SDK. Not a chat UI. It runs actual Claude Cod
 
 ### Why Claude Code CLI, not the Anthropic SDK?
 
-The SDK gives you chat completions with tool calling. Claude Code gives you a complete coding agent with file editing, bash execution, git, MCP, session resumption and sub-agent delegation, all maintained by Anthropic. ClaudeSwarm runs these agents rather than trying to rebuild them from scratch.
+The SDK gives you chat completions with tool calling. Claude Code gives you a complete coding agent with file editing, bash execution, git, MCP, session resumption and sub-agent delegation, all maintained by Anthropic. AgentConductor runs these agents rather than trying to rebuild them from scratch.
 
-Claude Code's `--output-format stream-json` gives typed JSON events (not terminal scraping) that the platform parses for real-time UI streaming, state tracking and cost calculation. New capabilities Anthropic adds to Claude Code show up in ClaudeSwarm without any work on my end.
+Claude Code's `--output-format stream-json` gives typed JSON events (not terminal scraping) that the platform parses for real-time UI streaming, state tracking and cost calculation. New capabilities Anthropic adds to Claude Code show up in AgentConductor without any work on my end.
 
 ## Quick Start (Local Development)
 
 **1. Clone the repository**
 ```bash
 git clone https://github.com/simonstaton/ClaudeSwarm.git
-cd ClaudeSwarm
+cd AgentConductor
 ```
 
 **2. Configure environment variables**
@@ -79,14 +79,14 @@ Go to `http://localhost:5173`, log in with your `API_KEY`, and start creating ag
 Skip npm setup and run via Docker instead:
 
 ```bash
-docker build -t claude-swarm .
+docker build -t agent-conductor .
 docker run -p 8080:8080 \
   -e ANTHROPIC_BASE_URL=https://openrouter.ai/api \
   -e ANTHROPIC_AUTH_TOKEN=sk-or-v1-... \
   -e ANTHROPIC_API_KEY= \
   -e API_KEY=your-password \
   -e JWT_SECRET=any-random-string \
-  claude-swarm
+  agent-conductor
 ```
 
 Open `http://localhost:8080` (note the different port).
@@ -98,7 +98,7 @@ Open `http://localhost:8080` (note the different port).
 | **Multi-agent orchestration** | Up to 100 concurrent agents, each with isolated `/tmp/workspace-{uuid}` and full Claude Code capabilities |
 | **Real-time streaming UI** | Next.js App Router UI with SSE streaming, live terminal output, tool use visualization, cost-per-turn stats |
 | **Task graph + orchestrator** | Structured world model with Plan-Execute-Observe loop, capability-aware routing, and inter-agent contracts |
-| **Swarm graph visualization** | Interactive SVG tree showing parent-child topology, color-coded by status, with token usage on each node |
+| **Agent graph visualization** | Interactive SVG tree showing parent-child topology, color-coded by status, with token usage on each node |
 | **Cost tracking** | Per-agent token counts and USD cost estimates, summary dashboard, per-model pricing (Opus/Sonnet/Haiku) |
 | **Pause and resume** | Pause any running agent mid-task and resume it later. Process is kept alive, context preserved |
 | **Confidence grading** | Agents self-grade their fixes with a confidence score, surfaced in the UI for prioritized review |
@@ -263,7 +263,7 @@ echo '{"killed":true,"reason":"emergency"}' | gsutil cp - gs://your-bucket/kill-
 4. **Review GCS** - check shared-context for any payloads agents may have left behind
 5. **If the API is unreachable** - upload the kill switch file to GCS, or delete the Cloud Run service entirely:
    ```bash
-   gcloud run services delete claude-swarm --region=$REGION
+   gcloud run services delete agent-conductor --region=$REGION
    ```
 
 ### Limitations
@@ -293,12 +293,12 @@ export REGION=us-central1
 
 # Option A: Build remotely with Cloud Build (recommended, no local Docker needed)
 gcloud builds submit \
-  --tag $REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest \
+  --tag $REGION-docker.pkg.dev/$PROJECT_ID/agent-conductor/agent-conductor:latest \
   --project=$PROJECT_ID --region=$REGION
 
 # Option B: Build locally with Docker
-docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest .
-docker push $REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest
+docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/agent-conductor/agent-conductor:latest .
+docker push $REGION-docker.pkg.dev/$PROJECT_ID/agent-conductor/agent-conductor:latest
 ```
 
 ### Step 2: Configure Terraform variables
@@ -337,7 +337,7 @@ This creates:
 The service is private by default. Grant yourself permission to invoke it:
 
 ```bash
-gcloud run services add-iam-policy-binding claude-swarm \
+gcloud run services add-iam-policy-binding agent-conductor \
   --region=$REGION \
   --member="user:your-email@example.com" \
   --role="roles/run.invoker"
@@ -350,7 +350,7 @@ Get your service URL and open it in a browser:
 ```bash
 terraform output service_url
 # or
-gcloud run services describe claude-swarm --region=$REGION --format='value(status.url)'
+gcloud run services describe agent-conductor --region=$REGION --format='value(status.url)'
 ```
 
 Log in with the `api_key` you set in `terraform.tfvars`. Start creating agents.
@@ -409,7 +409,7 @@ Setting `GITHUB_TOKEN` enables three things for agents:
 **Option A: Fine-grained token (recommended)**
 
 Go to [GitHub Settings > Fine-grained tokens](https://github.com/settings/personal-access-tokens/new):
-- **Token name:** `claude-swarm`
+- **Token name:** `agent-conductor`
 - **Expiration:** 90 days (or custom)
 - **Repository access:** "Only select repositories" and pick the repos agents should access
 - **Permissions:**
@@ -438,7 +438,7 @@ Then run `terraform apply` and redeploy. Terraform stores the token in Secret Ma
 **Quick update without Terraform** - update the secret directly:
 ```bash
 echo -n "github_pat_new_token_here" | gcloud secrets versions add github-token --data-file=- --project=$PROJECT_ID
-gcloud run services update claude-swarm --region=$REGION --project=$PROJECT_ID
+gcloud run services update agent-conductor --region=$REGION --project=$PROJECT_ID
 ```
 
 ## Security
@@ -477,7 +477,7 @@ Secrets are in GCP Secret Manager, injected into Cloud Run as env vars by Terraf
 echo -n "new-value" | gcloud secrets versions add SECRET_NAME --data-file=-
 
 # Redeploy to pick up new secrets
-gcloud run services update claude-swarm --region=$REGION
+gcloud run services update agent-conductor --region=$REGION
 ```
 
 ### Adding a new secret

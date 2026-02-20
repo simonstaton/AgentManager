@@ -1,4 +1,4 @@
-# Incident Response Runbook - Claude Swarm
+# Incident Response Runbook - AgentConductor
 
 **Platform:** GCP Cloud Run · TypeScript/Express · React/Vite · Google Cloud Storage
 **Last Updated:** 2026-02-19
@@ -35,7 +35,7 @@
 
 ```bash
 # 1. Check service status and recent revisions
-gcloud run services describe claude-swarm \
+gcloud run services describe agent-conductor \
   --region=us-central1 \
   --format="yaml(status,spec.template.metadata)"
 
@@ -48,12 +48,12 @@ gcloud logging read \
 
 # 3. Check if a specific revision is failing
 gcloud run revisions list \
-  --service=claude-swarm \
+  --service=agent-conductor \
   --region=us-central1 \
   --format="table(name,status.conditions[0].type,status.conditions[0].status)"
 
 # 4. Check instance count (0 = crashed, not scaling)
-gcloud run services describe claude-swarm \
+gcloud run services describe agent-conductor \
   --region=us-central1 \
   --format="value(status.observedGeneration,status.traffic[0].percent)"
 
@@ -66,16 +66,16 @@ curl -sf https://<SERVICE_URL>/api/health || echo "HEALTH CHECK FAILED"
 **Step 1 - Confirm crash scope**
 ```bash
 # Check if Cloud Run auto-restarted successfully
-gcloud run revisions list --service=claude-swarm --region=us-central1
+gcloud run revisions list --service=agent-conductor --region=us-central1
 ```
 
 **Step 2 - Rollback to last known-good revision**
 ```bash
 # List recent revisions and their traffic allocation
-gcloud run revisions list --service=claude-swarm --region=us-central1
+gcloud run revisions list --service=agent-conductor --region=us-central1
 
 # Roll back to previous revision
-gcloud run services update-traffic claude-swarm \
+gcloud run services update-traffic agent-conductor \
   --region=us-central1 \
   --to-revisions=<PREVIOUS_REVISION>=100
 ```
@@ -83,8 +83,8 @@ gcloud run services update-traffic claude-swarm \
 **Step 3 - Force new deployment if rollback not viable**
 ```bash
 # Re-deploy from container registry (Cloud Build or manual)
-gcloud run deploy claude-swarm \
-  --image=gcr.io/<PROJECT_ID>/claude-swarm:latest \
+gcloud run deploy agent-conductor \
+  --image=gcr.io/<PROJECT_ID>/agent-conductor:latest \
   --region=us-central1 \
   --min-instances=1 \
   --max-instances=10
@@ -278,7 +278,7 @@ curl -X DELETE \
 **Scale Cloud Run memory/CPU limits**
 ```bash
 # Increase memory limit for the service
-gcloud run services update claude-swarm \
+gcloud run services update agent-conductor \
   --region=us-central1 \
   --memory=4Gi \
   --cpu=2
@@ -287,7 +287,7 @@ gcloud run services update claude-swarm \
 **Scale out instances to distribute load**
 ```bash
 # Increase max instances to spread concurrent requests
-gcloud run services update claude-swarm \
+gcloud run services update agent-conductor \
   --region=us-central1 \
   --min-instances=2 \
   --max-instances=20 \
@@ -341,7 +341,7 @@ curl -sf https://<SERVICE_URL>/api/health && echo "OK"
 curl -v --max-time 10 https://<SERVICE_URL>/api/health
 
 # 2. Check Cloud Run service status
-gcloud run services describe claude-swarm \
+gcloud run services describe agent-conductor \
   --region=us-central1 \
   --format="yaml(status.conditions)"
 
@@ -379,8 +379,8 @@ gcloud logging read \
 **Step 1 - Force new instance deployment**
 ```bash
 # Force a new revision to deploy (clears any instance-level hangs)
-gcloud run deploy claude-swarm \
-  --image=gcr.io/<PROJECT_ID>/claude-swarm:latest \
+gcloud run deploy agent-conductor \
+  --image=gcr.io/<PROJECT_ID>/agent-conductor:latest \
   --region=us-central1 \
   --no-traffic  # deploy dark first
 
@@ -388,7 +388,7 @@ gcloud run deploy claude-swarm \
 gcloud run revisions describe <NEW_REVISION> --region=us-central1
 
 # Then shift traffic
-gcloud run services update-traffic claude-swarm \
+gcloud run services update-traffic agent-conductor \
   --region=us-central1 \
   --to-latest
 ```
@@ -396,7 +396,7 @@ gcloud run services update-traffic claude-swarm \
 **Step 2 - Check and clear concurrency limits**
 ```bash
 # Increase concurrency if requests are queuing
-gcloud run services update claude-swarm \
+gcloud run services update agent-conductor \
   --region=us-central1 \
   --concurrency=200 \
   --max-instances=20
@@ -405,20 +405,20 @@ gcloud run services update claude-swarm \
 **Step 3 - Bypass auth middleware to isolate issue**
 ```bash
 # If auth middleware is suspect, check internal health
-gcloud run services proxy claude-swarm --region=us-central1 &
+gcloud run services proxy agent-conductor --region=us-central1 &
 curl http://localhost:8080/api/health
 ```
 
 **Step 4 - Restart with minimum instances to force cold start**
 ```bash
 # Scale to 0 then back to 1 (forces clean restart)
-gcloud run services update claude-swarm \
+gcloud run services update agent-conductor \
   --region=us-central1 \
   --min-instances=0
 
 sleep 30
 
-gcloud run services update claude-swarm \
+gcloud run services update agent-conductor \
   --region=us-central1 \
   --min-instances=1
 ```
@@ -480,7 +480,7 @@ gcloud logging read \
   --freshness=30m
 
 # 6. Test from within Cloud Run context (proxy)
-gcloud run services proxy claude-swarm --region=us-central1 &
+gcloud run services proxy agent-conductor --region=us-central1 &
 curl -H "Authorization: Bearer $(cat /tmp/workspace-*/.agent-token)" \
   http://localhost:8080/api/agents/registry
 
@@ -533,8 +533,8 @@ gsutil cp gs://<BUCKET>/shared-context/templates/working-memory-template.md \
 **Step 4 - Force agent re-sync**
 ```bash
 # Restart the service to trigger GCS re-sync on startup
-gcloud run deploy claude-swarm \
-  --image=gcr.io/<PROJECT_ID>/claude-swarm:latest \
+gcloud run deploy agent-conductor \
+  --image=gcr.io/<PROJECT_ID>/agent-conductor:latest \
   --region=us-central1
 ```
 
@@ -594,13 +594,13 @@ gcloud logging read \
   --freshness=15m
 
 # 5. Check if API_KEY secret is accessible
-gcloud secrets versions access latest --secret="claude-swarm-api-key"
+gcloud secrets versions access latest --secret="agent-conductor-api-key"
 
 # 6. Check JWT signing secret
-gcloud secrets versions access latest --secret="claude-swarm-jwt-secret"
+gcloud secrets versions access latest --secret="agent-conductor-jwt-secret"
 
 # 7. Verify Secret Manager permissions
-gcloud secrets get-iam-policy claude-swarm-api-key
+gcloud secrets get-iam-policy agent-conductor-api-key
 
 # 8. Check if token refresh mechanism is functioning
 # Token file should be < 1 hour old
@@ -636,11 +636,11 @@ curl -H "Authorization: Bearer $NEW_TOKEN" \
 **Step 3 - Fix Secret Manager access (if secrets are inaccessible)**
 ```bash
 # Grant Secret Manager access to Cloud Run service account
-gcloud secrets add-iam-policy-binding claude-swarm-api-key \
+gcloud secrets add-iam-policy-binding agent-conductor-api-key \
   --member="serviceAccount:<SA_EMAIL>" \
   --role="roles/secretmanager.secretAccessor"
 
-gcloud secrets add-iam-policy-binding claude-swarm-jwt-secret \
+gcloud secrets add-iam-policy-binding agent-conductor-jwt-secret \
   --member="serviceAccount:<SA_EMAIL>" \
   --role="roles/secretmanager.secretAccessor"
 ```
@@ -651,11 +651,11 @@ gcloud secrets add-iam-policy-binding claude-swarm-jwt-secret \
 NEW_KEY=$(openssl rand -base64 32)
 
 # Update Secret Manager
-echo -n "$NEW_KEY" | gcloud secrets versions add claude-swarm-api-key --data-file=-
+echo -n "$NEW_KEY" | gcloud secrets versions add agent-conductor-api-key --data-file=-
 
 # Force redeploy so service picks up new secret
-gcloud run deploy claude-swarm \
-  --image=gcr.io/<PROJECT_ID>/claude-swarm:latest \
+gcloud run deploy agent-conductor \
+  --image=gcr.io/<PROJECT_ID>/agent-conductor:latest \
   --region=us-central1
 
 # Distribute new key to all active agents via secure channel
@@ -667,11 +667,11 @@ gcloud run deploy claude-swarm \
 NEW_JWT_SECRET=$(openssl rand -base64 64)
 
 # Update Secret Manager
-echo -n "$NEW_JWT_SECRET" | gcloud secrets versions add claude-swarm-jwt-secret --data-file=-
+echo -n "$NEW_JWT_SECRET" | gcloud secrets versions add agent-conductor-jwt-secret --data-file=-
 
 # Redeploy (invalidates all existing tokens - agents must re-authenticate)
-gcloud run deploy claude-swarm \
-  --image=gcr.io/<PROJECT_ID>/claude-swarm:latest \
+gcloud run deploy agent-conductor \
+  --image=gcr.io/<PROJECT_ID>/agent-conductor:latest \
   --region=us-central1
 ```
 
@@ -789,13 +789,13 @@ gsutil -m rsync -r shared-context/ gs://<BUCKET>/shared-context/
 
 ```bash
 # Check service config
-gcloud run services describe claude-swarm --region=us-central1
+gcloud run services describe agent-conductor --region=us-central1
 
 # View all revisions and traffic split
-gcloud run revisions list --service=claude-swarm --region=us-central1
+gcloud run revisions list --service=agent-conductor --region=us-central1
 
 # Update concurrency and scaling
-gcloud run services update claude-swarm \
+gcloud run services update agent-conductor \
   --region=us-central1 \
   --concurrency=100 \
   --min-instances=1 \
@@ -804,7 +804,7 @@ gcloud run services update claude-swarm \
   --cpu=1
 
 # Roll back to specific revision
-gcloud run services update-traffic claude-swarm \
+gcloud run services update-traffic agent-conductor \
   --region=us-central1 \
   --to-revisions=<REVISION_NAME>=100
 ```
@@ -813,7 +813,7 @@ gcloud run services update-traffic claude-swarm \
 
 ```bash
 # View current secret (use carefully)
-gcloud secrets versions access latest --secret="claude-swarm-api-key"
+gcloud secrets versions access latest --secret="agent-conductor-api-key"
 
 # Add new secret version
 echo -n "<NEW_VALUE>" | gcloud secrets versions add <SECRET_NAME> --data-file=-

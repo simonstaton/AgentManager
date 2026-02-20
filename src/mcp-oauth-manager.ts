@@ -58,7 +58,7 @@ export const MCP_SERVERS: Record<string, MCPServerConfig> = {
     oauthConfig: {
       authUrl: "https://mcp.figma.com/oauth/authorize",
       tokenUrl: "https://mcp.figma.com/oauth/token",
-      clientId: process.env.FIGMA_OAUTH_CLIENT_ID || "claude-swarm",
+      clientId: process.env.FIGMA_OAUTH_CLIENT_ID || "agent-conductor",
       clientSecret: process.env.FIGMA_OAUTH_CLIENT_SECRET,
       scope: "mcp:connect",
     },
@@ -71,7 +71,7 @@ export const MCP_SERVERS: Record<string, MCPServerConfig> = {
     oauthConfig: {
       authUrl: "https://mcp.linear.app/oauth/authorize",
       tokenUrl: "https://mcp.linear.app/oauth/token",
-      clientId: process.env.LINEAR_OAUTH_CLIENT_ID || "claude-swarm",
+      clientId: process.env.LINEAR_OAUTH_CLIENT_ID || "agent-conductor",
       clientSecret: process.env.LINEAR_OAUTH_CLIENT_SECRET,
       scope: "read write",
     },

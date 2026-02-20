@@ -21,7 +21,7 @@ Contributions are welcome. Fork the repo, make your changes, and open a pull req
 
 ```bash
 git clone https://github.com/simonstaton/ClaudeSwarm.git
-cd ClaudeSwarm
+cd AgentConductor
 
 # Install server dependencies
 npm install

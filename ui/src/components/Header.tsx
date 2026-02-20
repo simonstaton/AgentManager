@@ -40,7 +40,7 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
             onClick={() => router.push("/")}
             className="text-lg font-semibold tracking-tight hover:text-white transition-colors"
           >
-            Swarm
+            AgentConductor
           </button>
           {agentCount > 0 && (
             <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-medium bg-zinc-700 text-zinc-300 rounded-full">

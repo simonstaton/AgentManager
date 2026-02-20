@@ -22,7 +22,7 @@ variable "agent_api_key" {
 }
 
 variable "image" {
-  description = "Docker image URL (e.g. gcr.io/project/claude-swarm:latest)"
+  description = "Docker image URL (e.g. gcr.io/project/agent-conductor:latest)"
   type        = string
 }
 
