@@ -64,9 +64,13 @@ Endpoints (all require auth header):
 - \`POST /api/agents\` body: \`{prompt, name, model?, role, parentId}\` - spawn sub-agent (models: "claude-haiku-4-5-20251001", "claude-sonnet-4-5-20250929", "claude-sonnet-4-6", "claude-opus-4-6"; defaults to sonnet-4-6)
 - \`POST /api/agents/batch\` body: \`{agents: [{prompt, name, model?, role, parentId}, ...]}\` - spawn multiple sub-agents at once (max 10, returns JSON)
 - \`DELETE /api/agents/{id}\` - destroy agent
+- \`GET /api/context\` - list shared-context markdown files
+- \`GET /api/context/file?name={path}.md\` - read a shared-context file
+- \`PUT /api/context/file\` body: \`{name, content}\` - create or update a shared-context file
+- \`DELETE /api/context/file?name={path}.md\` - delete a shared-context file
 
 Message types: task, result, question, info, status, interrupt
-For full curl examples and JSON escaping tips, see \`shared-context/guides/api-reference.md\`
+For full curl examples and JSON escaping tips, fetch \`guides/api-reference.md\` via \`GET /api/context/file?name=guides/api-reference.md\`
 
 ## Spawning Sub-Agents
 
@@ -80,7 +84,9 @@ For full curl examples and JSON escaping tips, see \`shared-context/guides/api-r
 
 ${otherAgentsStr}
 ## Shared Context
-\`shared-context/\` contains markdown files shared between all agents.
+Shared context files are accessible via the \`/api/context*\` endpoints. These markdown files are shared between all agents.
+
+**Always use API access.** Direct filesystem reads of \`shared-context/\` may be blocked by sandbox/path restrictions in some sessions. The \`/api/context*\` endpoints are reliable regardless of session configuration.
 
 **Do NOT read all files.** Use the index below to decide what's relevant, then fetch only what you need.
 
@@ -90,17 +96,17 @@ ${opts.contextIndex || "(no files yet)"}
 ### Retrieval
 1. Read the summaries above
 2. Decide which files are relevant to your current task
-3. Use the Read tool to fetch only those files
+3. Use \`GET /api/context/file?name=...\` to fetch only those files
 4. If unsure, read 1-2 most likely files - don't read everything
 
 ## Working Memory
-Your working memory file is \`shared-context/working-memory-${opts.agentName}.md\` - it has been pre-created for you. You MUST keep it updated as you work (see home-claude.md for the required format).
+Your working memory file is \`shared-context/working-memory-${opts.agentName}.md\` - it has been pre-created for you. You MUST keep it updated as you work (see home-claude.md for the required format). Prefer \`PUT /api/context/file\` for updates; direct file writes are a fallback when filesystem access is available.
 
 ## Key Behaviors
 - Connect to \`GET /api/messages/stream?agentId=${opts.agentId}\` on startup to receive messages from other agents in real-time
 - Announce status via message bus when starting/finishing work
 - Check agent registry before starting to avoid duplicate effort
-- For guides on API usage, collaboration, storage, skills, see \`shared-context/guides/\`
+- For guides on API usage, collaboration, storage, and skills, read files under \`guides/\` via \`/api/context/file\`
 ${reposSection}${skillsSection}
 ## Workspace
 - Files you create here are ephemeral - only \`shared-context/\` and \`repos/\` persist
