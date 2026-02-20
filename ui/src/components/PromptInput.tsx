@@ -35,6 +35,7 @@ interface CreateModeConfig {
     name?: string;
     model?: string;
     maxTurns?: number;
+    dangerouslySkipPermissions?: boolean;
     attachments?: Attachment[];
   }) => void;
 }
@@ -130,6 +131,7 @@ export function PromptInput({
   const [agentName, setAgentName] = useState("");
   const [agentModel, setAgentModel] = useState("claude-sonnet-4-6");
   const [agentMaxTurns, setAgentMaxTurns] = useState(200);
+  const [agentSkipPermissions, setAgentSkipPermissions] = useState(false);
   const [showCreateConfig, setShowCreateConfig] = useState(!!createMode);
 
   // Autocomplete state
@@ -262,6 +264,7 @@ export function PromptInput({
         name: agentName.trim() || undefined,
         model: agentModel,
         maxTurns: agentMaxTurns,
+        dangerouslySkipPermissions: agentSkipPermissions,
         attachments: attachments.length > 0 ? attachments : undefined,
       });
     } else {
@@ -273,7 +276,7 @@ export function PromptInput({
     setShowSlashMenu(false);
     setShowFileMenu(false);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
-  }, [value, attachments, disabled, onSubmit, slashCommands, createMode, agentName, agentModel, agentMaxTurns]);
+  }, [value, attachments, disabled, onSubmit, slashCommands, createMode, agentName, agentModel, agentMaxTurns, agentSkipPermissions]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     // Autocomplete navigation
@@ -598,6 +601,18 @@ export function PromptInput({
               max={500}
               className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-800 text-zinc-200 focus:outline-none focus:border-zinc-500"
             />
+          </div>
+          <div className="shrink-0 flex flex-col justify-end pb-0.5">
+            <label htmlFor="create-agent-skip-permissions" className="flex items-center gap-1.5 cursor-pointer select-none" title="Bypass all tool permission prompts (--dangerously-skip-permissions)">
+              <input
+                id="create-agent-skip-permissions"
+                type="checkbox"
+                checked={agentSkipPermissions}
+                onChange={(e) => setAgentSkipPermissions(e.target.checked)}
+                className="w-3 h-3 accent-amber-500"
+              />
+              <span className="text-[10px] text-zinc-400 whitespace-nowrap">Skip permissions</span>
+            </label>
           </div>
         </div>
       )}

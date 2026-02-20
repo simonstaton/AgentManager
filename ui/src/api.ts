@@ -185,6 +185,7 @@ export function createApi(authFetch: AuthFetch) {
       name?: string;
       model?: string;
       maxTurns?: number;
+      dangerouslySkipPermissions?: boolean;
       attachments?: Array<{ name: string; type: "image" | "file"; data: string; mime: string }>;
     }): {
       stream: Promise<ReadableStream<StreamEvent>>;
@@ -196,6 +197,7 @@ export function createApi(authFetch: AuthFetch) {
         name: opts.name,
         model: opts.model,
         maxTurns: opts.maxTurns,
+        dangerouslySkipPermissions: opts.dangerouslySkipPermissions ?? false,
       };
       if (opts.attachments && opts.attachments.length > 0) {
         body.attachments = opts.attachments.map((a) => ({

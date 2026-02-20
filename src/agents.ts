@@ -1476,8 +1476,11 @@ export class AgentManager {
   }
 
   private buildClaudeArgs(opts: CreateAgentRequest, model: string, resumeSessionId?: string): string[] {
-    const args = [
-      "--dangerously-skip-permissions",
+    const args: string[] = [];
+    if (opts.dangerouslySkipPermissions) {
+      args.push("--dangerously-skip-permissions");
+    }
+    args.push(
       "--output-format",
       "stream-json",
       "--verbose",
@@ -1485,7 +1488,7 @@ export class AgentManager {
       String(opts.maxTurns ?? 200),
       "--model",
       model,
-    ];
+    );
     if (resumeSessionId) {
       args.push("--resume", resumeSessionId);
     }

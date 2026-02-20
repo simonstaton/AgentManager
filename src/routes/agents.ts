@@ -104,7 +104,8 @@ export function createAgentsRouter(
       return;
     }
 
-    const { prompt, name, model, maxTurns, role, capabilities, parentId, attachments } = req.body;
+    const { prompt, name, model, maxTurns, role, capabilities, parentId, attachments, dangerouslySkipPermissions } =
+      req.body;
 
     try {
       // For create, we need to pre-compute the workspace path to save attachments
@@ -119,6 +120,7 @@ export function createAgentsRouter(
         capabilities,
         parentId,
         attachments: Array.isArray(attachments) ? attachments : undefined,
+        dangerouslySkipPermissions: dangerouslySkipPermissions === true,
       });
 
       startKeepAlive();

@@ -39,7 +39,14 @@ export function Dashboard() {
     : undefined;
 
   const handleCreate = useCallback(
-    async (opts: { prompt: string; name?: string; model?: string; maxTurns?: number; attachments?: Attachment[] }) => {
+    async (opts: {
+      prompt: string;
+      name?: string;
+      model?: string;
+      maxTurns?: number;
+      dangerouslySkipPermissions?: boolean;
+      attachments?: Attachment[];
+    }) => {
       setCreating(true);
       try {
         const { stream } = api.createAgentStream(opts);

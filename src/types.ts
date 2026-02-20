@@ -84,6 +84,9 @@ export interface CreateAgentRequest {
   capabilities?: string[];
   parentId?: string;
   attachments?: PromptAttachment[];
+  /** When true, passes --dangerously-skip-permissions to the Claude CLI, bypassing all
+   *  permission confirmations. Defaults to false (agents must confirm tool use). */
+  dangerouslySkipPermissions?: boolean;
 }
 
 export interface PromptAttachment {
