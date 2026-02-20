@@ -1,4 +1,4 @@
-# AgentConductor V3 Upgrade Plan
+# AgentManager V3 Upgrade Plan
 **Stability | Performance | Intelligence | Coordination**
 *February 2026*
 
@@ -70,4 +70,4 @@ Two features have dedicated implementation plans:
 
 ---
 
-*AgentConductor V3 Upgrade Plan | February 2026*
+*AgentManager V3 Upgrade Plan | February 2026*

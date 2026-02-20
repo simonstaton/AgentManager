@@ -2,7 +2,7 @@
 
 ## Overview
 
-MCP (Model Context Protocol) tools are **automatically available** to all agents spawned in the AgentConductor platform. The Claude CLI loads these tools from `~/.claude/settings.json`, which is configured at container startup.
+MCP (Model Context Protocol) tools are **automatically available** to all agents spawned in the AgentManager platform. The Claude CLI loads these tools from `~/.claude/settings.json`, which is configured at container startup.
 
 **Token auth is pre-configured for Figma and Linear - just use the MCP tools directly.** Do NOT attempt OAuth flows.
 
@@ -78,8 +78,8 @@ Then deploy:
 ```bash
 cd terraform
 terraform apply
-gcloud run services update claude-swarm \
-  --image=$REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest \
+gcloud run services update agent-manager \
+  --image=$REGION-docker.pkg.dev/$PROJECT_ID/agent-manager/agent-manager:latest \
   --region=$REGION --project=$PROJECT_ID
 ```
 

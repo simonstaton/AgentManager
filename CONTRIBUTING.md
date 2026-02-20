@@ -4,7 +4,7 @@ Contributions are welcome. Fork the repo, make your changes, and open a pull req
 
 ## Finding work
 
-- Browse [open issues](https://github.com/simonstaton/ClaudeSwarm/issues) labelled `good first issue` for approachable starting points.
+- Browse [open issues](https://github.com/simonstaton/AgentManager/issues) labelled `good first issue` for approachable starting points.
 - Check issues labelled `help wanted` for areas where maintainers are actively looking for contributors.
 - Open an issue first for large changes so we can discuss the approach before you invest time.
 - Comment on an issue before starting work to avoid duplication.
@@ -20,8 +20,8 @@ Contributions are welcome. Fork the repo, make your changes, and open a pull req
 ### Clone and install
 
 ```bash
-git clone https://github.com/simonstaton/ClaudeSwarm.git AgentConductor
-cd AgentConductor
+git clone https://github.com/simonstaton/AgentManager.git AgentManager
+cd AgentManager
 
 # Install server dependencies
 npm install

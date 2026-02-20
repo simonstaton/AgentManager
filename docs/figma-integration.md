@@ -1,6 +1,6 @@
 # Figma Integration Guide
 
-AgentConductor supports Figma MCP (Model Context Protocol) integration, allowing Claude agents to interact with Figma files, components, and design systems directly.
+AgentManager supports Figma MCP (Model Context Protocol) integration, allowing Claude agents to interact with Figma files, components, and design systems directly.
 
 ## Features
 
@@ -14,7 +14,7 @@ With Figma MCP enabled, agents can:
 
 ## Setup
 
-AgentConductor connects to Figma's official remote MCP server at `https://mcp.figma.com/mcp`.
+AgentManager connects to Figma's official remote MCP server at `https://mcp.figma.com/mcp`.
 
 ### Token Authentication (Standard)
 
@@ -23,7 +23,7 @@ Token auth is the standard method. When configured, all agents automatically hav
 1. Go to [Figma Settings](https://www.figma.com/settings)
 2. Scroll to **Personal Access Tokens**
 3. Click **Create new token**
-4. Give it a descriptive name (e.g., "AgentConductor Agent Access")
+4. Give it a descriptive name (e.g., "AgentManager Agent Access")
 5. Copy the token (it starts with `figd_`)
 
 #### For local development
@@ -47,8 +47,8 @@ Then apply and redeploy:
 ```bash
 cd terraform
 terraform apply
-gcloud run services update claude-swarm \
-  --image=$REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest \
+gcloud run services update agent-manager \
+  --image=$REGION-docker.pkg.dev/$PROJECT_ID/agent-manager/agent-manager:latest \
   --region=$REGION --project=$PROJECT_ID
 ```
 

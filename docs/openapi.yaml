@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
-  title: AgentConductor API
+  title: AgentManager API
   description: |
-    REST API for the AgentConductor multi-agent orchestration platform.
+    REST API for the AgentManager multi-agent orchestration platform.
 
     ## Authentication
 

@@ -1,14 +1,14 @@
-# AgentConductor
+# AgentManager
 
 Conduct autonomous agents at scale safely. You lead. Agents execute. Human-on-the-loop, NOT human-in-the-loop. Orchestrate AI work like a manager, not a prompt juggler.
 
 <p align="center">
-  <a href="https://github.com/simonstaton/ClaudeSwarm/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-  <a href="https://github.com/simonstaton/ClaudeSwarm/stargazers"><img src="https://img.shields.io/github/stars/simonstaton/ClaudeSwarm?style=social" alt="GitHub stars"></a>
-  <a href="https://github.com/simonstaton/ClaudeSwarm/actions"><img src="https://img.shields.io/github/actions/workflow/status/simonstaton/ClaudeSwarm/ci.yml" alt="CI"></a>
+  <a href="https://github.com/simonstaton/AgentManager/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <a href="https://github.com/simonstaton/AgentManager/stargazers"><img src="https://img.shields.io/github/stars/simonstaton/AgentManager?style=social" alt="GitHub stars"></a>
+  <a href="https://github.com/simonstaton/AgentManager/actions"><img src="https://img.shields.io/github/actions/workflow/status/simonstaton/AgentManager/ci.yml" alt="CI"></a>
 </p>
 
-> One evening, an orchestrator agent decided the best way to accomplish its task was to spawn a dozen sub-agents. Those sub-agents reviewed each other's pull requests, approved them, merged them and deployed to GCP while I was AFK. The invoice was educational. That's why AgentConductor has a [6-layer kill switch](#kill-switch).
+> One evening, an orchestrator agent decided the best way to accomplish its task was to spawn a dozen sub-agents. Those sub-agents reviewed each other's pull requests, approved them, merged them and deployed to GCP while I was AFK. The invoice was educational. That's why AgentManager has a [6-layer kill switch](#kill-switch).
 
 <p align="center">
   <img src="assets/screenshot-dashboard.png" alt="Agent dashboard with templates and model selection" width="48%">
@@ -19,7 +19,7 @@ Conduct autonomous agents at scale safely. You lead. Agents execute. Human-on-th
 
 ## What this actually is
 
-AgentConductor runs [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI processes. Each agent is a real Claude Code session with full tool access (file editing, bash, git, MCP integrations) running in an isolated workspace. The platform handles the operational side:
+AgentManager runs [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI processes. Each agent is a real Claude Code session with full tool access (file editing, bash, git, MCP integrations) running in an isolated workspace. The platform handles the operational side:
 
 - **Agents persist across restarts.** State syncs to GCS. Cloud Run scales to zero, agents resume on wake.
 - **6-layer emergency kill switch.** Process kill -> token rotation -> GCS remote kill. [Built because I needed it](#kill-switch).
@@ -32,16 +32,16 @@ Not a wrapper around the Anthropic SDK. Not a chat UI. It runs actual Claude Cod
 
 ### Why Claude Code CLI, not the Anthropic SDK?
 
-The SDK gives you chat completions with tool calling. Claude Code gives you a complete coding agent with file editing, bash execution, git, MCP, session resumption and sub-agent delegation, all maintained by Anthropic. AgentConductor runs these agents rather than trying to rebuild them from scratch.
+The SDK gives you chat completions with tool calling. Claude Code gives you a complete coding agent with file editing, bash execution, git, MCP, session resumption and sub-agent delegation, all maintained by Anthropic. AgentManager runs these agents rather than trying to rebuild them from scratch.
 
-Claude Code's `--output-format stream-json` gives typed JSON events (not terminal scraping) that the platform parses for real-time UI streaming, state tracking and cost calculation. New capabilities Anthropic adds to Claude Code show up in AgentConductor without any work on my end.
+Claude Code's `--output-format stream-json` gives typed JSON events (not terminal scraping) that the platform parses for real-time UI streaming, state tracking and cost calculation. New capabilities Anthropic adds to Claude Code show up in AgentManager without any work on my end.
 
 ## Quick Start (Local Development)
 
 **1. Clone the repository**
 ```bash
-git clone https://github.com/simonstaton/ClaudeSwarm.git AgentConductor
-cd AgentConductor
+git clone https://github.com/simonstaton/AgentManager.git AgentManager
+cd AgentManager
 ```
 
 **2. Configure environment variables**
@@ -79,14 +79,14 @@ Go to `http://localhost:5173`, log in with your `API_KEY`, and start creating ag
 Skip npm setup and run via Docker instead:
 
 ```bash
-docker build -t agent-conductor .
+docker build -t agent-manager .
 docker run -p 8080:8080 \
   -e ANTHROPIC_BASE_URL=https://openrouter.ai/api \
   -e ANTHROPIC_AUTH_TOKEN=sk-or-v1-... \
   -e ANTHROPIC_API_KEY= \
   -e API_KEY=your-password \
   -e JWT_SECRET=any-random-string \
-  agent-conductor
+  agent-manager
 ```
 
 Open `http://localhost:8080` (note the different port).
@@ -263,7 +263,7 @@ echo '{"killed":true,"reason":"emergency"}' | gsutil cp - gs://your-bucket/kill-
 4. **Review GCS** - check shared-context for any payloads agents may have left behind
 5. **If the API is unreachable** - upload the kill switch file to GCS, or delete the Cloud Run service entirely:
    ```bash
-   gcloud run services delete claude-swarm --region=$REGION
+   gcloud run services delete agent-manager --region=$REGION
    ```
 
 ### Limitations
@@ -293,12 +293,12 @@ export REGION=us-central1
 
 # Option A: Build remotely with Cloud Build (recommended, no local Docker needed)
 gcloud builds submit \
-  --tag $REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest \
+  --tag $REGION-docker.pkg.dev/$PROJECT_ID/agent-manager/agent-manager:latest \
   --project=$PROJECT_ID --region=$REGION
 
 # Option B: Build locally with Docker
-docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest .
-docker push $REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest
+docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/agent-manager/agent-manager:latest .
+docker push $REGION-docker.pkg.dev/$PROJECT_ID/agent-manager/agent-manager:latest
 ```
 
 ### Step 2: Configure Terraform variables
@@ -337,7 +337,7 @@ This creates:
 The service is private by default. Grant yourself permission to invoke it:
 
 ```bash
-gcloud run services add-iam-policy-binding claude-swarm \
+gcloud run services add-iam-policy-binding agent-manager \
   --region=$REGION \
   --member="user:your-email@example.com" \
   --role="roles/run.invoker"
@@ -350,7 +350,7 @@ Get your service URL and open it in a browser:
 ```bash
 terraform output service_url
 # or
-gcloud run services describe claude-swarm --region=$REGION --format='value(status.url)'
+gcloud run services describe agent-manager --region=$REGION --format='value(status.url)'
 ```
 
 Log in with the `api_key` you set in `terraform.tfvars`. Start creating agents.
@@ -409,7 +409,7 @@ Setting `GITHUB_TOKEN` enables three things for agents:
 **Option A: Fine-grained token (recommended)**
 
 Go to [GitHub Settings > Fine-grained tokens](https://github.com/settings/personal-access-tokens/new):
-- **Token name:** `agent-conductor`
+- **Token name:** `agent-manager`
 - **Expiration:** 90 days (or custom)
 - **Repository access:** "Only select repositories" and pick the repos agents should access
 - **Permissions:**
@@ -438,7 +438,7 @@ Then run `terraform apply` and redeploy. Terraform stores the token in Secret Ma
 **Quick update without Terraform** - update the secret directly:
 ```bash
 echo -n "github_pat_new_token_here" | gcloud secrets versions add github-token --data-file=- --project=$PROJECT_ID
-gcloud run services update claude-swarm --region=$REGION --project=$PROJECT_ID
+gcloud run services update agent-manager --region=$REGION --project=$PROJECT_ID
 ```
 
 ## Security
@@ -477,7 +477,7 @@ Secrets are in GCP Secret Manager, injected into Cloud Run as env vars by Terraf
 echo -n "new-value" | gcloud secrets versions add SECRET_NAME --data-file=-
 
 # Redeploy to pick up new secrets
-gcloud run services update claude-swarm --region=$REGION
+gcloud run services update agent-manager --region=$REGION
 ```
 
 ### Adding a new secret

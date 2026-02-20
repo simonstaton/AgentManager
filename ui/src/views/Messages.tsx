@@ -14,7 +14,7 @@ export function Messages() {
   const killSwitch = useKillSwitchContext();
 
   useEffect(() => {
-    document.title = "Messages - AgentConductor";
+    document.title = "Messages - AgentManager";
   }, []);
 
   return (

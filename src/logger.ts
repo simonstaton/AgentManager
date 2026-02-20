@@ -1,5 +1,5 @@
 /**
- * Structured logger for the AgentConductor server.
+ * Structured logger for the AgentManager server.
  *
  * - In production (NODE_ENV=production): emits newline-delimited JSON to stdout/stderr,
  *   suitable for Cloud Run log ingestion and structured log filtering.

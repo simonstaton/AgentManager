@@ -1,5 +1,5 @@
 {
-  "name": "agent-conductor",
+  "name": "agent-manager",
   "version": "2.0.0",
   "description": "Conduct autonomous agents at scale safely",
   "scripts": {
@@ -18,15 +18,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/simonstaton/ClaudeSwarm.git"
+    "url": "git+https://github.com/simonstaton/AgentManager.git"
   },
   "author": "Simon Staton <simon.staton@live.co.uk>",
   "license": "MIT",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/simonstaton/ClaudeSwarm/issues"
+    "url": "https://github.com/simonstaton/AgentManager/issues"
   },
-  "homepage": "https://github.com/simonstaton/ClaudeSwarm#readme",
+  "homepage": "https://github.com/simonstaton/AgentManager#readme",
   "dependencies": {
     "@google-cloud/storage": "^7.15.0",
     "better-sqlite3": "12.6.2",

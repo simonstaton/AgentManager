@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Documentation
-    url: https://github.com/simonstaton/ClaudeSwarm/blob/main/README.md
+    url: https://github.com/simonstaton/AgentManager/blob/main/README.md
     about: Check the documentation before opening an issue.
   - name: Discussions
-    url: https://github.com/simonstaton/ClaudeSwarm/discussions
+    url: https://github.com/simonstaton/AgentManager/discussions
     about: For questions and general discussion, please use GitHub Discussions.

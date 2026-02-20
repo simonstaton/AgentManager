@@ -1,4 +1,4 @@
-# Cloud Monitoring Alert Policies - AgentConductor
+# Cloud Monitoring Alert Policies - AgentManager
 #
 # Thresholds (tune to environment):
 #   High error rate  : 5xx request rate > 5 requests/min (5-min window)
@@ -11,7 +11,7 @@
 # All policies are skipped (count = 0) when that variable is empty.
 
 locals {
-  swarm_service_name = "claude-swarm" # keep old slug until infra migration
+  swarm_service_name = "agent-manager"
   alert_channels     = var.alert_notification_email != "" ? [google_monitoring_notification_channel.email_alerts[0].name] : []
   enable_alerts      = var.alert_notification_email != "" ? 1 : 0
 }
@@ -22,7 +22,7 @@ locals {
 
 resource "google_monitoring_notification_channel" "email_alerts" {
   count        = local.enable_alerts
-  display_name = "AgentConductor - Email Alerts"
+  display_name = "AgentManager - Email Alerts"
   type         = "email"
 
   labels = {
@@ -40,7 +40,7 @@ resource "google_monitoring_notification_channel" "email_alerts" {
 
 resource "google_monitoring_alert_policy" "high_error_rate" {
   count        = local.enable_alerts
-  display_name = "AgentConductor - High Error Rate"
+  display_name = "AgentManager - High Error Rate"
   combiner     = "OR"
 
   conditions {
@@ -80,7 +80,7 @@ resource "google_monitoring_alert_policy" "high_error_rate" {
 
   documentation {
     content   = <<-EOT
-      **Alert:** High 5xx error rate on AgentConductor Cloud Run service.
+      **Alert:** High 5xx error rate on AgentManager Cloud Run service.
 
       **Threshold:** > 5 HTTP 5xx responses per minute (5-minute window)
 
@@ -103,7 +103,7 @@ resource "google_monitoring_alert_policy" "high_error_rate" {
 
 resource "google_monitoring_alert_policy" "high_latency" {
   count        = local.enable_alerts
-  display_name = "AgentConductor - High Latency"
+  display_name = "AgentManager - High Latency"
   combiner     = "OR"
 
   conditions {
@@ -141,7 +141,7 @@ resource "google_monitoring_alert_policy" "high_latency" {
 
   documentation {
     content   = <<-EOT
-      **Alert:** p99 request latency exceeds 5,000 ms on AgentConductor.
+      **Alert:** p99 request latency exceeds 5,000 ms on AgentManager.
 
       **Threshold:** p99 latency > 5,000 ms (5-minute window)
 
@@ -165,7 +165,7 @@ resource "google_monitoring_alert_policy" "high_latency" {
 
 resource "google_monitoring_alert_policy" "container_crashes" {
   count        = local.enable_alerts
-  display_name = "AgentConductor - Container Crashes"
+  display_name = "AgentManager - Container Crashes"
   combiner     = "OR"
 
   conditions {
@@ -204,7 +204,7 @@ resource "google_monitoring_alert_policy" "container_crashes" {
 
   documentation {
     content   = <<-EOT
-      **Alert:** An AgentConductor container has crashed.
+      **Alert:** An AgentManager container has crashed.
 
       **Threshold:** crashed instance count > 0 (2-minute window)
 
@@ -227,7 +227,7 @@ resource "google_monitoring_alert_policy" "container_crashes" {
 
 resource "google_monitoring_alert_policy" "high_memory" {
   count        = local.enable_alerts
-  display_name = "AgentConductor - High Memory Utilization"
+  display_name = "AgentManager - High Memory Utilization"
   combiner     = "OR"
 
   conditions {
@@ -265,7 +265,7 @@ resource "google_monitoring_alert_policy" "high_memory" {
 
   documentation {
     content   = <<-EOT
-      **Alert:** Container memory utilization exceeds 80% on AgentConductor.
+      **Alert:** Container memory utilization exceeds 80% on AgentManager.
 
       **Threshold:** p99 memory utilization > 80% (5-minute window)
       **Current limit:** 32 GiB (see cloud-run.tf)
@@ -289,7 +289,7 @@ resource "google_monitoring_alert_policy" "high_memory" {
 
 resource "google_monitoring_alert_policy" "high_cpu" {
   count        = local.enable_alerts
-  display_name = "AgentConductor - High CPU Utilization"
+  display_name = "AgentManager - High CPU Utilization"
   combiner     = "OR"
 
   conditions {
@@ -327,7 +327,7 @@ resource "google_monitoring_alert_policy" "high_cpu" {
 
   documentation {
     content   = <<-EOT
-      **Alert:** Container CPU utilization exceeds 80% on AgentConductor.
+      **Alert:** Container CPU utilization exceeds 80% on AgentManager.
 
       **Threshold:** p99 CPU utilization > 80% (5-minute window)
       **Current limit:** 8 vCPUs (see cloud-run.tf)

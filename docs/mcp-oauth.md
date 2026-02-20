@@ -2,7 +2,7 @@
 
 > **For agents**: This is an operator/developer reference. Do NOT attempt OAuth flows from agent sessions - token auth is already pre-configured. Use MCP tools directly, or fall back to `/linear` and `/figma` slash commands. See `home-claude.md` for agent guidance.
 
-This document describes the OAuth authentication flow for MCP servers (Figma and Linear) in the AgentConductor platform. OAuth is a **fallback for human operators** who need to authenticate via browser.
+This document describes the OAuth authentication flow for MCP servers (Figma and Linear) in the AgentManager platform. OAuth is a **fallback for human operators** who need to authenticate via browser.
 
 ## Overview
 
@@ -38,7 +38,7 @@ The MCP OAuth integration allows human operators to authenticate with external s
 
 ```
 ┌──────┐                ┌────────────────┐              ┌──────────┐
-│ User │                │ AgentConductor │              │ MCP      │
+│ User │                │ AgentManager │              │ MCP      │
 │      │                │    Platform    │              │ Server   │
 └──┬───┘                └───────┬────────┘              └────┬─────┘
    │                           │                            │
@@ -145,7 +145,7 @@ curl -X DELETE http://localhost:8080/api/mcp/token/figma \
        oauthConfig: {
          authUrl: "https://newserver.com/oauth/authorize",
          tokenUrl: "https://newserver.com/oauth/token",
-         clientId: process.env.NEWSERVER_OAUTH_CLIENT_ID || "agent-conductor",
+         clientId: process.env.NEWSERVER_OAUTH_CLIENT_ID || "agent-manager",
          clientSecret: process.env.NEWSERVER_OAUTH_CLIENT_SECRET,
          scope: "read write",
        },
@@ -202,9 +202,9 @@ curl -X DELETE http://localhost:8080/api/mcp/token/figma \
 |----------|-------------|----------|
 | `MCP_TOKEN_DIR` | Directory for token storage | No (defaults to `/persistent/mcp-tokens`) |
 | `PUBLIC_URL` | Public URL for OAuth callbacks | No (defaults to `http://localhost:8080`) |
-| `FIGMA_OAUTH_CLIENT_ID` | Figma OAuth client ID | No (defaults to `agent-conductor`) |
+| `FIGMA_OAUTH_CLIENT_ID` | Figma OAuth client ID | No (defaults to `agent-manager`) |
 | `FIGMA_OAUTH_CLIENT_SECRET` | Figma OAuth client secret | No |
-| `LINEAR_OAUTH_CLIENT_ID` | Linear OAuth client ID | No (defaults to `agent-conductor`) |
+| `LINEAR_OAUTH_CLIENT_ID` | Linear OAuth client ID | No (defaults to `agent-manager`) |
 | `LINEAR_OAUTH_CLIENT_SECRET` | Linear OAuth client secret | No |
 
 ## Troubleshooting

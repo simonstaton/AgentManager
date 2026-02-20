@@ -11,7 +11,7 @@ export function Login() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    document.title = "Login - AgentConductor";
+    document.title = "Login - AgentManager";
   }, []);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -33,7 +33,7 @@ export function Login() {
     <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4">
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-100">AgentConductor</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-100">AgentManager</h1>
           <p className="text-sm text-zinc-500 mt-1">Enter your access key to continue</p>
         </div>
 

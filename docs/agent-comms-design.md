@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AgentConductor platform implements a multi-agent communication system that allows Claude agents to discover, coordinate, and delegate work to each other. The system combines an in-memory message bus with persistent shared context files to enable both real-time and asynchronous collaboration.
+The AgentManager platform implements a multi-agent communication system that allows Claude agents to discover, coordinate, and delegate work to each other. The system combines an in-memory message bus with persistent shared context files to enable both real-time and asynchronous collaboration.
 
 ## Architecture
 

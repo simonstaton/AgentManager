@@ -34,7 +34,7 @@ export function LinearWorkflowDialog({ open, onClose, linearConfigured }: Linear
   const { authFetch } = useAuth();
   const { toast } = useToast();
   const [linearUrl, setLinearUrl] = useState("");
-  const [repository, setRepository] = useState("ClaudeSwarm_PRIVATE");
+  const [repository, setRepository] = useState("AgentManager_PRIVATE");
   const [submitting, setSubmitting] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
   const [workflows, setWorkflows] = useState<LinearWorkflow[]>([]);
@@ -238,7 +238,7 @@ export function LinearWorkflowDialog({ open, onClose, linearConfigured }: Linear
                   type="text"
                   value={repository}
                   onChange={(e) => setRepository(e.target.value)}
-                  placeholder="ClaudeSwarm_PRIVATE"
+                  placeholder="AgentManager_PRIVATE"
                   className="w-full px-3 py-2 text-sm bg-zinc-800 border border-zinc-700 rounded-md text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
                 />
               </div>

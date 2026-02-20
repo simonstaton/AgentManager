@@ -5,7 +5,7 @@ Deploy the latest main branch to production by syncing the public repo and trigg
 ## Steps
 
 1. **STOP and ask the user for explicit confirmation** before doing anything else. Show them what will happen:
-   - The public repo (`simonstaton/ClaudeSwarm`) will be force-pushed to match the private repo (`simonstaton/ClaudeSwarm_PRIVATE`) main branch
+   - The public repo (`simonstaton/AgentManager`) will be force-pushed to match the private repo (`simonstaton/AgentManager_PRIVATE`) main branch
    - The GitHub Actions deploy workflow will be triggered on the private repo, which builds a Docker image and deploys to GCP Cloud Run
    - This will replace the currently running production service
 
@@ -19,9 +19,9 @@ Deploy the latest main branch to production by syncing the public repo and trigg
 # Clone the public repo, reset to private main, and force push
 cd /tmp
 rm -rf _release_sync
-git clone https://github.com/simonstaton/ClaudeSwarm.git _release_sync
+git clone https://github.com/simonstaton/AgentManager.git _release_sync
 cd _release_sync
-git remote add private https://github.com/simonstaton/ClaudeSwarm_PRIVATE.git
+git remote add private https://github.com/simonstaton/AgentManager_PRIVATE.git
 git fetch private main
 git reset --hard private/main
 git push origin main --force
@@ -30,7 +30,7 @@ git push origin main --force
 3. **Trigger the deploy workflow** on the private repo:
 
 ```bash
-gh workflow run deploy.yml --repo simonstaton/ClaudeSwarm_PRIVATE --ref main
+gh workflow run deploy.yml --repo simonstaton/AgentManager_PRIVATE --ref main
 ```
 
 4. **Monitor the deployment** - wait for the workflow to start and report its status:
@@ -38,7 +38,7 @@ gh workflow run deploy.yml --repo simonstaton/ClaudeSwarm_PRIVATE --ref main
 ```bash
 # Wait a few seconds for the run to register, then check status
 sleep 5
-gh run list --repo simonstaton/ClaudeSwarm_PRIVATE --workflow=deploy.yml --limit=1
+gh run list --repo simonstaton/AgentManager_PRIVATE --workflow=deploy.yml --limit=1
 ```
 
 5. Report the result to the user. Include:

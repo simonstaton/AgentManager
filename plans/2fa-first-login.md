@@ -99,7 +99,7 @@ import { TOTP } from "otpauth";
 
 function generateTotpSecret(): { secret: string; uri: string } {
   const totp = new TOTP({
-    issuer: "AgentConductor",
+    issuer: "AgentManager",
     label: "admin",
     algorithm: "SHA1",
     digits: 6,
@@ -310,4 +310,4 @@ Both are well-maintained, widely used, and have no known vulnerabilities.
 
 ---
 
-*Phase 5.2 - Two-Factor Authentication | AgentConductor V3*
+*Phase 5.2 - Two-Factor Authentication | AgentManager V3*

@@ -338,7 +338,7 @@ app.get("/agents/:id{/*rest}", (_req, res, next) => {
 app.get("/{*splat}", (_req, res) => {
   res.sendFile(path.join(uiDistPath, "404.html"), (err) => {
     if (err) {
-      res.status(200).send("AgentConductor API is running. Build the UI with: cd ui && npm run build");
+      res.status(200).send("AgentManager API is running. Build the UI with: cd ui && npm run build");
     }
   });
 });
@@ -450,7 +450,7 @@ async function start() {
   // Start listening IMMEDIATELY so the startup probe passes while we recover.
   // GCS sync and agent restoration happen in the background.
   const server = app.listen(PORT, () => {
-    logger.info(`AgentConductor listening on :${PORT}`);
+    logger.info(`AgentManager listening on :${PORT}`);
   });
 
   let tokenRefreshInterval: ReturnType<typeof setInterval>;

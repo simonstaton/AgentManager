@@ -6,7 +6,7 @@ import { resetSanitizeCache } from "../sanitize";
  * Verifies that switching between OpenRouter and Anthropic keys properly
  * cleans up environment variables (no "undefined" string pollution).
  *
- * See: https://github.com/simonstaton/ClaudeSwarm_PRIVATE/pull/211
+ * See: https://github.com/simonstaton/AgentManager_PRIVATE/pull/211
  */
 
 /** Simulate the key-switching logic from PUT /api/settings/anthropic-key */

@@ -23,13 +23,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: docker build -t claude-swarm:${{ github.sha }} .
+        run: docker build -t agent-manager:${{ github.sha }} .
 
       # JSON report - full severity range, saved as CI artifact
       - name: Run Trivy scan (JSON report)
         uses: aquasecurity/trivy-action@0.28.0
         with:
-          image-ref: claude-swarm:${{ github.sha }}
+          image-ref: agent-manager:${{ github.sha }}
           format: json
           output: trivy-results.json
           ignore-unfixed: true
@@ -44,7 +44,7 @@ jobs:
           TRIVY_FORMAT: table
           TRIVY_OUTPUT: ""
         with:
-          image-ref: claude-swarm:${{ github.sha }}
+          image-ref: agent-manager:${{ github.sha }}
           format: table
           exit-code: '1'
           ignore-unfixed: true

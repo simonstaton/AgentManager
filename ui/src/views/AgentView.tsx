@@ -41,7 +41,7 @@ export function AgentView({ agentId }: { agentId: string }) {
 
   // Set page title based on agent name
   useEffect(() => {
-    document.title = agent?.name ? `${agent.name} - AgentConductor` : "AgentConductor";
+    document.title = agent?.name ? `${agent.name} - AgentManager` : "AgentManager";
   }, [agent?.name]);
 
   // Load agent details and reconnect to stream.

@@ -6,9 +6,9 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: ${{ secrets.GCP_REGION }}
-  SERVICE: claude-swarm
-  REPOSITORY: claude-swarm
-  IMAGE: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/claude-swarm/claude-swarm
+  SERVICE: agent-manager
+  REPOSITORY: agent-manager
+  IMAGE: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/agent-manager/agent-manager
 
 jobs:
   deploy:

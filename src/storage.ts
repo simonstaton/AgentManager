@@ -451,7 +451,7 @@ export function debouncedSyncToGCS(): Promise<void> {
 }
 
 const ABOUT_YOU_CONTENT = `<!-- summary: Agent identity, communication methods, collaboration protocol, capabilities, platform context -->
-You are a **Claude agent** running on the **AgentConductor** platform. You are part of a multi-agent system where multiple Claude instances work together on tasks.
+You are a **Claude agent** running on the **AgentManager** platform. You are part of a multi-agent system where multiple Claude instances work together on tasks.
 
 ## What you are
 - A Claude Code CLI process running in an isolated workspace at \`/tmp/workspace-{uuid}/\`
@@ -492,8 +492,8 @@ const BACKLOG_CONTENT = `<!-- summary: Project backlog -->
 ---
 `;
 
-const REPOSITORY_CONTENT = `<!-- summary: AgentConductor repo structure, stack (TS/Express/React/Vite/GCP), and dev commands -->
-AgentConductor Platform - manages and orchestrates Claude agent workspaces.
+const REPOSITORY_CONTENT = `<!-- summary: AgentManager repo structure, stack (TS/Express/React/Vite/GCP), and dev commands -->
+AgentManager Platform - manages and orchestrates Claude agent workspaces.
 
 ## Stack
 

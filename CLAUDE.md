@@ -1,4 +1,4 @@
-# AgentConductor Platform
+# AgentManager Platform
 
 ## What is this?
 A platform for conducting autonomous agents via a web UI backed by Cloud Run. Agents run Claude CLI processes with `--dangerously-skip-permissions` in isolated workspaces.
@@ -83,7 +83,7 @@ export REGION=your-region
 
 # Build and push image (uses Cloud Build, no local Docker needed)
 gcloud builds submit \
-  --tag $REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest \
+  --tag $REGION-docker.pkg.dev/$PROJECT_ID/agent-manager/agent-manager:latest \
   --project=$PROJECT_ID --region=$REGION
 
 # Deploy infrastructure (first time or after config changes)
@@ -91,8 +91,8 @@ cd terraform
 GOOGLE_OAUTH_ACCESS_TOKEN=$(gcloud auth print-access-token) terraform apply
 
 # Deploy new image to existing service (after code changes)
-gcloud run services update claude-swarm \
-  --image=$REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest \
+gcloud run services update agent-manager \
+  --image=$REGION-docker.pkg.dev/$PROJECT_ID/agent-manager/agent-manager:latest \
   --region=$REGION --project=$PROJECT_ID
 ```
 
@@ -131,13 +131,13 @@ Agents can use bare repos in `/persistent/repos/` with git worktrees for fast ch
 - Fetch before creating worktrees to get latest refs: `git -C repos/repo.git fetch --all`
 
 ## Running the UI (self-serve for agents)
-Agents can clone, build, and run the AgentConductor UI locally for self-learning, validation, and test-driven prompting.
+Agents can clone, build, and run the AgentManager UI locally for self-learning, validation, and test-driven prompting.
 
 **Quick start (from agent workspace):**
 ```bash
 # 1. Clone via worktree (if bare repo exists) or fresh clone
-git -C repos/agent-conductor.git worktree add ../workdir main
-# OR: git clone https://github.com/your-org/agent-conductor.git workdir
+git -C repos/agent-manager.git worktree add ../workdir main
+# OR: git clone https://github.com/your-org/agent-manager.git workdir
 
 # 2. Install dependencies
 cd workdir && npm install && cd ui && npm install && cd ..

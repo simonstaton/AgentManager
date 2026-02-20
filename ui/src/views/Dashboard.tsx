@@ -22,7 +22,7 @@ export function Dashboard() {
   const [selectedTemplate, setSelectedTemplate] = useState<AgentTemplate | null>(null);
 
   useEffect(() => {
-    document.title = "Dashboard - AgentConductor";
+    document.title = "Dashboard - AgentManager";
   }, []);
 
   const handleTemplateSelect = useCallback((template: AgentTemplate) => {

@@ -27,7 +27,7 @@ itself stays on `/persistent`.
 ### Root package
 
 ```bash
-WTDIR="/persistent/repos/ClaudeSwarm_PRIVATE-<your-agent-id>"
+WTDIR="/persistent/repos/AgentManager_PRIVATE-<your-agent-id>"
 WT_SLUG="$(basename "$WTDIR")"
 
 npm install \
@@ -50,7 +50,7 @@ ln -sf "/tmp/nm-${WT_SLUG}-ui/node_modules" "${WTDIR}/ui/node_modules"
 ### One-liner (copy-paste template)
 
 ```bash
-WTDIR="/persistent/repos/ClaudeSwarm_PRIVATE-$(echo $AGENT_ID | cut -c1-8)"
+WTDIR="/persistent/repos/AgentManager_PRIVATE-$(echo $AGENT_ID | cut -c1-8)"
 WT_SLUG="$(basename "$WTDIR")"
 npm install --prefix "/tmp/nm-${WT_SLUG}"    --cache "/tmp/npm-cache-${WT_SLUG}" && \
 npm install --prefix "/tmp/nm-${WT_SLUG}-ui" --cache "/tmp/npm-cache-${WT_SLUG}" --prefix "${WTDIR}/ui" && \

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { SwarmTopology, TopologyNode } from "../api";
+import type { AgentTopology, TopologyNode } from "../api";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Header } from "../components/Header";
 import { Sidebar } from "../components/Sidebar";
@@ -25,7 +25,7 @@ interface LayoutNode extends TopologyNode {
  * Nodes at the same depth are spaced evenly. Each subtree is centred
  * over its children to avoid overlaps.
  */
-function computeLayout(topology: SwarmTopology): LayoutNode[] {
+function computeLayout(topology: AgentTopology): LayoutNode[] {
   const { nodes, edges } = topology;
   if (nodes.length === 0) return [];
 
@@ -162,7 +162,7 @@ export function GraphView() {
   const { agents } = useAgentPolling();
   const killSwitch = useKillSwitchContext();
 
-  const [topology, setTopology] = useState<SwarmTopology | null>(null);
+  const [topology, setTopology] = useState<AgentTopology | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [clearingId, setClearingId] = useState<string | null>(null);

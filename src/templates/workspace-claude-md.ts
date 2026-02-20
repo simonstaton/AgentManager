@@ -18,9 +18,9 @@ export function generateWorkspaceClaudeMd(opts: WorkspaceClaudeMdOptions): strin
       : "**No other agents currently active.**\n";
 
   const repoDescriptions: Record<string, string> = {
-    "ClaudeSwarm_PRIVATE.git":
+    "AgentManager_PRIVATE.git":
       "Private repo - primary development target. All PRs, branches, and code changes go here.",
-    "ClaudeSwarm.git":
+    "AgentManager.git":
       "Public repo - public mirror of the private repo. Kept in sync by force-pushing private main -> public main during releases. **Never commit directly to this repo.**",
   };
 
@@ -43,7 +43,7 @@ ${opts.skillsList}
 ## Identity
 - **Name:** \`${opts.agentName}\` | **ID:** \`${opts.agentId}\`
 - **Workspace:** \`${opts.workspaceDir}\`
-- **Platform:** AgentConductor Platform - GCP Cloud Run, TS/Express + React/Vite
+- **Platform:** AgentManager Platform - GCP Cloud Run, TS/Express + React/Vite
 
 ## API Access
 **Base:** \`http://localhost:${opts.port}\` | **Auth:** \`Bearer $(cat ${opts.workspaceDir}/.agent-token)\`

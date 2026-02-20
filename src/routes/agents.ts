@@ -46,7 +46,7 @@ export function createAgentsRouter(
     res.json(agents);
   });
 
-  // Swarm topology graph - nodes + edges derived from parentId relationships.
+  // Agent topology graph - nodes + edges derived from parentId relationships.
   // Agents can use this to discover direct paths to peers without multi-hop routing.
   router.get("/api/agents/topology", (_req, res) => {
     const agents = agentManager.list();

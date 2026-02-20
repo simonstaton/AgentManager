@@ -2,7 +2,7 @@
 
 ## Status: COMPLETE
 
-MCP tools (Figma and Linear) are **working** and available to all agents in the AgentConductor platform with **token auth pre-configured**.
+MCP tools (Figma and Linear) are **working** and available to all agents in the AgentManager platform with **token auth pre-configured**.
 
 ## How It Works
 

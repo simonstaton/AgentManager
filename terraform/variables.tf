@@ -16,13 +16,13 @@ variable "openrouter_api_key" {
 }
 
 variable "agent_api_key" {
-  description = "API key for authenticating to the AgentConductor service"
+  description = "API key for authenticating to the AgentManager service"
   type        = string
   sensitive   = true
 }
 
 variable "image" {
-  description = "Docker image URL (e.g. gcr.io/project/claude-swarm:latest)"
+  description = "Docker image URL (e.g. gcr.io/project/agent-manager:latest)"
   type        = string
 }
 

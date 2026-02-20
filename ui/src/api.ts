@@ -85,7 +85,7 @@ export interface TopologyEdge {
   target: string;
 }
 
-export interface SwarmTopology {
+export interface AgentTopology {
   nodes: TopologyNode[];
   edges: TopologyEdge[];
 }
@@ -316,7 +316,7 @@ export function createApi(authFetch: AuthFetch) {
       return res.json();
     },
 
-    async fetchTopology(): Promise<SwarmTopology> {
+    async fetchTopology(): Promise<AgentTopology> {
       const res = await authFetch("/api/agents/topology");
       if (!res.ok) throw new Error("Failed to fetch topology");
       return res.json();
