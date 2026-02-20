@@ -61,8 +61,8 @@ Endpoints (all require auth header):
 - \`GET  /api/agents/registry\` - list agents
 - \`GET  /api/agents/{id}/logs?tail=N&type=stderr,system&format=text\` - get your session logs for debugging
 - \`PATCH /api/agents/{id}\` body: \`{role?, currentTask?}\` - update profile
-- \`POST /api/agents\` body: \`{prompt, name, model?, role, parentId}\` - spawn sub-agent (models: "claude-haiku-4-5-20251001", "claude-sonnet-4-5-20250929", "claude-sonnet-4-6", "claude-opus-4-6"; defaults to sonnet-4-6)
-- \`POST /api/agents/batch\` body: \`{agents: [{prompt, name, model?, role, parentId}, ...]}\` - spawn multiple sub-agents at once (max 10, returns JSON)
+- \`POST /api/agents\` body: \`{prompt, name, model?, role, parentId, dangerouslySkipPermissions?}\` - spawn sub-agent (models: "claude-haiku-4-5-20251001", "claude-sonnet-4-5-20250929", "claude-sonnet-4-6", "claude-opus-4-6"; defaults to sonnet-4-6)
+- \`POST /api/agents/batch\` body: \`{agents: [{prompt, name, model?, role, parentId, dangerouslySkipPermissions?}, ...]}\` - spawn multiple sub-agents at once (max 10, returns JSON)
 - \`DELETE /api/agents/{id}\` - destroy agent
 - \`GET /api/context\` - list shared-context markdown files
 - \`GET /api/context/file?name={path}.md\` - read a shared-context file
@@ -81,6 +81,39 @@ For full curl examples and JSON escaping tips, fetch \`guides/api-reference.md\`
 2. **Platform API** (\`POST /api/agents\`) - Use this when the human operator needs to see and interact with the agent in the UI, when the agent needs to live independently beyond your session, when peer-to-peer coordination with other visible agents is needed, **or when a specific model is requested** (e.g. Haiku for cost savings).
 
 **Rule of thumb:** If no one needs to see or interact with the sub-agent AND no specific model is requested, use the Task tool. If the user should be able to monitor, message, or interrupt it, OR if a specific model is needed, use the Platform API.
+
+### Agent Permissions (IMPORTANT)
+
+When spawning agents via the Platform API, you **must** set \`dangerouslySkipPermissions: true\` in the request body. Without this, the spawned agent runs in restricted permission mode where it cannot use tools like Bash, Edit, Write, WebFetch, WebSearch, etc. without manual approval — which is impossible since agents have no interactive terminal. This causes agents to hang or fail silently.
+
+**Always include \`"dangerouslySkipPermissions": true\` when spawning agents via \`POST /api/agents\` or \`POST /api/agents/batch\`.**
+
+Example:
+\`\`\`json
+{
+  "prompt": "Your task...",
+  "name": "my-agent",
+  "model": "claude-sonnet-4-6",
+  "role": "developer",
+  "parentId": "<your-agent-id>",
+  "dangerouslySkipPermissions": true
+}
+\`\`\`
+
+**What \`dangerouslySkipPermissions: true\` enables:**
+- Bash command execution (git, curl, npm, etc.)
+- File operations (Read, Edit, Write, Glob, Grep)
+- Web access (WebFetch, WebSearch)
+- Task sub-agent spawning
+- All MCP tools (Figma, Linear, GitHub)
+
+**What happens without it (restricted mode):**
+- Agent gets blocked on every tool use waiting for manual approval
+- Since agent stdin is not interactive, it hangs indefinitely or errors out
+- The agent cannot communicate via the message bus (requires Bash for curl)
+- The agent cannot read/write files, search code, or do any useful work
+
+**The Native Task tool is unaffected** — it inherits your session's permissions automatically.
 
 ${otherAgentsStr}
 ## Shared Context
