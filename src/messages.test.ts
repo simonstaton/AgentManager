@@ -1,8 +1,8 @@
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { MessageBus } from "./messages";
 
-const TEST_MESSAGES_FILE = "/tmp/test-messages.json";
+const TEST_MESSAGES_FILE = "/tmp/test-messages.jsonl";
 
 describe("MessageBus", () => {
   let bus: MessageBus;
@@ -290,6 +290,42 @@ describe("MessageBus", () => {
 
       bus.markRead(msg.id, "agent-2");
       expect(bus.unreadCount("agent-2")).toBe(0);
+    });
+  });
+
+  describe("persistence (JSONL)", () => {
+    it("restores messages from JSONL file on startup", () => {
+      const records = [
+        { id: "id-1", from: "a", type: "info", content: "hello", createdAt: "2024-01-01T00:00:00.000Z", readBy: [] },
+        { id: "id-2", from: "b", type: "task", content: "world", createdAt: "2024-01-01T00:00:01.000Z", readBy: [] },
+      ];
+      writeFileSync(TEST_MESSAGES_FILE, `${records.map((m) => JSON.stringify(m)).join("\n")}\n`);
+
+      const bus2 = new MessageBus(TEST_MESSAGES_FILE);
+      const restored = bus2.query({});
+      expect(restored.length).toBe(2);
+      expect(restored[0].content).toBe("hello");
+      expect(restored[1].content).toBe("world");
+    });
+
+    it("caps restore to 500 messages when file has more", () => {
+      const records = Array.from({ length: 600 }, (_, i) => ({
+        id: `id-${i}`,
+        from: "agent",
+        type: "info",
+        content: `msg ${i}`,
+        createdAt: new Date().toISOString(),
+        readBy: [],
+      }));
+      writeFileSync(TEST_MESSAGES_FILE, `${records.map((m) => JSON.stringify(m)).join("\n")}\n`);
+
+      const bus2 = new MessageBus(TEST_MESSAGES_FILE);
+      // Use limit > 500 to bypass query's default cap of 100
+      const restored = bus2.query({ limit: 1000 });
+      expect(restored.length).toBe(500);
+      // Should keep the most recent 500 (indices 100-599)
+      expect(restored[restored.length - 1].content).toBe("msg 599");
+      expect(restored[0].content).toBe("msg 100");
     });
   });
 

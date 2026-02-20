@@ -7,10 +7,12 @@ import { errorMessage } from "./types";
 
 const PERSISTENT_BASE = "/persistent";
 const PERSISTENT_AVAILABLE = existsSync(PERSISTENT_BASE);
-const DEFAULT_MESSAGES_FILE = PERSISTENT_AVAILABLE ? `${PERSISTENT_BASE}/messages.json` : "/tmp/messages.json";
+const DEFAULT_MESSAGES_FILE = PERSISTENT_AVAILABLE ? `${PERSISTENT_BASE}/messages.jsonl` : "/tmp/messages.jsonl";
 
 // Cap stored messages to prevent unbounded growth
 const MAX_MESSAGES = 500;
+// Cap messages restored from disk on startup to avoid unbounded reads
+const MAX_RESTORE_MESSAGES = 500;
 
 export class MessageBus {
   private messages: AgentMessage[] = [];
@@ -187,7 +189,10 @@ export class MessageBus {
     try {
       if (existsSync(this.messagesFile)) {
         const data = readFileSync(this.messagesFile, "utf-8");
-        this.messages = JSON.parse(data) as AgentMessage[];
+        const lines = data.split("\n").filter((l) => l.trim());
+        // Restore only the most recent messages to avoid unbounded reads on large files
+        const recentLines = lines.slice(-MAX_RESTORE_MESSAGES);
+        this.messages = recentLines.map((line) => JSON.parse(line) as AgentMessage);
         console.log(`[messages] Loaded ${this.messages.length} messages from disk`);
       }
     } catch (err: unknown) {
@@ -214,7 +219,11 @@ export class MessageBus {
       const dir = path.dirname(this.messagesFile);
       mkdirSync(dir, { recursive: true });
       const tmpPath = `${this.messagesFile}.tmp`;
-      await writeFile(tmpPath, JSON.stringify(this.messages), "utf-8");
+      // Write one JSON object per line (JSONL) for efficient append-based reads and
+      // incremental restore — same pattern as agent-events in persistence.ts
+      const content =
+        this.messages.length > 0 ? `${this.messages.map((m) => JSON.stringify(m)).join("\n")}\n` : "";
+      await writeFile(tmpPath, content, "utf-8");
       await rename(tmpPath, this.messagesFile);
     } catch (err: unknown) {
       console.warn("[messages] Failed to save messages:", errorMessage(err));
