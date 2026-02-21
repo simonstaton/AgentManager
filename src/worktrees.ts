@@ -3,10 +3,10 @@ import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { logger } from "./logger";
+import { PERSISTENT_REPOS } from "./paths";
 import { errorMessage } from "./types";
 
 const execFileAsync = promisify(execFile);
-const PERSISTENT_REPOS = "/persistent/repos";
 
 async function repoExists(): Promise<string[] | null> {
   try {

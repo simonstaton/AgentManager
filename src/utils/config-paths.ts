@@ -18,22 +18,30 @@ function safeRealpath(filePath: string): string {
   }
 }
 
-export function isAllowedConfigPath(filePath: string): boolean {
-  // Reject paths containing ".." segments before resolution
-  if (filePath.includes("..")) {
-    return false;
+// Cached resolved static allowlist paths (computed once per process to avoid repeated realpathSync).
+let cachedClaudeHomePrefix: string | null = null;
+let cachedAllowedExact: Set<string> | null = null;
+
+function getAllowedStaticPaths(): { claudeHomePrefix: string; allowedExact: Set<string> } {
+  if (cachedClaudeHomePrefix !== null && cachedAllowedExact !== null) {
+    return { claudeHomePrefix: cachedClaudeHomePrefix, allowedExact: cachedAllowedExact };
   }
+  const cwd = process.cwd();
+  cachedClaudeHomePrefix = safeRealpath(CLAUDE_HOME);
+  cachedAllowedExact = new Set([
+    safeRealpath(path.join(HOME, ".claude.json")),
+    safeRealpath(path.join(HOME, "CLAUDE.md")),
+    safeRealpath(path.join(cwd, "CLAUDE.md")),
+    safeRealpath(path.join(cwd, "mcp", "settings-template.json")),
+  ]);
+  return { claudeHomePrefix: cachedClaudeHomePrefix, allowedExact: cachedAllowedExact };
+}
 
-  // Resolve symlinks so a symlink pointing outside the allowed tree is rejected
+export function isAllowedConfigPath(filePath: string): boolean {
+  if (filePath.includes("..")) return false;
   const resolved = safeRealpath(filePath);
-
-  return (
-    resolved.startsWith(safeRealpath(CLAUDE_HOME)) ||
-    resolved === safeRealpath(path.join(HOME, ".claude.json")) ||
-    resolved === safeRealpath(path.join(HOME, "CLAUDE.md")) ||
-    resolved === safeRealpath(path.join(process.cwd(), "CLAUDE.md")) ||
-    resolved === safeRealpath(path.join(process.cwd(), "mcp", "settings-template.json"))
-  );
+  const { claudeHomePrefix, allowedExact } = getAllowedStaticPaths();
+  return resolved.startsWith(claudeHomePrefix) || allowedExact.has(resolved);
 }
 
 /**

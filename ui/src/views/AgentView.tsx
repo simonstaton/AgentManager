@@ -30,7 +30,6 @@ export function AgentView({ agentId }: { agentId: string }) {
   const [agent, setAgent] = useState<Agent | null>(null);
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
-  const [stopError, setStopError] = useState<string | null>(null);
   const [isPausing, setIsPausing] = useState(false);
   const [isResuming, setIsResuming] = useState(false);
   const [isTogglingPerms, setIsTogglingPerms] = useState(false);
@@ -125,7 +124,6 @@ export function AgentView({ agentId }: { agentId: string }) {
     if (!id) return;
     setShowStopConfirm(false);
     setIsStopping(true);
-    setStopError(null);
     try {
       await apiRef.current.destroyAgent(id);
       window.location.href = "/";
@@ -315,11 +313,6 @@ export function AgentView({ agentId }: { agentId: string }) {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {stopError && (
-                <span className="text-xs text-red-400 mr-1" role="alert">
-                  {stopError}
-                </span>
-              )}
               {agent && (
                 <label
                   className="flex items-center gap-1.5 cursor-pointer select-none"

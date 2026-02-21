@@ -88,6 +88,7 @@ export function exchangeKeyForToken(apiKey: string): string | null {
   });
 }
 
+/** Exported for unit tests (auth.test.ts). */
 export function verifyToken(token: string): AuthPayload | null {
   return verifyJwt(token);
 }

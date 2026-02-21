@@ -113,9 +113,13 @@ export function cleanupStaleState(): void {
       try {
         unlinkSync(path.join(STATE_DIR, file));
         cleanedTmp++;
-      } catch {}
+      } catch {
+        /* best-effort per-file cleanup */
+      }
     }
-  } catch {}
+  } catch {
+    /* ignore readdir errors */
+  }
 
   // 2. Remove orphaned event files (events exist but no matching agent state)
   try {
@@ -131,10 +135,14 @@ export function cleanupStaleState(): void {
         try {
           unlinkSync(path.join(EVENTS_DIR, file));
           cleanedEvents++;
-        } catch {}
+        } catch {
+          /* best-effort per-file cleanup */
+        }
       }
     }
-  } catch {}
+  } catch {
+    /* ignore readdir errors */
+  }
 
   if (cleanedTmp > 0 || cleanedEvents > 0) {
     logger.info(`[cleanup] Removed ${cleanedTmp} stale .tmp file(s), ${cleanedEvents} orphaned event file(s)`);

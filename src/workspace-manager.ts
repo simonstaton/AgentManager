@@ -12,6 +12,7 @@ import path from "node:path";
 import { generateServiceToken } from "./auth";
 import { getDepCacheEnv } from "./dep-cache";
 import { logger } from "./logger";
+import { PERSISTENT_REPOS } from "./paths";
 import { generateWorkspaceClaudeMd } from "./templates/workspace-claude-md";
 import type { Agent, PromptAttachment } from "./types";
 import { errorMessage } from "./types";
@@ -95,11 +96,10 @@ export class WorkspaceManager {
     }
 
     // Symlink persistent repos into workspace (if available)
-    const persistentRepos = "/persistent/repos";
-    if (existsSync(persistentRepos)) {
+    if (existsSync(PERSISTENT_REPOS)) {
       const reposTarget = path.join(workspaceDir, "repos");
       if (!existsSync(reposTarget)) {
-        symlinkSync(persistentRepos, reposTarget);
+        symlinkSync(PERSISTENT_REPOS, reposTarget);
       }
     }
 
@@ -116,11 +116,10 @@ export class WorkspaceManager {
     const contextIndex = buildSharedContextIndex(sharedContextPath);
 
     // Build repo list if persistent storage is available
-    const persistentRepos = "/persistent/repos";
     let repoList: string[] = [];
-    if (existsSync(persistentRepos)) {
+    if (existsSync(PERSISTENT_REPOS)) {
       try {
-        repoList = readdirSync(persistentRepos).filter((f) => f.endsWith(".git"));
+        repoList = readdirSync(PERSISTENT_REPOS).filter((f) => f.endsWith(".git"));
       } catch (err) {
         logger.warn("[workspace] Failed to list persistent repos", { error: errorMessage(err) });
       }

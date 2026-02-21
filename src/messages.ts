@@ -180,7 +180,8 @@ export class MessageBus {
     }).length;
   }
 
-  /** Clean up messages from/to a specific agent. Preserves broadcast messages (no to) from this agent so other agents can still read them. */
+  /** Clean up messages for a destroyed agent. Keep: messages not to this agent; and broadcasts (no to) from any sender.
+   *  Drop: messages to this agent; and direct messages from this agent (to someone else). */
   cleanupForAgent(agentId: string): void {
     this.messages = this.messages.filter((m) => m.to !== agentId && (m.from !== agentId || !m.to));
     this.saveToDisk();

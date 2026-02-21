@@ -42,7 +42,8 @@ export function AgentTerminal({ events, scrollToBottomTrigger }: AgentTerminalPr
   // layout shifts (e.g. PromptInput resize) or dynamic block height measurement.
   const lastAtBottomRef = useRef(Date.now());
 
-  // Incremental parsing in effect (M18) to avoid mutating refs during render
+  // Incremental parsing in effect to avoid mutating refs during render. If visible flicker on mount/agent
+  // switch occurs, consider useMemo for parseEvents so allBlocks is computed synchronously.
   const MAX_BLOCKS = 2000;
   const [allBlocks, setAllBlocks] = useState<TerminalBlock[]>([]);
   const parsedUpToRef = useRef(0);

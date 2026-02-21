@@ -33,6 +33,10 @@ import { cleanupWorktreesForWorkspace } from "./worktrees";
 
 const execFileAsync = promisify(execFile);
 
+function nowISO(): string {
+  return new Date().toISOString();
+}
+
 async function gitCmd(cwd: string, args: string[]): Promise<string | null> {
   try {
     const { stdout } = await execFileAsync("git", args, { cwd, encoding: "utf-8", timeout: 3_000 });
@@ -112,7 +116,7 @@ function killProcessGroup(proc: ReturnType<typeof spawn>, timeoutMs = 5000): voi
 function cleanupAllProcesses(agentRootPids: number[]): void {
   if (agentRootPids.length === 0) return;
   try {
-    const myPid = process.pid ?? 0;
+    const myPid = process.pid;
     const output = execFileSync("ps", ["-eo", "pid,ppid,comm"], {
       encoding: "utf-8",
       timeout: 5_000,
@@ -402,7 +406,7 @@ export class AgentManager {
     const workspaceDir = `/tmp/workspace-${id}`;
     this.workspace.ensureWorkspace(workspaceDir, name, id);
 
-    const now = new Date().toISOString();
+    const now = nowISO();
     const agent: Agent = {
       id,
       name,
@@ -592,7 +596,7 @@ export class AgentManager {
 
         ap.proc = proc;
         ap.agent.status = "running";
-        ap.agent.lastActivity = new Date().toISOString();
+        ap.agent.lastActivity = nowISO();
         saveAgentState(ap.agent);
 
         this.attachProcessHandlers(id, ap, proc);
@@ -702,7 +706,7 @@ export class AgentManager {
   touch(id: string): void {
     const agentProc = this.agents.get(id);
     if (agentProc) {
-      agentProc.agent.lastActivity = new Date().toISOString();
+      agentProc.agent.lastActivity = nowISO();
     }
   }
 
@@ -722,7 +726,7 @@ export class AgentManager {
     }
 
     agent.status = "paused";
-    agent.lastActivity = new Date().toISOString();
+    agent.lastActivity = nowISO();
     saveAgentState(agent);
     this.handleEvent(id, {
       type: "system",
@@ -747,7 +751,7 @@ export class AgentManager {
     } catch {
       // Process group gone - mark as idle so message delivery can respawn
       agent.status = "idle";
-      agent.lastActivity = new Date().toISOString();
+      agent.lastActivity = nowISO();
       saveAgentState(agent);
       this.handleEvent(id, {
         type: "system",
@@ -761,7 +765,7 @@ export class AgentManager {
     // while paused (zombie state) and process.kill() won't throw for zombies.
     if (proc.exitCode !== null) {
       agent.status = "idle";
-      agent.lastActivity = new Date().toISOString();
+      agent.lastActivity = nowISO();
       saveAgentState(agent);
       this.handleEvent(id, {
         type: "system",
@@ -772,7 +776,7 @@ export class AgentManager {
     }
 
     agent.status = "running";
-    agent.lastActivity = new Date().toISOString();
+    agent.lastActivity = nowISO();
     saveAgentState(agent);
     this.handleEvent(id, {
       type: "system",
@@ -832,7 +836,7 @@ export class AgentManager {
 
       // Clear session so next message() spawns a fresh CLI session (no --resume)
       agent.claudeSessionId = undefined;
-      agent.lastActivity = new Date().toISOString();
+      agent.lastActivity = nowISO();
       saveAgentState(agent);
       // NOTE: Do NOT call upsertCostTracker here - the session tokens are now 0 but
       // the cost tracker should retain the cumulative billing values. The next usage
@@ -1312,7 +1316,7 @@ export class AgentManager {
       const ap = this.agents.get(id);
       if (ap) {
         ap.agent.status = code === 0 ? "idle" : "error";
-        ap.agent.lastActivity = new Date().toISOString();
+        ap.agent.lastActivity = nowISO();
         saveAgentState(ap.agent);
       }
       debouncedSyncToGCS().catch((err) => {
@@ -1467,7 +1471,7 @@ export class AgentManager {
       }
     }
 
-    agentProc.agent.lastActivity = new Date().toISOString();
+    agentProc.agent.lastActivity = nowISO();
 
     // Batch persist: accumulate sanitized JSONL lines and flush with 16ms timer.
     // This turns N appendFile calls into 1, reducing I/O syscalls dramatically.
@@ -1676,7 +1680,7 @@ export class AgentManager {
         const exitCode = proc.exitCode;
         logger.warn("[watchdog] Dead process detected", { agentId: id, agentName: agent.name, exitCode });
         agent.status = exitCode === 0 ? "idle" : "error";
-        agent.lastActivity = new Date().toISOString();
+        agent.lastActivity = nowISO();
         saveAgentState(agent);
         this.handleEvent(id, {
           type: "system",
@@ -1696,7 +1700,7 @@ export class AgentManager {
         if (now - createdAt > AgentManager.START_TIMEOUT_MS) {
           logger.warn("[watchdog] Start timeout", { agentId: id, agentName: agent.name });
           agent.status = "error";
-          agent.lastActivity = new Date().toISOString();
+          agent.lastActivity = nowISO();
           saveAgentState(agent);
           this.handleEvent(id, {
             type: "system",

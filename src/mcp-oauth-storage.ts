@@ -12,16 +12,19 @@ export interface MCPOAuthToken {
   authenticatedAt: string;
 }
 
-/** Directory where MCP OAuth tokens are persisted */
-const MCP_TOKEN_DIR = process.env.MCP_TOKEN_DIR || "/persistent/mcp-tokens";
+/** Directory where MCP OAuth tokens are persisted (read at runtime so tests can override). */
+function getMcpTokenDir(): string {
+  return process.env.MCP_TOKEN_DIR || "/persistent/mcp-tokens";
+}
 
 /**
  * Ensures the MCP token directory exists
  */
 export function ensureTokenDir(): void {
-  if (!fs.existsSync(MCP_TOKEN_DIR)) {
-    fs.mkdirSync(MCP_TOKEN_DIR, { recursive: true });
-    logger.info(`[MCP-OAuth] Created token directory: ${MCP_TOKEN_DIR}`);
+  const dir = getMcpTokenDir();
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+    logger.info(`[MCP-OAuth] Created token directory: ${dir}`);
   }
 }
 
@@ -29,7 +32,7 @@ export function ensureTokenDir(): void {
  * Get the file path for a server's token storage
  */
 function getTokenFilePath(server: string): string {
-  return path.join(MCP_TOKEN_DIR, `${server}.json`);
+  return path.join(getMcpTokenDir(), `${server}.json`);
 }
 
 /**
@@ -97,7 +100,7 @@ export function isTokenExpired(token: MCPOAuthToken): boolean {
 export function listStoredTokens(): string[] {
   ensureTokenDir();
   try {
-    const files = fs.readdirSync(MCP_TOKEN_DIR);
+    const files = fs.readdirSync(getMcpTokenDir());
     return files.filter((f) => f.endsWith(".json")).map((f) => f.replace(/\.json$/, ""));
   } catch (err) {
     logger.error("[MCP-OAuth] Failed to list stored tokens", {

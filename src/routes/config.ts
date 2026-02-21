@@ -169,7 +169,9 @@ export function createConfigRouter() {
             deletable: true,
           });
         }
-      } catch {}
+      } catch {
+        /* ignore list errors */
+      }
     }
 
     // Memory files
@@ -193,7 +195,9 @@ export function createConfigRouter() {
             }
           }
         }
-      } catch {}
+      } catch {
+        /* ignore list errors */
+      }
     }
 
     res.json(editableFiles);
@@ -293,9 +297,9 @@ export function createConfigRouter() {
     });
   });
 
-  // Update guardrails settings (data-driven validation)
+  // Update guardrails settings (bounds from guardrails.BOUNDS - single source of truth)
   const GUARDRAIL_SPECS: Array<{
-    key: string;
+    key: keyof typeof guardrails.BOUNDS;
     min: number;
     max: number;
     setter: (v: number) => void;
@@ -303,50 +307,50 @@ export function createConfigRouter() {
   }> = [
     {
       key: "maxPromptLength",
-      min: 1000,
-      max: 1_000_000,
+      min: guardrails.BOUNDS.maxPromptLength[0],
+      max: guardrails.BOUNDS.maxPromptLength[1],
       setter: guardrails.setMaxPromptLength,
       errorMsg: "maxPromptLength must be between 1,000 and 1,000,000",
     },
     {
       key: "maxTurns",
-      min: 1,
-      max: 10_000,
+      min: guardrails.BOUNDS.maxTurns[0],
+      max: guardrails.BOUNDS.maxTurns[1],
       setter: guardrails.setMaxTurns,
       errorMsg: "maxTurns must be between 1 and 10,000",
     },
     {
       key: "maxAgents",
-      min: 1,
-      max: 100,
+      min: guardrails.BOUNDS.maxAgents[0],
+      max: guardrails.BOUNDS.maxAgents[1],
       setter: guardrails.setMaxAgents,
       errorMsg: "maxAgents must be between 1 and 100",
     },
     {
       key: "maxBatchSize",
-      min: 1,
-      max: 50,
+      min: guardrails.BOUNDS.maxBatchSize[0],
+      max: guardrails.BOUNDS.maxBatchSize[1],
       setter: guardrails.setMaxBatchSize,
       errorMsg: "maxBatchSize must be between 1 and 50",
     },
     {
       key: "maxAgentDepth",
-      min: 1,
-      max: 10,
+      min: guardrails.BOUNDS.maxAgentDepth[0],
+      max: guardrails.BOUNDS.maxAgentDepth[1],
       setter: guardrails.setMaxAgentDepth,
       errorMsg: "maxAgentDepth must be between 1 and 10",
     },
     {
       key: "maxChildrenPerAgent",
-      min: 1,
-      max: 20,
+      min: guardrails.BOUNDS.maxChildrenPerAgent[0],
+      max: guardrails.BOUNDS.maxChildrenPerAgent[1],
       setter: guardrails.setMaxChildrenPerAgent,
       errorMsg: "maxChildrenPerAgent must be between 1 and 20",
     },
     {
       key: "sessionTtlMs",
-      min: 60_000,
-      max: 24 * 60 * 60 * 1000,
+      min: guardrails.BOUNDS.sessionTtlMs[0],
+      max: guardrails.BOUNDS.sessionTtlMs[1],
       setter: guardrails.setSessionTtlMs,
       errorMsg: "sessionTtlMs must be between 1 minute and 24 hours",
     },

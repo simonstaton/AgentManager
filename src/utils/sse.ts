@@ -76,7 +76,9 @@ export function setupSSE(
       scheduleCleanup();
       try {
         res.end();
-      } catch {}
+      } catch {
+        /* already closed */
+      }
     },
     30 * 60 * 1000,
   );
@@ -92,7 +94,9 @@ export function setupSSE(
       setImmediate(() => unsubscribe());
       try {
         res.end();
-      } catch {}
+      } catch {
+        /* already closed */
+      }
     }
   });
 

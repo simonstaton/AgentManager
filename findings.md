@@ -208,27 +208,26 @@ Additionally, 2 findings were **fixed** and 5 were **partially fixed** since com
 
 ## REMAINING WORK (for next session)
 
-All CRITICAL, HIGH, and MEDIUM findings are fixed (M19, M22, M25 completed this session). Optional LOW items and testing gaps remain.
+All CRITICAL, HIGH, and MEDIUM findings are fixed. Optional LOW and testing gaps were addressed 2026-02-21.
 
 ### MEDIUM left to do
 
 None.
 
-### LOW (optional)
+### LOW (optional) — completed or cancelled
 
-- Dead code: verifyToken, waitForCache, stopError, dialogRef, _agentId params, "use client" in non-components, Fragment in ConfirmDialog
-- AI artifacts: emdash, legacy comment, NAME_STOP_WORDS comments, "Layer N:" in guardrails
-- DRY: fileExists, /persistent/repos, Math.floor(Date.now/1000), blocked-command scan, role regex, AgentStatus type, toISOString
-- KISS: CORS cache, wouldCreateCycle queue, safeRealpath, JSONL, GCS_BUCKET, modelLabels *(sanitize replaceAll done)*
-- Comments: verbose JSDoc, "Prepared statements", non-alphanumeric comment, revokeToken log
-- Reliability: empty catch blocks, TOMBSTONE_FILE order, apiKey vs jwtSecret *(rate limiter unref done)*
+- Dead code: verifyToken documented for tests; stopError removed; dialogRef/Fragment done earlier; _agentId already prefixed; "use client" removed from api.ts, constants.ts, agentTemplates.ts
+- DRY: fileExists, /persistent/repos (src/paths.ts), Math.floor→unixNow, blocked-command→promptContainsBlockedContent, role regex→sanitizeAlphanumericField, AgentStatus in api.ts, nowISO() in agents
+- KISS: CORS cache + resetCorsOriginsCache for tests; wouldCreateCycle index-based BFS; safeRealpath cached in config-paths; GCS_BUCKET, modelLabels done earlier
+- Comments: Prepared statements, revokeToken log done earlier; empty catch blocks have brief comments
+- Reliability: TOMBSTONE_FILE order done earlier; apiKey kept const (lint); scheduler runJobNow(id) for tests
 
-### Testing gaps
+### Testing gaps — partially addressed
 
-- Route-level integration tests (11 route files)
-- MCP OAuth tests (mcp-oauth-manager, mcp-oauth-storage, routes/mcp)
-- Scheduler integration tests (job firing, webhook delivery)
-- scheduler.test.ts: replace `as any` for private method access (3 places)
+- Route integration: health + auth token tests added (src/__tests__/health-routes.integration.test.ts)
+- MCP OAuth: storage tests added (src/__tests__/mcp-oauth-storage.test.ts); mcp-oauth-storage uses getMcpTokenDir() at runtime for test override
+- scheduler.test.ts: (as any).executeJob replaced with scheduler.runJobNow(job.id)
+- Remaining: more route integration (other routes), scheduler integration (job firing), MCP routes/mcp.ts tests
 
 ---
 

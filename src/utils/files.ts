@@ -25,7 +25,9 @@ export function walkDir(dir: string): string[] {
         results.push(fullPath);
       }
     }
-  } catch {}
+  } catch {
+    /* ignore permission/ENOENT */
+  }
   return results;
 }
 

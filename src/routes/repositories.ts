@@ -5,9 +5,9 @@ import { promisify } from "node:util";
 import express, { type Request, type Response } from "express";
 import type { AgentManager } from "../agents";
 import { logger } from "../logger";
+import { PERSISTENT_REPOS } from "../paths";
 
 const execFileAsync = promisify(execFile);
-const PERSISTENT_REPOS = "/persistent/repos";
 
 /** Set of targetDirs currently being cloned - prevents concurrent duplicate clones. */
 const cloningInProgress = new Set<string>();
@@ -206,7 +206,9 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
         // Clean up partial clone
         try {
           fs.rmSync(targetDir, { recursive: true, force: true });
-        } catch {}
+        } catch {
+          /* ignore rm errors */
+        }
         sendEvent({ type: "clone-error", error: `Clone failed (exit code ${code})`, details: stderr.slice(-500) });
         logger.error(`[repositories] Clone failed for ${trimmedUrl}: exit code ${code}`);
       }
@@ -217,7 +219,9 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
       cloningInProgress.delete(resolvedTarget);
       try {
         fs.rmSync(targetDir, { recursive: true, force: true });
-      } catch {}
+      } catch {
+        /* ignore readdir */
+      }
       sendEvent({ type: "clone-error", error: `Clone process error: ${err.message}` });
       logger.error(`[repositories] Clone process error for ${trimmedUrl}`, {
         error: err instanceof Error ? err.message : String(err),

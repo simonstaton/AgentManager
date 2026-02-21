@@ -256,6 +256,11 @@ export class Scheduler {
     this.tasks.set(job.id, task);
   }
 
+  /** Run a job immediately by ID. Used by tests and optional "run now" UI. */
+  runJobNow(jobId: string): void {
+    this.executeJobById(jobId);
+  }
+
   /** Execute a job by ID (re-reads from DB to avoid stale payload). */
   private executeJobById(jobId: string): void {
     const row = this.getStmt.get({ id: jobId }) as Record<string, unknown> | undefined;

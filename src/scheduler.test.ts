@@ -234,10 +234,7 @@ describe("Scheduler", () => {
         payload: { agentId: "test-agent-123", prompt: "Time to wake up" },
       });
 
-      // Trigger execution by accessing the private method via any
-      // biome-ignore lint/suspicious/noExplicitAny: test helper
-      (scheduler as any).executeJob(job);
-
+      scheduler.runJobNow(job.id);
       expect(wakeAgent).toHaveBeenCalledWith("test-agent-123", "Time to wake up");
     });
 
@@ -257,9 +254,7 @@ describe("Scheduler", () => {
         payload: { url: "https://example.com/hook" },
       });
 
-      // biome-ignore lint/suspicious/noExplicitAny: test helper
-      (scheduler as any).executeJob(job);
-
+      scheduler.runJobNow(job.id);
       expect(sendWebhook).toHaveBeenCalledWith(
         "https://example.com/hook",
         expect.objectContaining({
@@ -285,9 +280,7 @@ describe("Scheduler", () => {
         jobType: "health-check",
       });
 
-      // biome-ignore lint/suspicious/noExplicitAny: test helper
-      (scheduler as any).executeJob(job);
-
+      scheduler.runJobNow(job.id);
       expect(checkHealth).toHaveBeenCalled();
     });
   });

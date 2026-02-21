@@ -204,9 +204,13 @@ export async function cleanupClaudeHome(activeWorkspaceDirs: Set<string>): Promi
         rmSync(fullPath, { recursive: true, force: true });
         localCleaned++;
         gcsPrefixesToDelete.push(`claude-home/projects/${entry}/`);
-      } catch {}
+      } catch {
+        /* best-effort */
+      }
     }
-  } catch {}
+  } catch {
+    /* ignore readdir */
+  }
 
   // Clean todos/ - files/dirs named like `-tmp-workspace-{uuid}...`
   const todosDir = path.join(CLAUDE_HOME, "todos");
@@ -219,9 +223,13 @@ export async function cleanupClaudeHome(activeWorkspaceDirs: Set<string>): Promi
         rmSync(path.join(todosDir, entry), { recursive: true, force: true });
         localCleaned++;
         gcsPrefixesToDelete.push(`claude-home/todos/${entry}`);
-      } catch {}
+      } catch {
+        /* best-effort */
+      }
     }
-  } catch {}
+  } catch {
+    /* ignore readdir */
+  }
 
   // Trim debug/ and shell-snapshots/ to the newest MAX_KEPT files
   const MAX_KEPT = 20;
@@ -235,7 +243,7 @@ export async function cleanupClaudeHome(activeWorkspaceDirs: Set<string>): Promi
             const { mtimeMs } = await fsPromises.stat(path.join(dir, name));
             return { name, mtime: mtimeMs };
           } catch {
-            return null;
+            /* ignore stat errors */ return null;
           }
         }),
       );
@@ -248,9 +256,13 @@ export async function cleanupClaudeHome(activeWorkspaceDirs: Set<string>): Promi
           rmSync(path.join(dir, entry.name), { recursive: true, force: true });
           localCleaned++;
           gcsPrefixesToDelete.push(`claude-home/${subdir}/${entry.name}`);
-        } catch {}
+        } catch {
+          /* best-effort */
+        }
       }
-    } catch {}
+    } catch {
+      /* ignore readdir */
+    }
   }
 
   if (localCleaned > 0) {
@@ -347,7 +359,9 @@ export async function cleanupAgentClaudeData(workspaceDir: string): Promise<void
           await fsPromises.rm(path.join(todosDir, entry), { recursive: true, force: true });
           cleaned++;
           gcsToDelete.push(`claude-home/todos/${entry}`);
-        } catch {}
+        } catch {
+          /* best-effort */
+        }
       }
     }
   } catch {

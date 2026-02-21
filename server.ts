@@ -47,6 +47,21 @@ function formatDeliveryPrompt(header: string, content: string, replyToId: string
   return `${header}\n<message-content>\n${content}\n</message-content>\n\n(Reply by sending a message back to agent ID: ${replyToId})`;
 }
 
+/** Mark read, log, and send prompt to agent. Caller must catch and call deliveryDone in finally (except for interrupt). */
+function deliverMessage(
+  bus: MessageBus,
+  manager: AgentManager,
+  agentId: string,
+  msgId: string,
+  prompt: string,
+  logMsg: string,
+  logMeta: Record<string, unknown>,
+): void {
+  bus.markRead(msgId, agentId);
+  logger.info(logMsg, logMeta);
+  manager.message(agentId, prompt);
+}
+
 let exceptionHandlersSetup = false;
 
 const app = express();
@@ -233,11 +248,11 @@ messageBus.subscribe((msg) => {
       msg.content,
       msg.from,
     );
-
     try {
-      messageBus.markRead(msg.id, msg.to);
-      logger.info("[auto-deliver] INTERRUPTING busy agent", { agentId: msg.to, sender });
-      agentManager.message(msg.to, prompt);
+      deliverMessage(messageBus, agentManager, msg.to, msg.id, prompt, "[auto-deliver] INTERRUPTING busy agent", {
+        agentId: msg.to,
+        sender,
+      });
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
       logger.warn("[auto-deliver] Failed to interrupt agent", { agentId: msg.to, error: errMsg });
@@ -250,12 +265,12 @@ messageBus.subscribe((msg) => {
   if (!agentManager.canDeliver(msg.to)) return;
 
   const prompt = formatDeliveryPrompt(`[Message from ${sender} - type: ${msg.type}]`, msg.content, msg.from);
-
   try {
-    // Mark as read before delivering so the idle handler doesn't re-deliver it
-    messageBus.markRead(msg.id, msg.to);
-    logger.info("[auto-deliver] Delivering message", { agentId: msg.to, sender, msgType: msg.type });
-    agentManager.message(msg.to, prompt);
+    deliverMessage(messageBus, agentManager, msg.to, msg.id, prompt, "[auto-deliver] Delivering message", {
+      agentId: msg.to,
+      sender,
+      msgType: msg.type,
+    });
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
     logger.warn("[auto-deliver] Failed to deliver message", { agentId: msg.to, error: errMsg });
@@ -299,19 +314,18 @@ agentManager.onIdle((agentId) => {
       return;
     }
 
-    // Mark it as read so we don't re-deliver
-    messageBus.markRead(next.id, agentId);
-
     const sender = next.fromName || next.from.slice(0, 8);
     const prompt = formatDeliveryPrompt(`[Message from ${sender} - type: ${next.type}]`, next.content, next.from);
-
     try {
-      logger.info("[auto-deliver] Delivering queued message to now-idle agent", {
+      deliverMessage(
+        messageBus,
+        agentManager,
         agentId,
-        sender,
-        msgType: next.type,
-      });
-      agentManager.message(agentId, prompt);
+        next.id,
+        prompt,
+        "[auto-deliver] Delivering queued message to now-idle agent",
+        { agentId, sender, msgType: next.type },
+      );
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
       logger.warn("[auto-deliver] Failed to deliver queued message", { agentId, error: errMsg });

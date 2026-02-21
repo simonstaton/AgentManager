@@ -1,19 +1,19 @@
-"use client";
+export type AgentStatus =
+  | "starting"
+  | "running"
+  | "idle"
+  | "error"
+  | "restored"
+  | "killing"
+  | "destroying"
+  | "paused"
+  | "stalled"
+  | "disconnected";
 
 export interface Agent {
   id: string;
   name: string;
-  status:
-    | "starting"
-    | "running"
-    | "idle"
-    | "error"
-    | "restored"
-    | "killing"
-    | "destroying"
-    | "paused"
-    | "stalled"
-    | "disconnected";
+  status: AgentStatus;
   workspaceDir: string;
   dangerouslySkipPermissions?: boolean;
   claudeSessionId?: string;
@@ -61,17 +61,7 @@ export interface StreamEvent {
 export interface TopologyNode {
   id: string;
   name: string;
-  status:
-    | "starting"
-    | "running"
-    | "idle"
-    | "error"
-    | "restored"
-    | "killing"
-    | "destroying"
-    | "paused"
-    | "stalled"
-    | "disconnected";
+  status: AgentStatus;
   role?: string;
   model: string;
   depth: number;

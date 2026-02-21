@@ -352,6 +352,8 @@ export function TasksView() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const busyActionRef = useRef<string | null>(null);
+  busyActionRef.current = busyAction;
 
   const apiRef = useRef(api);
   apiRef.current = api;
@@ -380,12 +382,13 @@ export function TasksView() {
 
   const agentMap = useMemo(() => new Map(agents.map((a) => [a.id, a.name])), [agents]);
 
-  /** Run an async action with busy guard and load refresh. Returns a no-arg function so callers can do runAction("x")(fn)(). */
+  /** Run an async action with busy guard and load refresh. Uses a ref for the guard so handlers never see a stale closure. */
   const runAction = useCallback(
     (actionKey: string) =>
       (fn: () => Promise<unknown>): (() => Promise<void>) =>
       async () => {
-        if (busyAction !== null) return;
+        if (busyActionRef.current !== null) return;
+        busyActionRef.current = actionKey;
         setBusyAction(actionKey);
         try {
           await fn();
@@ -393,14 +396,15 @@ export function TasksView() {
         } catch (err: unknown) {
           setError(err instanceof Error ? err.message : "Failed");
         } finally {
+          busyActionRef.current = null;
           setBusyAction(null);
         }
       },
-    [busyAction, load],
+    [load],
   );
 
   const handleCreate = async (data: CreateFormData) => {
-    if (busyAction !== null) return;
+    if (busyActionRef.current !== null) return;
     setSubmitting(true);
     try {
       await api.createTask(data);

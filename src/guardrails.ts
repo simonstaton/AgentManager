@@ -1,4 +1,4 @@
-export const BLOCKED_COMMAND_PATTERNS = [
+export const BLOCKED_COMMAND_PATTERNS: RegExp[] = [
   /rm\s+(-rf?|--recursive)\s+\/(?!\s|tmp)/i,
   // Require SQL context (semicolon) to avoid blocking e.g. "delete from the list", "DROP TABLE documentation"
   /DROP\s+(TABLE|DATABASE)\s+\w+\s*;/i,
@@ -13,6 +13,11 @@ export const BLOCKED_COMMAND_PATTERNS = [
   /terraform\s+(apply|destroy)/i,
   /git\s+push\s+.*--force/i,
 ];
+
+/** Returns true if the text matches any blocked command pattern. */
+export function promptContainsBlockedContent(text: string): boolean {
+  return BLOCKED_COMMAND_PATTERNS.some((p) => p.test(text));
+}
 
 export const ALLOWED_MODELS = [
   "claude-opus-4-6",
@@ -34,8 +39,8 @@ export let SESSION_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 export let MAX_AGENT_DEPTH = 3;
 export let MAX_CHILDREN_PER_AGENT = 20;
 
-// Bounds for setters (must match config route validation).
-const BOUNDS = {
+/** Bounds for guardrail setters and config route validation (single source of truth). */
+export const BOUNDS = {
   maxPromptLength: [1_000, 1_000_000],
   maxTurns: [1, 10_000],
   maxAgents: [1, 100],

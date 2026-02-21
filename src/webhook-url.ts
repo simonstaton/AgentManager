@@ -1,6 +1,8 @@
 /**
  * Webhook URL validation to prevent SSRF (e.g. reaching GCP metadata, internal networks).
  * Only http/https allowed; blocks loopback, RFC-1918, link-local, and metadata.google.internal.
+ * TODO: IPv6 - expand check for [::ffff:127.0.0.1], [::1], long-form loopback, IPv4-mapped private.
+ * TODO: DNS rebinding - host is validated at parse time; resolution at fetch time could be different.
  */
 
 const BLOCKED_HOSTS = new Set(["metadata.google.internal", "metadata", "localhost", "localhost.localdomain"]);
@@ -54,7 +56,7 @@ export function isAllowedWebhookUrl(urlString: string): boolean {
     if (isLinkLocal4(ipv4)) return false;
   }
 
-  // IPv6 loopback / link-local (simplified: reject if host looks like [...])
+  // IPv6 loopback / link-local (simplified; see file TODO for comprehensive IPv6 coverage)
   if (host.startsWith("[") && (host.includes("::1") || host.toLowerCase().includes("fe80"))) return false;
 
   return true;

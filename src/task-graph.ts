@@ -781,18 +781,16 @@ export class TaskGraph {
   }
 
   /** Detect if adding dependencies from taskId to depIds would create a cycle.
-   *  Uses BFS: starting from each depId, follow existing dependency edges.
-   *  If we can reach taskId, adding the edge would close a cycle. */
+   *  Uses BFS with an index to avoid O(n) shift() - O(n) total. */
   private wouldCreateCycle(taskId: string, depIds: string[]): boolean {
     const visited = new Set<string>();
     const queue = [...depIds];
-
-    while (queue.length > 0) {
-      const current = queue.shift() as string;
+    let head = 0;
+    while (head < queue.length) {
+      const current = queue[head++] as string;
       if (current === taskId) return true;
       if (visited.has(current)) continue;
       visited.add(current);
-
       const deps = this.getDepStmt.all(current) as Array<{ depends_on_id: string }>;
       for (const dep of deps) {
         queue.push(dep.depends_on_id);

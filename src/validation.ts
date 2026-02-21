@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { ALLOWED_MODELS, BLOCKED_COMMAND_PATTERNS, MAX_PROMPT_LENGTH, MAX_TURNS } from "./guardrails";
+import { ALLOWED_MODELS, MAX_PROMPT_LENGTH, MAX_TURNS, promptContainsBlockedContent } from "./guardrails";
 import type { AuthenticatedRequest } from "./types";
 
 // Simple in-memory token bucket rate limiter
@@ -18,15 +18,18 @@ const cleanupInterval = setInterval(() => {
 }, 60_000);
 cleanupInterval.unref();
 
+const ALPHANUMERIC_REGEX = /[^a-zA-Z0-9\-_ ]/g;
+
 /** Sanitize agent name: alphanumeric, hyphens, underscores, spaces only. Max 50 chars. */
 export function sanitizeAgentName(name: string): string {
   if (!name || typeof name !== "string") return "agent";
-  return (
-    name
-      .replace(/[^a-zA-Z0-9\-_ ]/g, "")
-      .trim()
-      .slice(0, 50) || "agent"
-  );
+  return name.replace(ALPHANUMERIC_REGEX, "").trim().slice(0, 50) || "agent";
+}
+
+/** Sanitize a PATCH string field to alphanumeric, hyphens, underscores, spaces. Returns undefined if empty. */
+export function sanitizeAlphanumericField(value: string): string | undefined {
+  const out = value.replace(ALPHANUMERIC_REGEX, "").trim();
+  return out || undefined;
 }
 
 function checkRateLimit(userId: string): boolean {
@@ -100,10 +103,8 @@ export function validateAgentSpec(spec: {
   if (spec.dangerouslySkipPermissions !== undefined && typeof spec.dangerouslySkipPermissions !== "boolean") {
     return "dangerouslySkipPermissions must be a boolean";
   }
-  for (const pattern of BLOCKED_COMMAND_PATTERNS) {
-    if (pattern.test(spec.prompt as string)) {
-      return "Prompt contains blocked content";
-    }
+  if (promptContainsBlockedContent(spec.prompt as string)) {
+    return "Prompt contains blocked content";
   }
   return null;
 }
@@ -145,15 +146,9 @@ export function validateMessage(req: Request, res: Response, next: NextFunction)
   }
 
   // Apply blocked patterns on message() too, not just create().
-  // Closes the gap where an agent gets an innocent initial prompt, then receives
-  // blocked content via follow-up messages.
-  if (hasPrompt) {
-    for (const pattern of BLOCKED_COMMAND_PATTERNS) {
-      if (pattern.test(promptText)) {
-        res.status(400).json({ error: "Message contains blocked content" });
-        return;
-      }
-    }
+  if (hasPrompt && promptContainsBlockedContent(promptText)) {
+    res.status(400).json({ error: "Message contains blocked content" });
+    return;
   }
 
   next();
@@ -192,8 +187,7 @@ export function validatePatchAgent(req: Request, res: Response, next: NextFuncti
       res.status(400).json({ error: `${key} must not exceed ${maxLen} characters` });
       return;
     }
-    const value =
-      sanitizeType === "name" ? sanitizeAgentName(raw) : raw.replace(/[^a-zA-Z0-9\-_ ]/g, "").trim() || undefined;
+    const value = sanitizeType === "name" ? sanitizeAgentName(raw) : sanitizeAlphanumericField(raw);
     sanitized[key] = value;
   }
 
