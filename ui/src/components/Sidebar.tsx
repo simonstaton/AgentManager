@@ -202,7 +202,7 @@ export function Sidebar({ agents, activeId }: SidebarProps) {
             </div>
 
             {limitExceeded && (
-              <p className="mt-1 text-[9px] text-red-400 leading-tight">Limit reached — all agents stopped.</p>
+              <p className="mt-1 text-[9px] text-red-400 leading-tight">Limit reached - all agents stopped.</p>
             )}
           </div>
         </div>

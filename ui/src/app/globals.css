@@ -63,7 +63,7 @@ summary {
 }
 
 /* Fade-in for new-messages indicator.
-   Uses opacity only — Y-centering is already handled by Tailwind's translate
+   Uses opacity only - Y-centering is already handled by Tailwind's translate
    utility so we avoid any translate/transform property conflicts. */
 @keyframes fade-in-up {
   from { opacity: 0; }

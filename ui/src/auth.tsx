@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, type ReactNode, useCallback, useContext, useRef, useState } from "react";
+import { createContext, type ReactNode, useCallback, useContext, useState } from "react";
 
 interface AuthContextType {
   token: string | null;
@@ -15,7 +15,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() =>
     typeof window !== "undefined" ? sessionStorage.getItem("jwt") : null,
   );
-  const tokenRef = useRef(token);
 
   const login = useCallback(async (apiKey: string) => {
     const res = await fetch("/api/auth/token", {
@@ -31,13 +30,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { token: jwt } = await res.json();
     sessionStorage.setItem("jwt", jwt);
-    tokenRef.current = jwt;
     setToken(jwt);
   }, []);
 
   const logout = useCallback(() => {
     sessionStorage.removeItem("jwt");
-    tokenRef.current = null;
     setToken(null);
   }, []);
 
@@ -50,7 +47,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await fetch(url, { ...opts, headers });
     if (res.status === 401) {
       sessionStorage.removeItem("jwt");
-      tokenRef.current = null;
       setToken(null);
     }
     return res;

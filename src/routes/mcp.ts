@@ -1,5 +1,7 @@
 import fs from "node:fs";
+import path from "node:path";
 import express, { type Request, type Response } from "express";
+import { logger } from "../logger";
 import {
   exchangeCodeForToken,
   generateAuthUrl,
@@ -10,8 +12,9 @@ import {
 } from "../mcp-oauth-manager";
 import { getAllTokens, isTokenExpired } from "../mcp-oauth-storage";
 import { errorMessage } from "../types";
+import { CLAUDE_HOME } from "../utils/config-paths";
 
-const SETTINGS_PATH = "/home/agent/.claude/settings.json";
+const SETTINGS_PATH = path.join(CLAUDE_HOME, "settings.json");
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -86,7 +89,7 @@ export function createMcpRouter() {
 
       res.json({ servers });
     } catch (err) {
-      console.error("[MCP-Routes] Error listing servers:", err);
+      logger.error("[MCP-Routes] Error listing servers", { error: errorMessage(err) });
       res.status(500).json({ error: errorMessage(err) });
     }
   });
@@ -120,14 +123,14 @@ export function createMcpRouter() {
         return;
       }
 
-      console.log(`[MCP-Routes] Initiating OAuth flow for ${server}`);
+      logger.info(`[MCP-Routes] Initiating OAuth flow for ${server}`);
       res.json({
         authUrl,
         message: "Visit this URL in your browser to authenticate",
         server,
       });
     } catch (err) {
-      console.error("[MCP-Routes] Error initiating OAuth:", err);
+      logger.error("[MCP-Routes] Error initiating OAuth", { error: errorMessage(err) });
       res.status(500).json({ error: errorMessage(err) });
     }
   });
@@ -142,7 +145,7 @@ export function createMcpRouter() {
       const { code, state, error, error_description } = req.query;
 
       if (error) {
-        console.error("[MCP-Routes] OAuth error:", error, error_description);
+        logger.error("[MCP-Routes] OAuth error", { error, error_description });
         const desc = typeof error_description === "string" ? `<p>${escapeHtml(error_description)}</p>` : "";
         res
           .status(400)
@@ -173,7 +176,7 @@ export function createMcpRouter() {
 
       const stateData = validateState(state);
       if (!stateData) {
-        console.error("[MCP-Routes] Invalid or expired state token");
+        logger.error("[MCP-Routes] Invalid or expired state token");
         res
           .status(400)
           .send(
@@ -188,7 +191,7 @@ export function createMcpRouter() {
       }
 
       const { server, callbackUrl } = stateData;
-      console.log(`[MCP-Routes] Exchanging code for token (server: ${server})`);
+      logger.info(`[MCP-Routes] Exchanging code for token (server: ${server})`);
 
       const token = await exchangeCodeForToken(server, code, callbackUrl);
 
@@ -206,7 +209,7 @@ export function createMcpRouter() {
         return;
       }
 
-      console.log(`[MCP-Routes] Successfully authenticated ${server}`);
+      logger.info(`[MCP-Routes] Successfully authenticated ${server}`);
 
       const safeServer = escapeHtml(server);
       res.send(
@@ -222,7 +225,7 @@ export function createMcpRouter() {
         ),
       );
     } catch (err) {
-      console.error("[MCP-Routes] Error in OAuth callback:", err);
+      logger.error("[MCP-Routes] Error in OAuth callback", { error: errorMessage(err) });
       res
         .status(500)
         .send(
@@ -270,7 +273,7 @@ export function createMcpRouter() {
         expired: isTokenExpired(token),
       });
     } catch (err) {
-      console.error("[MCP-Routes] Error getting token status:", err);
+      logger.error("[MCP-Routes] Error getting token status", { error: errorMessage(err) });
       res.status(500).json({ error: errorMessage(err) });
     }
   });
@@ -291,13 +294,13 @@ export function createMcpRouter() {
       const success = await revokeToken(server);
 
       if (success) {
-        console.log(`[MCP-Routes] Revoked token for ${server}`);
+        logger.info(`[MCP-Routes] Revoked token for ${server}`);
         res.json({ success: true, message: `Token revoked for ${server}` });
       } else {
         res.status(404).json({ error: "No token found to revoke" });
       }
     } catch (err) {
-      console.error("[MCP-Routes] Error revoking token:", err);
+      logger.error("[MCP-Routes] Error revoking token", { error: errorMessage(err) });
       res.status(500).json({ error: errorMessage(err) });
     }
   });

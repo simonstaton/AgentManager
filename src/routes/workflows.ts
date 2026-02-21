@@ -1,7 +1,10 @@
 import crypto from "node:crypto";
 import express, { type Request, type Response } from "express";
 import type { AgentManager } from "../agents";
+import { requireHumanUser } from "../auth";
+import { logger } from "../logger";
 import type { MessageBus } from "../messages";
+import { buildManagerPrompt } from "../templates/linear-workflow-manager-prompt";
 import { errorMessage } from "../types";
 
 export interface LinearWorkflow {
@@ -15,9 +18,6 @@ export interface LinearWorkflow {
   createdAt: string;
   updatedAt: string;
 }
-
-/** In-memory workflow store */
-const workflows = new Map<string, LinearWorkflow>();
 
 /** Max concurrent workflows */
 const MAX_WORKFLOWS = 5;
@@ -46,7 +46,7 @@ function buildSafeLinearUrl(parsed: { issueId: string; workspace: string }): str
 }
 
 /** Evict oldest terminal workflows when the store exceeds MAX_STORED_WORKFLOWS */
-function evictStaleWorkflows(): void {
+function evictStaleWorkflows(workflows: Map<string, LinearWorkflow>): void {
   if (workflows.size <= MAX_STORED_WORKFLOWS) return;
   const terminal = Array.from(workflows.entries())
     .filter(([, w]) => w.status === "completed" || w.status === "failed" || w.status === "cancelled")
@@ -57,68 +57,16 @@ function evictStaleWorkflows(): void {
   }
 }
 
-function buildManagerPrompt(safeLinearUrl: string, repository: string, workflowId: string): string {
-  return `You are the lead engineer for a focused product engineering workflow. Your job is to take a Linear issue, understand it, implement it, and produce a pull request.
-
-## Your Linear Issue
-URL: ${safeLinearUrl}
-
-## Target Repository
-${repository}
-
-## Workflow ID
-${workflowId}
-
-## Instructions
-
-1. **Read the Linear issue** using the \`/linear\` slash command or MCP tools. Extract:
-   - Title and description
-   - Acceptance criteria
-   - Any linked issues or context
-
-2. **Plan the implementation** - Read the codebase, understand the architecture, and create a clear plan. Write the plan to shared-context as \`workflow-${workflowId.slice(0, 8)}-plan.md\`.
-
-3. **Spawn your engineering team** using the platform API (\`POST /api/agents/batch\`). Create these agents:
-   - **Engineer** (claude-sonnet-4-6, maxTurns: 200) - Implements the changes. Give them the plan and specific files to modify.
-   - **Reviewer** (claude-sonnet-4-6, maxTurns: 30) - Reviews the PR for correctness, security, and quality once the engineer is done.
-
-4. **Coordinate the workflow**:
-   - Send the engineer a task message with the implementation plan
-   - Monitor progress via the message bus
-   - When the engineer reports completion, ask the reviewer to review the branch
-   - Collect the review feedback
-   - If changes are needed, send them back to the engineer
-   - When approved, report the PR URL
-
-5. **Create the PR** - The engineer should create the PR. Use \`gh pr create\` with a clear title referencing the Linear issue ID and a summary body.
-
-6. **Report completion** - Send a broadcast message with type "result" containing the PR URL when done. Include the workflow ID in metadata: \`{"workflowId": "${workflowId}"}\`
-
-## Important Rules
-- Use the git workflow guide from shared-context if available
-- Create a feature branch named after the Linear issue (e.g., \`feat/TEAM-123-description\`)
-- The PR description should reference the Linear issue URL
-- Keep the team small and focused - don't over-spawn agents
-- If you encounter blockers, report them as a "status" message with the workflow ID in metadata`;
-}
-
 export function createWorkflowsRouter(agentManager: AgentManager, messageBus: MessageBus) {
   const router = express.Router();
+  const workflows = new Map<string, LinearWorkflow>();
 
   /**
    * POST /api/workflows/linear
    * Start a new Linear-to-PR workflow
    */
-  router.post("/api/workflows/linear", (req: Request, res: Response) => {
+  router.post("/api/workflows/linear", requireHumanUser, (req: Request, res: Response) => {
     try {
-      // Block agent-service callers
-      // biome-ignore lint/suspicious/noExplicitAny: Express Request augmentation for auth
-      const user = (req as any).user as { sub?: string } | undefined;
-      if (user?.sub === "agent-service") {
-        res.status(403).json({ error: "Agents cannot start workflows directly" });
-        return;
-      }
-
       const { linearUrl, repository } = req.body ?? {};
 
       if (!linearUrl || typeof linearUrl !== "string") {
@@ -174,7 +122,7 @@ export function createWorkflowsRouter(agentManager: AgentManager, messageBus: Me
       };
 
       workflows.set(workflowId, workflow);
-      evictStaleWorkflows();
+      evictStaleWorkflows(workflows);
 
       // Spawn the manager agent, then respond with the result
       const managerPrompt = buildManagerPrompt(safeLinearUrl, repository, workflowId);
@@ -195,7 +143,7 @@ export function createWorkflowsRouter(agentManager: AgentManager, messageBus: Me
 
         res.status(201).json({ workflow });
       } catch (err) {
-        console.error(`[Workflows] Failed to spawn manager for ${workflowId}:`, errorMessage(err));
+        logger.error(`[Workflows] Failed to spawn manager for ${workflowId}`, { error: errorMessage(err) });
         workflow.status = "failed";
         workflow.error = errorMessage(err);
         workflow.updatedAt = new Date().toISOString();
@@ -203,7 +151,7 @@ export function createWorkflowsRouter(agentManager: AgentManager, messageBus: Me
         res.status(500).json({ error: `Failed to start workflow: ${errorMessage(err)}`, workflow });
       }
     } catch (err) {
-      console.error("[Workflows] Error starting workflow:", err);
+      logger.error("[Workflows] Error starting workflow", { error: errorMessage(err) });
       res.status(500).json({ error: errorMessage(err) });
     }
   });
@@ -250,15 +198,7 @@ export function createWorkflowsRouter(agentManager: AgentManager, messageBus: Me
    * DELETE /api/workflows/:id
    * Cancel a workflow and destroy its agents
    */
-  router.delete("/api/workflows/:id", async (req: Request<{ id: string }>, res: Response) => {
-    // Block agent-service callers
-    // biome-ignore lint/suspicious/noExplicitAny: Express Request augmentation for auth
-    const user = (req as any).user as { sub?: string } | undefined;
-    if (user?.sub === "agent-service") {
-      res.status(403).json({ error: "Agents cannot cancel workflows" });
-      return;
-    }
-
+  router.delete("/api/workflows/:id", requireHumanUser, async (req: Request<{ id: string }>, res: Response) => {
     const workflow = workflows.get(req.params.id);
     if (!workflow) {
       res.status(404).json({ error: "Workflow not found" });
@@ -268,9 +208,12 @@ export function createWorkflowsRouter(agentManager: AgentManager, messageBus: Me
     // Destroy all associated agents
     for (const agent of workflow.agents) {
       try {
-        await agentManager.destroy(agent.id);
+        const destroyed = await agentManager.destroy(agent.id);
+        if (!destroyed) {
+          logger.warn("[Workflows] Agent already gone on cancel", { agentId: agent.id });
+        }
       } catch (err) {
-        console.warn(`[Workflows] Failed to destroy agent ${agent.id}:`, errorMessage(err));
+        logger.warn(`[Workflows] Failed to destroy agent ${agent.id}`, { error: errorMessage(err) });
       }
     }
 

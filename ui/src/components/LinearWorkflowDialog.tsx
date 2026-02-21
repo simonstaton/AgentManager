@@ -38,7 +38,6 @@ export function LinearWorkflowDialog({ open, onClose, linearConfigured }: Linear
   const [submitting, setSubmitting] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
   const [workflows, setWorkflows] = useState<LinearWorkflow[]>([]);
-  const dialogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Fetch workflows when dialog opens; poll only while active workflows exist
@@ -61,12 +60,13 @@ export function LinearWorkflowDialog({ open, onClose, linearConfigured }: Linear
 
     fetchWorkflows();
 
-    // Only poll while there are active (non-terminal) workflows
-    if (!hasActiveWorkflows) return;
-    const interval = setInterval(fetchWorkflows, 5000);
+    let interval: ReturnType<typeof setInterval> | undefined;
+    if (hasActiveWorkflows) {
+      interval = setInterval(fetchWorkflows, 5000);
+    }
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
     };
   }, [open, authFetch, hasActiveWorkflows]);
 
@@ -157,10 +157,7 @@ export function LinearWorkflowDialog({ open, onClose, linearConfigured }: Linear
         if (e.key === "Escape") onClose();
       }}
     >
-      <div
-        ref={dialogRef}
-        className="bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl max-w-lg w-full mx-4 p-6 max-h-[85vh] overflow-y-auto"
-      >
+      <div className="bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl max-w-lg w-full mx-4 p-6 max-h-[85vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <h2 id="linear-workflow-title" className="text-base font-semibold text-zinc-100">

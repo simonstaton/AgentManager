@@ -39,7 +39,7 @@ export interface Agent {
   capabilities?: string[];
   currentTask?: string;
   parentId?: string;
-  /** Layer 4: Spawn depth, set immutably at creation time. Depth 1 = top-level agent. */
+  /** Spawn depth, set immutably at creation time. Depth 1 = top-level agent. */
   depth: number;
   /** Cached git info (populated asynchronously after spawn). */
   gitBranch?: string;
@@ -60,6 +60,9 @@ export interface Agent {
 }
 
 export type MessageType = "task" | "result" | "question" | "info" | "status" | "interrupt";
+
+/** Valid message types for runtime validation (single source of truth with MessageType). */
+export const VALID_MESSAGE_TYPES: MessageType[] = ["task", "result", "question", "info", "status", "interrupt"];
 
 export interface AgentMessage {
   id: string;

@@ -8,6 +8,7 @@ import { Sidebar } from "../components/Sidebar";
 import { useAgentPolling } from "../hooks/useAgentPolling";
 import { useApi } from "../hooks/useApi";
 import { useKillSwitchContext } from "../killSwitch";
+import { formatCost, formatTokens } from "../utils/format";
 
 const NODE_W = 200;
 const NODE_H = 110;
@@ -110,18 +111,6 @@ function edgePath(sx: number, sy: number, tx: number, ty: number): string {
   return `M ${sx} ${sy} C ${sx} ${midY}, ${tx} ${midY}, ${tx} ${ty}`;
 }
 
-function formatTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  return String(n);
-}
-
-function formatCost(n: number): string {
-  if (n >= 1) return `$${n.toFixed(2)}`;
-  if (n >= 0.01) return `$${n.toFixed(3)}`;
-  return `$${n.toFixed(4)}`;
-}
-
 function Tooltip({ node }: { node: TopologyNode }) {
   const lines: string[] = [
     node.name,
@@ -168,6 +157,14 @@ export function GraphView() {
   const [clearingId, setClearingId] = useState<string | null>(null);
   const [confirmClearId, setConfirmClearId] = useState<string | null>(null);
   const [clearError, setClearError] = useState<string | null>(null);
+  const clearErrorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (clearErrorTimeoutRef.current != null) clearTimeout(clearErrorTimeoutRef.current);
+    },
+    [],
+  );
 
   // Pan + zoom state
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -235,7 +232,11 @@ export function GraphView() {
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Failed to clear context";
         setClearError(msg);
-        setTimeout(() => setClearError(null), 4000);
+        if (clearErrorTimeoutRef.current != null) clearTimeout(clearErrorTimeoutRef.current);
+        clearErrorTimeoutRef.current = setTimeout(() => {
+          clearErrorTimeoutRef.current = null;
+          setClearError(null);
+        }, 4000);
       } finally {
         setClearingId(null);
       }

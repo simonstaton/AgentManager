@@ -78,14 +78,14 @@ export function MessageFeed({ api, agents }: MessageFeedProps) {
       };
 
       es.onerror = () => {
-        // SSE disconnected — poll as fallback until reconnect
+        // SSE disconnected - poll as fallback until reconnect
         if (!fallbackInterval) {
           fallbackInterval = setInterval(refresh, 5000);
         }
       };
 
       es.onopen = () => {
-        // SSE reconnected — stop polling, re-fetch to catch missed messages
+        // SSE reconnected - stop polling, re-fetch to catch missed messages
         if (fallbackInterval) {
           clearInterval(fallbackInterval);
           fallbackInterval = null;
@@ -93,7 +93,7 @@ export function MessageFeed({ api, agents }: MessageFeedProps) {
         refresh();
       };
     } catch {
-      // EventSource not supported — fall back to polling
+      // EventSource not supported - fall back to polling
       fallbackInterval = setInterval(refresh, 5000);
     }
 

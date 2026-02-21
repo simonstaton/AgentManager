@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { logger } from "./logger";
 import type { MCPOAuthToken } from "./mcp-oauth-storage";
 import { deleteToken, isTokenExpired, loadToken, saveToken } from "./mcp-oauth-storage";
 
@@ -42,8 +43,9 @@ function cleanupExpiredStates(): void {
   }
 }
 
-// Run cleanup every 5 minutes
-setInterval(cleanupExpiredStates, 5 * 60 * 1000);
+// Run cleanup every 5 minutes (unref so it doesn't block process exit)
+const cleanupInterval = setInterval(cleanupExpiredStates, 5 * 60 * 1000);
+cleanupInterval.unref();
 
 /**
  * MCP server configurations
@@ -161,7 +163,7 @@ export async function exchangeCodeForToken(
 ): Promise<MCPOAuthToken | null> {
   const config = MCP_SERVERS[server];
   if (!config?.oauthConfig) {
-    console.error(`[MCP-OAuth] No OAuth config for server: ${server}`);
+    logger.error(`[MCP-OAuth] No OAuth config for server: ${server}`);
     return null;
   }
 
@@ -191,7 +193,7 @@ export async function exchangeCodeForToken(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[MCP-OAuth] Token exchange failed for ${server}:`, errorText);
+      logger.error(`[MCP-OAuth] Token exchange failed for ${server}`, { error: errorText });
       return null;
     }
 
@@ -215,7 +217,9 @@ export async function exchangeCodeForToken(
 
     return token;
   } catch (err) {
-    console.error("[MCP-OAuth] Error exchanging code for token:", err);
+    logger.error("[MCP-OAuth] Error exchanging code for token", {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return null;
   }
 }
@@ -226,7 +230,7 @@ export async function exchangeCodeForToken(
 export async function refreshAccessToken(server: string): Promise<MCPOAuthToken | null> {
   const storedToken = loadToken(server);
   if (!storedToken?.refreshToken) {
-    console.warn(`[MCP-OAuth] No refresh token available for ${server}`);
+    logger.warn(`[MCP-OAuth] No refresh token available for ${server}`);
     return null;
   }
 
@@ -259,7 +263,7 @@ export async function refreshAccessToken(server: string): Promise<MCPOAuthToken 
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[MCP-OAuth] Token refresh failed for ${server}:`, errorText);
+      logger.error(`[MCP-OAuth] Token refresh failed for ${server}`, { error: errorText });
       // Delete invalid token
       deleteToken(server);
       return null;
@@ -284,7 +288,9 @@ export async function refreshAccessToken(server: string): Promise<MCPOAuthToken 
     saveToken(token);
     return token;
   } catch (err) {
-    console.error("[MCP-OAuth] Error refreshing token:", err);
+    logger.error("[MCP-OAuth] Error refreshing token", {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return null;
   }
 }
@@ -299,7 +305,7 @@ export async function getValidToken(server: string): Promise<MCPOAuthToken | nul
   }
 
   if (isTokenExpired(token)) {
-    console.log(`[MCP-OAuth] Token expired for ${server}, attempting refresh`);
+    logger.info(`[MCP-OAuth] Token expired for ${server}, attempting refresh`);
     return refreshAccessToken(server);
   }
 
@@ -321,6 +327,6 @@ export async function revokeToken(server: string): Promise<boolean> {
   // Optionally call revocation endpoint if server supports it
   // This is not implemented as it varies per server
 
-  console.log(`[MCP-OAuth] Revoked token for ${server}`);
+  logger.info(`[MCP-OAuth] Deleted local token for ${server}`);
   return true;
 }

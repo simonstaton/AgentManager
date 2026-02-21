@@ -7,6 +7,7 @@ import { Sidebar } from "../components/Sidebar";
 import { useAgentPolling } from "../hooks/useAgentPolling";
 import { useApi } from "../hooks/useApi";
 import { useKillSwitchContext } from "../killSwitch";
+import { formatCost, formatTokens } from "../utils/format";
 
 interface AgentCost {
   agentId: string;
@@ -88,16 +89,6 @@ export function CostDashboard() {
     } finally {
       setResetting(false);
     }
-  };
-
-  const formatCost = (cost: number): string => {
-    return `$${cost.toFixed(4)}`;
-  };
-
-  const formatTokens = (tokens: number): string => {
-    if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(2)}M`;
-    if (tokens >= 1000) return `${(tokens / 1000).toFixed(2)}K`;
-    return tokens.toString();
   };
 
   return (

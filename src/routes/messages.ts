@@ -1,7 +1,11 @@
 import express, { type Request, type Response } from "express";
 import type { MessageBus } from "../messages";
 import type { AgentMessage } from "../types";
+import { VALID_MESSAGE_TYPES } from "../types";
 import { param, queryString } from "../utils/express";
+
+const MAX_MESSAGE_CONTENT_LENGTH = 50_000;
+const MAX_MESSAGE_BATCH_SIZE = 20;
 
 export function createMessagesRouter(messageBus: MessageBus) {
   const router = express.Router();
@@ -13,7 +17,7 @@ export function createMessagesRouter(messageBus: MessageBus) {
       res.status(400).json({ error: "from is required" });
       return;
     }
-    if (!type || !["task", "result", "question", "info", "status", "interrupt"].includes(type)) {
+    if (!type || !VALID_MESSAGE_TYPES.includes(type as AgentMessage["type"])) {
       res.status(400).json({ error: "type must be one of: task, result, question, info, status, interrupt" });
       return;
     }
@@ -21,8 +25,8 @@ export function createMessagesRouter(messageBus: MessageBus) {
       res.status(400).json({ error: "content is required" });
       return;
     }
-    if (content.length > 50_000) {
-      res.status(400).json({ error: "content exceeds max length of 50000" });
+    if (content.length > MAX_MESSAGE_CONTENT_LENGTH) {
+      res.status(400).json({ error: `content exceeds max length of ${MAX_MESSAGE_CONTENT_LENGTH}` });
       return;
     }
     if (excludeRoles && !Array.isArray(excludeRoles)) {
@@ -42,8 +46,8 @@ export function createMessagesRouter(messageBus: MessageBus) {
       res.status(400).json({ error: "messages array is required and must not be empty" });
       return;
     }
-    if (messages.length > 20) {
-      res.status(400).json({ error: "Maximum batch size is 20" });
+    if (messages.length > MAX_MESSAGE_BATCH_SIZE) {
+      res.status(400).json({ error: `Maximum batch size is ${MAX_MESSAGE_BATCH_SIZE}` });
       return;
     }
 
@@ -54,7 +58,7 @@ export function createMessagesRouter(messageBus: MessageBus) {
         res.status(400).json({ error: `messages[${i}]: from is required` });
         return;
       }
-      if (!type || !["task", "result", "question", "info", "status", "interrupt"].includes(type)) {
+      if (!type || !VALID_MESSAGE_TYPES.includes(type as AgentMessage["type"])) {
         res
           .status(400)
           .json({ error: `messages[${i}]: type must be one of: task, result, question, info, status, interrupt` });
@@ -64,8 +68,8 @@ export function createMessagesRouter(messageBus: MessageBus) {
         res.status(400).json({ error: `messages[${i}]: content is required` });
         return;
       }
-      if (content.length > 50_000) {
-        res.status(400).json({ error: `messages[${i}]: content exceeds max length of 50000` });
+      if (content.length > MAX_MESSAGE_CONTENT_LENGTH) {
+        res.status(400).json({ error: `messages[${i}]: content exceeds max length of ${MAX_MESSAGE_CONTENT_LENGTH}` });
         return;
       }
       results.push(messageBus.post({ from, fromName, to, channel, type, content, metadata }));

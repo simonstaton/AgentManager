@@ -2,6 +2,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
 import cron, { type ScheduledTask } from "node-cron";
+import { logger } from "./logger";
 import { errorMessage } from "./types";
 
 const DB_DIR = "/tmp/scheduler-data";
@@ -109,21 +110,12 @@ export class Scheduler {
     const jobs = this.listAll();
     if (jobs.length === 0) return;
 
-    console.log(`[scheduler] Loading ${jobs.length} persisted job(s)`);
-    const now = new Date();
+    logger.info(`[scheduler] Loading ${jobs.length} persisted job(s)`);
 
     for (const job of jobs) {
       if (job.status === "active") {
         this.scheduleJob(job);
-
-        // Check if a run was missed while the server was down
-        if (job.nextRunAt) {
-          const nextRun = new Date(job.nextRunAt);
-          if (nextRun < now) {
-            console.log(`[scheduler] Missed run for "${job.name}" (was due ${job.nextRunAt}) - executing now`);
-            this.executeJob(job);
-          }
-        }
+        // nextRunAt is not computed (node-cron has no next-run API); missed runs are not recovered on startup
       }
     }
   }
@@ -134,7 +126,7 @@ export class Scheduler {
       task.stop();
       this.tasks.delete(id);
     }
-    console.log("[scheduler] All jobs stopped");
+    logger.info("[scheduler] All jobs stopped");
   }
 
   /** Create a new scheduled job. */
@@ -175,7 +167,7 @@ export class Scheduler {
     });
 
     this.scheduleJob(job);
-    console.log(`[scheduler] Created job "${job.name}" (${job.id}) with cron "${job.cronExpression}"`);
+    logger.info(`[scheduler] Created job "${job.name}" (${job.id}) with cron "${job.cronExpression}"`);
 
     return job;
   }
@@ -201,7 +193,7 @@ export class Scheduler {
     }
     const result = this.deleteStmt.run({ id });
     if (result.changes > 0) {
-      console.log(`[scheduler] Deleted job ${id}`);
+      logger.info(`[scheduler] Deleted job ${id}`);
       return true;
     }
     return false;
@@ -221,7 +213,7 @@ export class Scheduler {
 
     const now = new Date().toISOString();
     this.updateStatusStmt.run({ id, status: "paused", updatedAt: now });
-    console.log(`[scheduler] Paused job "${job.name}" (${id})`);
+    logger.info(`[scheduler] Paused job "${job.name}" (${id})`);
     return this.get(id);
   }
 
@@ -237,7 +229,7 @@ export class Scheduler {
     const updated = this.get(id);
     if (updated) {
       this.scheduleJob(updated);
-      console.log(`[scheduler] Resumed job "${job.name}" (${id})`);
+      logger.info(`[scheduler] Resumed job "${job.name}" (${id})`);
     }
     return updated;
   }
@@ -256,18 +248,34 @@ export class Scheduler {
       existing.stop();
     }
 
+    const jobId = job.id;
     const task = cron.schedule(job.cronExpression, () => {
-      this.executeJob(job);
+      this.executeJobById(jobId);
     });
 
     this.tasks.set(job.id, task);
   }
 
-  /** Execute a job. */
+  /** Execute a job by ID (re-reads from DB to avoid stale payload). */
+  private executeJobById(jobId: string): void {
+    const row = this.getStmt.get({ id: jobId }) as Record<string, unknown> | undefined;
+    if (!row) {
+      logger.warn(`[scheduler] Job ${jobId} not found - may have been deleted`);
+      return;
+    }
+    const job = this.rowToJob(row);
+    this.executeJob(job);
+  }
+
+  /** Execute a job (call with fresh job from DB). */
   private executeJob(job: ScheduledJob): void {
+    if (!this.executionContext) {
+      logger.warn(`[scheduler] No execution context set - skipping job "${job.name}"`);
+      return;
+    }
+
     const now = new Date().toISOString();
     const nextRunAt = this.getNextRunDate(job.cronExpression);
-
     this.updateLastRunStmt.run({
       id: job.id,
       lastRunAt: now,
@@ -275,12 +283,7 @@ export class Scheduler {
       updatedAt: now,
     });
 
-    console.log(`[scheduler] Executing job "${job.name}" (${job.id}) type=${job.jobType}`);
-
-    if (!this.executionContext) {
-      console.warn(`[scheduler] No execution context set - skipping job "${job.name}"`);
-      return;
-    }
+    logger.info(`[scheduler] Executing job "${job.name}" (${job.id}) type=${job.jobType}`);
 
     try {
       switch (job.jobType) {
@@ -288,7 +291,7 @@ export class Scheduler {
           this.executionContext
             .checkHealth()
             .then(({ healthy, details }) => {
-              console.log(`[scheduler] Health check result: ${healthy ? "OK" : "UNHEALTHY"} - ${details}`);
+              logger.info(`[scheduler] Health check result: ${healthy ? "OK" : "UNHEALTHY"} - ${details}`);
               // If unhealthy and a webhook URL is configured, notify
               if (!healthy && job.payload.webhookUrl) {
                 return this.executionContext?.sendWebhook(job.payload.webhookUrl as string, {
@@ -299,7 +302,7 @@ export class Scheduler {
               }
             })
             .catch((err: unknown) => {
-              console.warn(`[scheduler] Health check failed:`, errorMessage(err));
+              logger.warn("[scheduler] Health check failed", { error: errorMessage(err) });
             });
           break;
 
@@ -309,7 +312,7 @@ export class Scheduler {
           if (agentId) {
             this.executionContext.wakeAgent(agentId, prompt);
           } else {
-            console.warn(`[scheduler] agent-wake job "${job.name}" missing agentId in payload`);
+            logger.warn(`[scheduler] agent-wake job "${job.name}" missing agentId in payload`);
           }
           break;
         }
@@ -326,20 +329,20 @@ export class Scheduler {
                 timestamp: now,
               })
               .catch((err: unknown) => {
-                console.warn(`[scheduler] Webhook notification failed:`, errorMessage(err));
+                logger.warn("[scheduler] Webhook notification failed", { error: errorMessage(err) });
               });
           } else {
-            console.warn(`[scheduler] webhook-notify job "${job.name}" missing url in payload`);
+            logger.warn(`[scheduler] webhook-notify job "${job.name}" missing url in payload`);
           }
           break;
         }
 
         case "custom":
-          console.log(`[scheduler] Custom job "${job.name}" fired with payload:`, JSON.stringify(job.payload));
+          logger.info(`[scheduler] Custom job "${job.name}" fired`, { payload: job.payload });
           break;
       }
     } catch (err: unknown) {
-      console.error(`[scheduler] Job "${job.name}" execution error:`, errorMessage(err));
+      logger.error(`[scheduler] Job "${job.name}" execution error`, { error: errorMessage(err) });
     }
   }
 

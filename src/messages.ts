@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { rename, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { logger } from "./logger";
 import type { AgentMessage, MessageType } from "./types";
 import { errorMessage } from "./types";
 
@@ -62,7 +63,7 @@ export class MessageBus {
       try {
         listener(msg);
       } catch (err: unknown) {
-        console.warn("[messages] Listener error:", errorMessage(err));
+        logger.warn("[messages] Listener error", { error: errorMessage(err) });
       }
     }
 
@@ -179,9 +180,9 @@ export class MessageBus {
     }).length;
   }
 
-  /** Clean up messages from/to a specific agent */
+  /** Clean up messages from/to a specific agent. Preserves broadcast messages (no to) from this agent so other agents can still read them. */
   cleanupForAgent(agentId: string): void {
-    this.messages = this.messages.filter((m) => m.from !== agentId && m.to !== agentId);
+    this.messages = this.messages.filter((m) => m.to !== agentId && (m.from !== agentId || !m.to));
     this.saveToDisk();
   }
 
@@ -193,10 +194,10 @@ export class MessageBus {
         // Restore only the most recent messages to avoid unbounded reads on large files
         const recentLines = lines.slice(-MAX_RESTORE_MESSAGES);
         this.messages = recentLines.map((line) => JSON.parse(line) as AgentMessage);
-        console.log(`[messages] Loaded ${this.messages.length} messages from disk`);
+        logger.info(`[messages] Loaded ${this.messages.length} messages from disk`);
       }
     } catch (err: unknown) {
-      console.warn("[messages] Failed to load messages:", errorMessage(err));
+      logger.warn("[messages] Failed to load messages", { error: errorMessage(err) });
       this.messages = [];
     }
   }
@@ -220,12 +221,12 @@ export class MessageBus {
       mkdirSync(dir, { recursive: true });
       const tmpPath = `${this.messagesFile}.tmp`;
       // Write one JSON object per line (JSONL) for efficient append-based reads and
-      // incremental restore — same pattern as agent-events in persistence.ts
+      // incremental restore - same pattern as agent-events in persistence.ts
       const content = this.messages.length > 0 ? `${this.messages.map((m) => JSON.stringify(m)).join("\n")}\n` : "";
       await writeFile(tmpPath, content, "utf-8");
       await rename(tmpPath, this.messagesFile);
     } catch (err: unknown) {
-      console.warn("[messages] Failed to save messages:", errorMessage(err));
+      logger.warn("[messages] Failed to save messages", { error: errorMessage(err) });
     } finally {
       this.saving = false;
     }

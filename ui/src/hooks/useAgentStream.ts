@@ -1,5 +1,6 @@
 "use client";
 
+import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { StreamEvent } from "../api";
 import { useApi } from "./useApi";
@@ -54,6 +55,27 @@ function eventFingerprint(event: StreamEvent): string {
       parts.push(String(event.text ?? event.content ?? ""));
   }
   return parts.join("\0");
+}
+
+/** Append a deduplicated event to the refs and bump count. Shared by doReconnect and consumeStream. */
+function appendEvent(
+  value: StreamEvent,
+  eventsRef: MutableRefObject<StreamEvent[]>,
+  seenFingerprintsRef: MutableRefObject<Set<string>>,
+  setEventCount: Dispatch<SetStateAction<number>>,
+): void {
+  const fp = eventFingerprint(value);
+  if (seenFingerprintsRef.current.has(fp)) return;
+  seenFingerprintsRef.current.add(fp);
+  if (seenFingerprintsRef.current.size > MAX_EVENTS * 2) {
+    const fps = Array.from(seenFingerprintsRef.current);
+    seenFingerprintsRef.current = new Set(fps.slice(-MAX_EVENTS));
+  }
+  eventsRef.current.push(value);
+  if (eventsRef.current.length > MAX_EVENTS) {
+    eventsRef.current = eventsRef.current.slice(-MAX_EVENTS);
+  }
+  setEventCount((c) => c + 1);
 }
 
 /** Abort and clean up all stream resources. */
@@ -161,24 +183,7 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
             // Only add events if we're still viewing this agent
             if (agentIdRef.current === id) {
               serverEventCountRef.current++;
-              // Deduplicate: skip events we've already seen (can happen when
-              // an incremental reconnect replays events the client received
-              // through a previous message or reconnect stream)
-              const fp = eventFingerprint(value);
-              if (!seenFingerprintsRef.current.has(fp)) {
-                seenFingerprintsRef.current.add(fp);
-                // Prevent fingerprint Set from growing unbounded
-                if (seenFingerprintsRef.current.size > MAX_EVENTS * 2) {
-                  // Convert to array, slice, and recreate Set to remove oldest entries
-                  const fps = Array.from(seenFingerprintsRef.current);
-                  seenFingerprintsRef.current = new Set(fps.slice(-MAX_EVENTS));
-                }
-                eventsRef.current.push(value);
-                if (eventsRef.current.length > MAX_EVENTS) {
-                  eventsRef.current = eventsRef.current.slice(-MAX_EVENTS);
-                }
-                setEventCount((c) => c + 1);
-              }
+              appendEvent(value, eventsRef, seenFingerprintsRef, setEventCount);
             } else {
               // Agent switched - cancel the reader which propagates to the
               // underlying fetch body, closing the server-side SSE connection
@@ -230,26 +235,8 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
 
           // Only add events if we're still viewing this agent
           if (agentIdRef.current === agentId) {
-            // Track server events so auto-retry reconnects can skip them
             serverEventCountRef.current++;
-            // Deduplicate: skip events already in the terminal (can happen
-            // when a reconnect replays events the message stream already
-            // delivered, or vice versa)
-            const fp = eventFingerprint(value);
-            if (!seenFingerprintsRef.current.has(fp)) {
-              seenFingerprintsRef.current.add(fp);
-              // Prevent fingerprint Set from growing unbounded
-              if (seenFingerprintsRef.current.size > MAX_EVENTS * 2) {
-                // Convert to array, slice, and recreate Set to remove oldest entries
-                const fps = Array.from(seenFingerprintsRef.current);
-                seenFingerprintsRef.current = new Set(fps.slice(-MAX_EVENTS));
-              }
-              eventsRef.current.push(value);
-              if (eventsRef.current.length > MAX_EVENTS) {
-                eventsRef.current = eventsRef.current.slice(-MAX_EVENTS);
-              }
-              setEventCount((c) => c + 1);
-            }
+            appendEvent(value, eventsRef, seenFingerprintsRef, setEventCount);
           } else {
             // Agent switched - abort the fetch to close the server-side SSE
             // connection and free the listener from agentProc.listeners

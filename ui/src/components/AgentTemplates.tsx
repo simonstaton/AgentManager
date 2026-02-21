@@ -9,6 +9,7 @@ interface AgentTemplatesProps {
 const modelLabels: Record<string, string> = {
   "claude-opus-4-6": "Opus",
   "claude-sonnet-4-5-20250929": "Sonnet",
+  "claude-sonnet-4-6": "Sonnet",
 };
 
 export function AgentTemplates({ onSelect }: AgentTemplatesProps) {

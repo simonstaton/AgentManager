@@ -1,18 +1,21 @@
 import crypto from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
+import { logger } from "./logger";
 import { resetSanitizeCache } from "./sanitize";
 import type { AuthenticatedRequest, AuthPayload } from "./types";
 
 if (!process.env.JWT_SECRET) {
-  console.error("FATAL: JWT_SECRET environment variable is not set. Exiting.");
+  logger.error("FATAL: JWT_SECRET environment variable is not set. Exiting.");
   process.exit(1);
 }
 
-// Layer 3: Use mutable `let` instead of `const` so rotateJwtSecret() takes effect
-// immediately for all subsequent sign/verify calls. The original `const` captured
-// the value once at import time - updating process.env had no effect.
+// Use mutable `let` so rotateJwtSecret() takes effect immediately for all sign/verify calls.
 let jwtSecret = process.env.JWT_SECRET;
 const apiKey = process.env.API_KEY || "";
+
+function unixNow(): number {
+  return Math.floor(Date.now() / 1000);
+}
 
 /**
  * Rotate the JWT secret in-memory.
@@ -25,7 +28,7 @@ export function rotateJwtSecret(): string {
   process.env.JWT_SECRET = newSecret;
   // Reset sanitize cache so the new secret value gets redacted in logs
   resetSanitizeCache();
-  console.log("[auth] JWT secret rotated - all existing tokens invalidated");
+  logger.info("[auth] JWT secret rotated - all existing tokens invalidated");
   return newSecret;
 }
 
@@ -77,7 +80,7 @@ export function exchangeKeyForToken(apiKey: string): string | null {
     return null;
   }
 
-  const now = Math.floor(Date.now() / 1000);
+  const now = unixNow();
   return signJwt({
     sub: "user",
     iat: now,
@@ -90,10 +93,10 @@ export function verifyToken(token: string): AuthPayload | null {
 }
 
 /** Generate a short-lived service token for agents to call the platform API.
- *  Layer 3: Reduced from 7 days to 4 hours to limit blast radius if a token leaks.
+ *  Reduced from 7 days to 4 hours to limit blast radius if a token leaks.
  *  Optionally binds the token to a specific agent ID for audit attribution. */
 export function generateServiceToken(agentId?: string): string {
-  const now = Math.floor(Date.now() / 1000);
+  const now = unixNow();
   return signJwt({
     sub: "agent-service",
     ...(agentId && { agentId }),
@@ -132,7 +135,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     const provided = Buffer.from(apiKeyHeader);
     const expected = Buffer.from(apiKey);
     if (provided.length === expected.length && crypto.timingSafeEqual(provided, expected)) {
-      const now = Math.floor(Date.now() / 1000);
+      const now = unixNow();
       (req as AuthenticatedRequest).user = { sub: "api-key-user", iat: now, exp: now + 86400 };
       next();
       return;
@@ -140,4 +143,16 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
   }
 
   res.status(401).json({ error: "Unauthorized" });
+}
+
+/**
+ * Middleware: reject requests from agent-service tokens (403).
+ * Use on routes that only human users (or API key) may call.
+ */
+export function requireHumanUser(req: Request, res: Response, next: NextFunction): void {
+  if ((req as AuthenticatedRequest).user?.sub === "agent-service") {
+    res.status(403).json({ error: "This action is not allowed for agent service tokens" });
+    return;
+  }
+  next();
 }

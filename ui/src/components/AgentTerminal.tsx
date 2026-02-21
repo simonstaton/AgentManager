@@ -42,29 +42,24 @@ export function AgentTerminal({ events, scrollToBottomTrigger }: AgentTerminalPr
   // layout shifts (e.g. PromptInput resize) or dynamic block height measurement.
   const lastAtBottomRef = useRef(Date.now());
 
-  // Incremental parsing: only parse new events since last render
-  const parsedRef = useRef<{ upTo: number; blocks: TerminalBlock[] }>({ upTo: 0, blocks: [] });
-  const cached = parsedRef.current;
-  if (events.length < cached.upTo) {
-    // Events array was reset (e.g. agent switched) - reparse from scratch
-    cached.upTo = 0;
-    cached.blocks = [];
-  }
-  if (events.length > cached.upTo) {
-    const newBlocks = parseEvents(events, cached.upTo);
-    cached.blocks = cached.blocks.concat(newBlocks);
-    cached.blocks = deduplicateResultBlocks(cached.blocks);
-    cached.upTo = events.length;
-  }
-
-  // Limit blocks to prevent memory leak - keep last 2000 blocks
-  // This matches MAX_EVENTS from useAgentStream and prevents unbounded growth
+  // Incremental parsing in effect (M18) to avoid mutating refs during render
   const MAX_BLOCKS = 2000;
-  if (cached.blocks.length > MAX_BLOCKS) {
-    cached.blocks = cached.blocks.slice(-MAX_BLOCKS);
-  }
-
-  const allBlocks = cached.blocks;
+  const [allBlocks, setAllBlocks] = useState<TerminalBlock[]>([]);
+  const parsedUpToRef = useRef(0);
+  useEffect(() => {
+    if (events.length < parsedUpToRef.current) {
+      parsedUpToRef.current = 0;
+      setAllBlocks([]);
+      return;
+    }
+    if (events.length === parsedUpToRef.current) return;
+    const newBlocks = parseEvents(events, parsedUpToRef.current);
+    parsedUpToRef.current = events.length;
+    setAllBlocks((prev) => {
+      const next = deduplicateResultBlocks(prev.concat(newBlocks));
+      return next.length > MAX_BLOCKS ? next.slice(-MAX_BLOCKS) : next;
+    });
+  }, [events]);
 
   // In simple mode, filter out technical blocks (tool calls, system, errors, raw)
   const blocks = useMemo(

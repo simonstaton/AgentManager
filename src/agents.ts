@@ -104,24 +104,45 @@ function killProcessGroup(proc: ReturnType<typeof spawn>, timeoutMs = 5000): voi
 }
 
 /**
- * Layer 2: Kill ALL non-init, non-server processes.
+ * Kill ALL non-init, non-server processes.
  * Used by emergencyDestroyAll() to catch bash/node/curl/git spawned by agents
- * that aren't tracked in our process map.
+ * that aren't tracked in our process map. Only kills descendants of agentRootPids
+ * (and the roots themselves), not unrelated system processes.
  */
-function cleanupAllProcesses(): void {
+function cleanupAllProcesses(agentRootPids: number[]): void {
+  if (agentRootPids.length === 0) return;
   try {
-    const myPid = process.pid;
+    const myPid = process.pid ?? 0;
     const output = execFileSync("ps", ["-eo", "pid,ppid,comm"], {
       encoding: "utf-8",
       timeout: 5_000,
     });
-    let killed = 0;
+    const rootSet = new Set(agentRootPids.filter((p) => p > 0));
+    const pidToPpid = new Map<number, number>();
     for (const line of output.split("\n")) {
       const match = line.trim().match(/^(\d+)\s+(\d+)\s+(.+)$/);
       if (!match) continue;
-      const [, pidStr] = match;
+      const [, pidStr, ppidStr] = match;
       const pid = Number.parseInt(pidStr, 10);
+      const ppid = Number.parseInt(ppidStr, 10);
       if (pid === 1 || pid === myPid) continue;
+      pidToPpid.set(pid, ppid);
+    }
+    // Collect all descendant PIDs (BFS from roots)
+    const toKill = new Set<number>(rootSet);
+    let frontier = [...rootSet];
+    while (frontier.length > 0) {
+      const next: number[] = [];
+      for (const pid of frontier) {
+        for (const [cpid, ppid] of pidToPpid) {
+          if (ppid === pid) next.push(cpid);
+        }
+      }
+      for (const p of next) toKill.add(p);
+      frontier = next;
+    }
+    let killed = 0;
+    for (const pid of toKill) {
       try {
         process.kill(pid, "SIGKILL");
         killed++;
@@ -147,7 +168,6 @@ const PROMPT_NAME_MAX_INPUT = 120;
 const PROMPT_NAME_MAX_SLUG = 40;
 
 const NAME_STOP_WORDS = new Set([
-  // Articles / conjunctions / prepositions
   "the",
   "and",
   "but",
@@ -161,7 +181,6 @@ const NAME_STOP_WORDS = new Set([
   "between",
   "out",
   "up",
-  // Pronouns / determiners
   "this",
   "that",
   "these",
@@ -179,10 +198,6 @@ const NAME_STOP_WORDS = new Set([
   "where",
   "when",
   "how",
-  // Short function words already excluded by the length >= 3 filter,
-  // but kept here for clarity: "a", "an", "in", "on", "at", "to",
-  // "of", "by", "or", "is", "as", "if", "it", "no", "so" etc.
-  // Auxiliary verbs
   "are",
   "was",
   "were",
@@ -226,7 +241,7 @@ const NAME_STOP_WORDS = new Set([
  * Exported for unit testing.
  */
 export function generateNameFromPrompt(prompt: string, id: string): string {
-  // Split on newlines only — dots in version strings and paths must not break the line.
+  // Split on newlines only - dots in version strings and paths must not break the line.
   const firstLine = prompt.split("\n")[0].trim().slice(0, PROMPT_NAME_MAX_INPUT);
   const words = firstLine
     .toLowerCase()
@@ -255,7 +270,7 @@ export class AgentManager {
    *  Key: "parentId:name" or "name", Value: timestamp of creation. */
   private recentCreations = new Map<string, number>();
   private static readonly DEDUP_WINDOW_MS = 10_000; // 10 seconds
-  /** Layer 1: Set to true by kill switch - blocks create() and message() at the code level. */
+  /** Set to true by kill switch - blocks create() and message() at the code level. */
   killed = false;
   /** Optional persistent cost tracker (SQLite-backed). */
   private costTracker: CostTracker | null = null;
@@ -330,7 +345,7 @@ export class AgentManager {
       // Populate cached git info asynchronously (fire-and-forget)
       this.refreshGitInfo(agent.id).catch(() => {});
 
-      logger.info(`[restore] Restored agent ${agent.name} — status: ${agent.status}`, { agentId: agent.id });
+      logger.info(`[restore] Restored agent ${agent.name} - status: ${agent.status}`, { agentId: agent.id });
     }
   }
 
@@ -338,14 +353,14 @@ export class AgentManager {
     agent: Agent;
     subscribe: (listener: (event: StreamEvent) => void) => () => void;
   } {
-    // Layer 1: Block spawning when kill switch is active
+    // Block spawning when kill switch is active
     if (this.killed) {
       throw new Error("Kill switch is active - agent spawning is disabled");
     }
     if (this.agents.size >= MAX_AGENTS) {
       throw new Error(`Maximum of ${MAX_AGENTS} agents reached`);
     }
-    // Layer 4: Enforce immutable depth field and sibling limit
+    // Enforce immutable depth field and sibling limit
     const parentAgent = opts.parentId ? this.get(opts.parentId) : undefined;
     const depth = (parentAgent?.depth ?? 0) + 1;
     if (depth > MAX_AGENT_DEPTH) {
@@ -400,7 +415,7 @@ export class AgentManager {
       role: opts.role,
       capabilities: opts.capabilities,
       parentId: opts.parentId,
-      depth, // Layer 4: immutable depth, set at creation time
+      depth, // immutable depth, set at creation time
     };
 
     let finalPrompt = opts.prompt;
@@ -515,7 +530,7 @@ export class AgentManager {
     /** Names of attachments to show as chips in the terminal. */
     attachmentNames?: string[],
   ): { agent: Agent; subscribe: (listener: (event: StreamEvent) => void) => () => void } {
-    // Layer 1: Block messaging when kill switch is active
+    // Block messaging when kill switch is active
     if (this.killed) throw new Error("Kill switch is active - agent messaging is disabled");
     const agentProc = this.agents.get(id);
     if (!agentProc) throw new Error("Agent not found");
@@ -523,7 +538,7 @@ export class AgentManager {
       throw new Error("Agent is shutting down a previous process, try again shortly");
 
     // Use targetSessionId if provided, otherwise use the agent's main session.
-    // After clearContext(), claudeSessionId is undefined — start a fresh session (no --resume).
+    // After clearContext(), claudeSessionId is undefined - start a fresh session (no --resume).
     const resumeId = targetSessionId || agentProc.agent.claudeSessionId || undefined;
 
     const model = agentProc.agent.model;
@@ -819,7 +834,7 @@ export class AgentManager {
       agent.claudeSessionId = undefined;
       agent.lastActivity = new Date().toISOString();
       saveAgentState(agent);
-      // NOTE: Do NOT call upsertCostTracker here — the session tokens are now 0 but
+      // NOTE: Do NOT call upsertCostTracker here - the session tokens are now 0 but
       // the cost tracker should retain the cumulative billing values. The next usage
       // event will update the cost tracker with accurate cumulative totals.
 
@@ -827,7 +842,7 @@ export class AgentManager {
       try {
         await unlink(path.join(EVENTS_DIR, `${id}.jsonl`));
       } catch {
-        // File may not exist — that's fine
+        // File may not exist - that's fine
       }
 
       // Reset in-memory event state
@@ -966,7 +981,7 @@ export class AgentManager {
   }
 
   /** Reset in-memory usage counters for all tracked agents.
-   *  Only clears in-memory state and persists to /persistent/ — callers are
+   *  Only clears in-memory state and persists to /persistent/ - callers are
    *  responsible for clearing SQLite via costTracker.reset() if needed. */
   resetAllUsage(): void {
     for (const agentProc of this.agents.values()) {
@@ -1134,7 +1149,7 @@ export class AgentManager {
   }
 
   /**
-   * Layer 2: Nuclear emergency shutdown - called by the kill switch.
+   * Nuclear emergency shutdown - called by the kill switch.
    * Unlike destroyAll(), this:
    *   1. Sets killed flag immediately (blocks create/message at code level)
    *   2. Clears all message bus listeners (prevents auto-delivery from re-triggering agents)
@@ -1195,6 +1210,11 @@ export class AgentManager {
       });
     }
 
+    // Collect agent root PIDs before clearing so cleanupAllProcesses only kills their descendants
+    const agentRootPids = Array.from(this.agents.values())
+      .map((a) => a.proc?.pid)
+      .filter((p): p is number => p != null && p > 0);
+
     this.agents.clear();
     this.writeQueues.clear();
     this.lifecycleLocks.clear();
@@ -1203,12 +1223,12 @@ export class AgentManager {
     // Write tombstone so loadAllAgentStates() skips restoration on next startup
     writeTombstone();
 
-    // Kill ALL non-init, non-server processes to catch bash/node/curl/git spawned by agents
-    cleanupAllProcesses();
+    // Kill only agent descendants (bash/node/curl/git spawned by agents), not unrelated processes
+    cleanupAllProcesses(agentRootPids);
 
     // Second pass at +500ms to catch anything spawned mid-kill
     setTimeout(() => {
-      cleanupAllProcesses();
+      cleanupAllProcesses(agentRootPids);
       logger.info("[kill-switch] Second cleanup pass complete");
     }, 500).unref();
 
@@ -1420,7 +1440,7 @@ export class AgentManager {
       }
     }
 
-    // Legacy: also handle "result" events in case a future CLI version emits them
+    // Handle result events for token-delta updates
     if (event.type === "result") {
       const usage = event.usage as { input_tokens?: number; output_tokens?: number } | undefined;
       const totalCost = typeof event.total_cost_usd === "number" ? event.total_cost_usd : 0;

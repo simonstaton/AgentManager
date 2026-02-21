@@ -1,6 +1,6 @@
 import express, { type Request, type Response } from "express";
+import { requireHumanUser } from "../auth";
 import type { JobType, Scheduler } from "../scheduler";
-import type { AuthenticatedRequest } from "../types";
 import { param } from "../utils/express";
 
 /**
@@ -29,13 +29,7 @@ export function createSchedulerRouter(scheduler: Scheduler) {
   });
 
   /** POST /api/scheduler/jobs - Create a new scheduled job. */
-  router.post("/api/scheduler/jobs", (req: Request, res: Response) => {
-    const authReq = req as AuthenticatedRequest;
-    if (authReq.user?.sub === "agent-service") {
-      res.status(403).json({ error: "Agents cannot create scheduled jobs" });
-      return;
-    }
-
+  router.post("/api/scheduler/jobs", requireHumanUser, (req: Request, res: Response) => {
     const { name, cronExpression, jobType, payload } = req.body;
 
     if (!name || typeof name !== "string") {
@@ -79,13 +73,7 @@ export function createSchedulerRouter(scheduler: Scheduler) {
   });
 
   /** DELETE /api/scheduler/jobs/:id - Delete a scheduled job. */
-  router.delete("/api/scheduler/jobs/:id", (req: Request, res: Response) => {
-    const authReq = req as AuthenticatedRequest;
-    if (authReq.user?.sub === "agent-service") {
-      res.status(403).json({ error: "Agents cannot delete scheduled jobs" });
-      return;
-    }
-
+  router.delete("/api/scheduler/jobs/:id", requireHumanUser, (req: Request, res: Response) => {
     const deleted = scheduler.delete(param(req.params.id));
     if (!deleted) {
       res.status(404).json({ error: "Job not found" });

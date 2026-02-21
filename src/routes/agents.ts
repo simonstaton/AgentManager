@@ -1,13 +1,15 @@
 import express, { type Request, type Response } from "express";
 import type { AgentManager } from "../agents";
+import { requireHumanUser } from "../auth";
 import { MAX_BATCH_SIZE } from "../guardrails";
 import { logger } from "../logger";
 import type { MessageBus } from "../messages";
-import type { AuthenticatedRequest, StreamEvent } from "../types";
+import type { StreamEvent } from "../types";
 import { param, queryString } from "../utils/express";
 import { listFilesRecursive } from "../utils/files";
 import { setupSSE } from "../utils/sse";
 import { validateAgentSpec, validateCreateAgent, validateMessage, validatePatchAgent } from "../validation";
+import { requireAgent } from "./require-agent";
 
 export function createAgentsRouter(
   agentManager: AgentManager,
@@ -129,18 +131,16 @@ export function createAgentsRouter(
       setupSSE(res, agent.id, subscribe);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to create agent";
-      res.status(400).json({ error: message });
+      // Use 500 for spawn/fs errors; validation errors are caught earlier and return 400
+      res.status(500).json({ error: message });
     }
   });
 
   // Get agent details
   router.get("/api/agents/:id", (req: Request, res: Response) => {
     const id = param(req.params.id);
-    const agent = agentManager.get(id);
-    if (!agent) {
-      res.status(404).json({ error: "Agent not found" });
-      return;
-    }
+    const agent = requireAgent(agentManager, id, res);
+    if (!agent) return;
     // Update lastActivity when agent details are retrieved
     agentManager.touch(id);
     res.json(agent);
@@ -152,11 +152,8 @@ export function createAgentsRouter(
 
     try {
       const agentId = param(req.params.id);
-      const agent = agentManager.get(agentId);
-      if (!agent) {
-        res.status(404).json({ error: "Agent not found" });
-        return;
-      }
+      const agent = requireAgent(agentManager, agentId, res);
+      if (!agent) return;
 
       // Save any attachments to the agent's workspace. The returned prefix is
       // placed BEFORE the user text so the LLM reads attached files first.
@@ -192,11 +189,8 @@ export function createAgentsRouter(
   // Reconnect to SSE stream
   router.get("/api/agents/:id/events", (req: Request, res: Response) => {
     const id = param(req.params.id);
-    const agent = agentManager.get(id);
-    if (!agent) {
-      res.status(404).json({ error: "Agent not found" });
-      return;
-    }
+    const agent = requireAgent(agentManager, id, res);
+    if (!agent) return;
 
     // Update lastActivity when reconnecting to event stream
     agentManager.touch(id);
@@ -239,11 +233,7 @@ export function createAgentsRouter(
   // Session logs (readable format for agent self-debugging)
   router.get("/api/agents/:id/logs", async (req: Request, res: Response) => {
     const id = param(req.params.id);
-    const agent = agentManager.get(id);
-    if (!agent) {
-      res.status(404).json({ error: "Agent not found" });
-      return;
-    }
+    if (!requireAgent(agentManager, id, res)) return;
 
     const types = req.query.type ? (queryString(req.query.type) ?? "").split(",") : undefined;
     const tail = req.query.tail ? Number.parseInt(queryString(req.query.tail) ?? "", 10) : undefined;
@@ -263,11 +253,8 @@ export function createAgentsRouter(
   // List workspace files (for @ mentions)
   router.get("/api/agents/:id/files", (req: Request, res: Response) => {
     const id = param(req.params.id);
-    const agent = agentManager.get(id);
-    if (!agent) {
-      res.status(404).json({ error: "Agent not found" });
-      return;
-    }
+    const agent = requireAgent(agentManager, id, res);
+    if (!agent) return;
 
     const query = (queryString(req.query.q) || "").toLowerCase();
     const maxResults = Math.min(Number.parseInt(queryString(req.query.limit) ?? "", 10) || 50, 200);
@@ -284,11 +271,8 @@ export function createAgentsRouter(
   // Input validation middleware enforces whitelist and sanitization (issue #62)
   router.patch("/api/agents/:id", validatePatchAgent, (req: Request, res: Response) => {
     const id = param(req.params.id);
-    const agent = agentManager.get(id);
-    if (!agent) {
-      res.status(404).json({ error: "Agent not found" });
-      return;
-    }
+    const agent = requireAgent(agentManager, id, res);
+    if (!agent) return;
 
     const { role, currentTask, name, dangerouslySkipPermissions } = req.body ?? {};
 
@@ -312,28 +296,34 @@ export function createAgentsRouter(
   // Agent runtime metadata (PID, git info, uptime, etc.)
   router.get("/api/agents/:id/metadata", async (req: Request, res: Response) => {
     const id = param(req.params.id);
+    if (!requireAgent(agentManager, id, res)) return;
     const metadata = await agentManager.getMetadata(id);
-    if (!metadata) {
-      res.status(404).json({ error: "Agent not found" });
-      return;
-    }
-    res.json(metadata);
+    res.json(metadata ?? {});
   });
 
   // Token usage and cost for a single agent
   router.get("/api/agents/:id/usage", (req: Request, res: Response) => {
     const id = param(req.params.id);
+    if (!requireAgent(agentManager, id, res)) return;
     const usage = agentManager.getUsage(id);
-    if (!usage) {
-      res.status(404).json({ error: "Agent not found" });
-      return;
-    }
-    res.json(usage);
+    res.json(
+      usage ?? {
+        tokensIn: 0,
+        tokensOut: 0,
+        tokensTotal: 0,
+        tokenLimit: 0,
+        tokensRemaining: 0,
+        estimatedCost: 0,
+        model: "",
+        sessionStart: "",
+      },
+    );
   });
 
   // Destroy agent
   router.delete("/api/agents/:id", (req: Request, res: Response) => {
     const id = param(req.params.id);
+    if (!requireAgent(agentManager, id, res)) return;
 
     try {
       // Also destroy child agents (spawned by this agent)
@@ -364,34 +354,22 @@ export function createAgentsRouter(
   });
 
   // Clear agent context (reset session, keep billing counter)
-  router.post("/api/agents/:id/clear-context", async (req: Request, res: Response) => {
-    // Agents must not clear other agents' context
-    if ((req as AuthenticatedRequest).user?.sub === "agent-service") {
-      res.status(403).json({ error: "Agent service tokens cannot clear agent context" });
-      return;
-    }
+  router.post("/api/agents/:id/clear-context", requireHumanUser, async (req: Request, res: Response) => {
     const id = param(req.params.id);
+    if (!requireAgent(agentManager, id, res)) return;
     const result = await agentManager.clearContext(id);
     if (result.ok) {
       res.json({ ok: true, tokensCleared: result.tokensCleared });
     } else {
-      const httpStatus = result.status ? 409 : 404;
+      const httpStatus = result.error?.includes("idle") || result.error?.includes("running") ? 409 : 404;
       res.status(httpStatus).json({ error: result.error });
     }
   });
 
   // WI-5: Pause an agent (SIGSTOP)
-  router.post("/api/agents/:id/pause", (req: Request, res: Response) => {
-    // Agents must not pause/resume other agents
-    if ((req as AuthenticatedRequest).user?.sub === "agent-service") {
-      res.status(403).json({ error: "Agent service tokens cannot pause agents" });
-      return;
-    }
+  router.post("/api/agents/:id/pause", requireHumanUser, (req: Request, res: Response) => {
     const id = param(req.params.id);
-    if (!agentManager.get(id)) {
-      res.status(404).json({ error: "Agent not found" });
-      return;
-    }
+    if (!requireAgent(agentManager, id, res)) return;
     if (agentManager.pause(id)) {
       res.json({ ok: true });
     } else {
@@ -400,17 +378,9 @@ export function createAgentsRouter(
   });
 
   // WI-5: Resume a paused agent (SIGCONT)
-  router.post("/api/agents/:id/resume", (req: Request, res: Response) => {
-    // Agents must not pause/resume other agents
-    if ((req as AuthenticatedRequest).user?.sub === "agent-service") {
-      res.status(403).json({ error: "Agent service tokens cannot resume agents" });
-      return;
-    }
+  router.post("/api/agents/:id/resume", requireHumanUser, (req: Request, res: Response) => {
     const id = param(req.params.id);
-    if (!agentManager.get(id)) {
-      res.status(404).json({ error: "Agent not found" });
-      return;
-    }
+    if (!requireAgent(agentManager, id, res)) return;
     if (agentManager.resume(id)) {
       res.json({ ok: true });
     } else {

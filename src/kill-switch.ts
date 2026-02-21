@@ -1,5 +1,5 @@
 /**
- * Kill Switch - Layer 1 of the defense-in-depth emergency stop.
+ * Kill Switch - defense-in-depth emergency stop.
  *
  * State file is stored at /tmp/platform/kill-switch.json - NOT in shared-context
  * or /persistent, both of which are agent-accessible. The /tmp/platform/ directory
@@ -18,6 +18,7 @@
 
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { logger } from "./logger";
 import { errorMessage } from "./types";
 
 const PLATFORM_DIR = "/tmp/platform";
@@ -88,9 +89,9 @@ async function uploadToGcs(state: KillSwitchState): Promise<void> {
   try {
     const bucket = gcs.bucket(GCS_BUCKET);
     await bucket.file(GCS_PATH).save(JSON.stringify(state), { contentType: "application/json" });
-    console.log("[kill-switch] Uploaded state to GCS");
+    logger.info("[kill-switch] Uploaded state to GCS");
   } catch (err: unknown) {
-    console.warn("[kill-switch] Failed to upload to GCS:", errorMessage(err));
+    logger.warn("[kill-switch] Failed to upload to GCS", { error: errorMessage(err) });
   }
 }
 
@@ -103,10 +104,10 @@ async function deleteFromGcs(): Promise<void> {
     const [exists] = await bucket.file(GCS_PATH).exists();
     if (exists) {
       await bucket.file(GCS_PATH).delete();
-      console.log("[kill-switch] Removed GCS kill switch file");
+      logger.info("[kill-switch] Removed GCS kill switch file");
     }
   } catch (err: unknown) {
-    console.warn("[kill-switch] Failed to delete from GCS:", errorMessage(err));
+    logger.warn("[kill-switch] Failed to delete from GCS", { error: errorMessage(err) });
   }
 }
 
@@ -150,7 +151,7 @@ export async function activate(reason?: string): Promise<void> {
   };
   inMemoryState = state;
   writeLocalState(state);
-  console.log(`[kill-switch] ACTIVATED - reason: ${state.reason}`);
+  logger.info(`[kill-switch] ACTIVATED - reason: ${state.reason}`);
   await uploadToGcs(state);
 }
 
@@ -161,7 +162,7 @@ export async function activate(reason?: string): Promise<void> {
 export async function deactivate(): Promise<void> {
   inMemoryState = { killed: false };
   clearLocalState();
-  console.log("[kill-switch] Deactivated");
+  logger.info("[kill-switch] Deactivated");
   await deleteFromGcs();
 }
 
@@ -177,7 +178,7 @@ export async function loadPersistedState(): Promise<boolean> {
   const local = readLocalState();
   if (local?.killed) {
     inMemoryState = local;
-    console.log(`[kill-switch] Loaded persisted ACTIVE state from local file (reason: ${local.reason})`);
+    logger.info(`[kill-switch] Loaded persisted ACTIVE state from local file (reason: ${local.reason})`);
     return true;
   }
 
@@ -187,7 +188,7 @@ export async function loadPersistedState(): Promise<boolean> {
     inMemoryState = gcsState;
     // Also write locally so future restarts don't need to hit GCS
     writeLocalState(gcsState);
-    console.log(`[kill-switch] Loaded ACTIVE state from GCS (reason: ${gcsState.reason})`);
+    logger.info(`[kill-switch] Loaded ACTIVE state from GCS (reason: ${gcsState.reason})`);
     return true;
   }
 
@@ -203,7 +204,7 @@ let gcsPollingInterval: ReturnType<typeof setInterval> | null = null;
  */
 export function startGcsKillSwitchPoll(onActivated: () => Promise<void>): () => void {
   if (!GCS_BUCKET) {
-    console.log("[kill-switch] GCS_BUCKET not set, skipping GCS kill switch poll");
+    logger.info("[kill-switch] GCS_BUCKET not set, skipping GCS kill switch poll");
     return () => {};
   }
 
@@ -214,7 +215,7 @@ export function startGcsKillSwitchPoll(onActivated: () => Promise<void>): () => 
     try {
       const gcsState = await checkGcsState();
       if (gcsState?.killed) {
-        console.log(`[kill-switch] Remote activation detected via GCS (reason: ${gcsState.reason})`);
+        logger.info(`[kill-switch] Remote activation detected via GCS (reason: ${gcsState.reason})`);
         inMemoryState = gcsState;
         writeLocalState(gcsState);
         await onActivated();
@@ -227,7 +228,7 @@ export function startGcsKillSwitchPoll(onActivated: () => Promise<void>): () => 
   // Don't keep the process alive just for polling
   gcsPollingInterval.unref();
 
-  console.log("[kill-switch] GCS kill switch poll started (10s interval)");
+  logger.info("[kill-switch] GCS kill switch poll started (10s interval)");
 
   return () => {
     if (gcsPollingInterval) {

@@ -180,13 +180,14 @@ describe("validatePatchAgent", () => {
       expect(req.body.role).toBeUndefined();
     });
 
-    it("preserves currentTask content as-is", () => {
+    it("sanitizes currentTask (alphanumeric, hyphens, underscores, spaces) for safe UI display", () => {
       const task = "Deploy feature X, run tests, update docs";
       const req = mockReq({ currentTask: task });
       const res = mockRes();
       validatePatchAgent(req, res, next);
       expect(next).toHaveBeenCalled();
-      expect(req.body.currentTask).toBe(task);
+      // Commas and other non-whitelist chars are stripped (same as role/name)
+      expect(req.body.currentTask).toBe("Deploy feature X run tests update docs");
     });
 
     it("sanitizes name using sanitizeAgentName", () => {

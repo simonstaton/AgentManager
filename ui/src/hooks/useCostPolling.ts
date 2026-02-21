@@ -33,7 +33,7 @@ export function useCostPolling(intervalMs = 5000) {
         const data = await apiRef.current.fetchCostSummary();
         if (!cancelled) setCost(data);
       } catch {
-        // silently ignore — sidebar cost is non-critical
+        // silently ignore - sidebar cost is non-critical
       }
     };
 

@@ -1,11 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import express, { type Request, type Response } from "express";
+import { requireHumanUser } from "../auth";
 import * as guardrails from "../guardrails";
+import { logger } from "../logger";
 import { MCP_SERVERS } from "../mcp-oauth-manager";
 import { getAllTokens, isTokenExpired } from "../mcp-oauth-storage";
 import { resetSanitizeCache } from "../sanitize";
 import { syncClaudeHome } from "../storage";
+import type { AuthenticatedRequest } from "../types";
 import { errorMessage } from "../types";
 import { CLAUDE_HOME, HOME, isAllowedConfigPath, isSymlink } from "../utils/config-paths";
 import { walkDir } from "../utils/files";
@@ -57,13 +60,8 @@ export function createConfigRouter() {
   });
 
   // Switch API key - supports both OpenRouter (sk-or-) and direct Anthropic (sk-ant-)
-  router.put("/api/settings/anthropic-key", (req: Request, res: Response) => {
-    // biome-ignore lint/suspicious/noExplicitAny: Express Request augmentation for auth
-    const user = (req as any).user;
-    if (user?.sub === "agent-service") {
-      res.status(403).json({ error: "Agents are not allowed to change the API key" });
-      return;
-    }
+  router.put("/api/settings/anthropic-key", requireHumanUser, (req: Request, res: Response) => {
+    const user = (req as AuthenticatedRequest).user;
     const { key } = req.body ?? {};
     if (!key || typeof key !== "string" || !(key.startsWith("sk-or-") || key.startsWith("sk-ant-"))) {
       res.status(400).json({ error: "Invalid API key format (expected sk-or-... or sk-ant-...)" });
@@ -80,7 +78,7 @@ export function createConfigRouter() {
       delete process.env.ANTHROPIC_BASE_URL;
     }
     resetSanitizeCache();
-    console.warn(
+    logger.warn(
       `[AUDIT] API key changed to ${isOpenRouter ? "OpenRouter" : "Anthropic"} by user: ${user?.sub ?? "unknown"}`,
     );
     res.json({ ok: true, hint: `...${key.slice(-8)}`, keyMode: isOpenRouter ? "openrouter" : "anthropic" });
@@ -221,7 +219,7 @@ export function createConfigRouter() {
   });
 
   // Write a config file
-  router.put("/api/claude-config/file", (req: Request, res: Response) => {
+  router.put("/api/claude-config/file", async (req: Request, res: Response) => {
     const { path: filePath, content } = req.body ?? {};
     if (!filePath || typeof filePath !== "string" || typeof content !== "string") {
       res.status(400).json({ error: "path and content required" });
@@ -237,15 +235,18 @@ export function createConfigRouter() {
     }
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, content, "utf-8");
-    // Sync claude-home to GCS so changes persist across Cloud Run reloads
-    syncClaudeHome().catch((err: unknown) => {
-      console.warn("[config] Failed to sync claude-home to GCS:", errorMessage(err));
-    });
-    res.json({ ok: true });
+    let synced = true;
+    try {
+      await syncClaudeHome();
+    } catch (err: unknown) {
+      logger.warn("[config] Failed to sync claude-home to GCS", { error: errorMessage(err) });
+      synced = false;
+    }
+    res.json({ ok: true, synced });
   });
 
   // Create a new skill/command
-  router.post("/api/claude-config/commands", (req: Request, res: Response) => {
+  router.post("/api/claude-config/commands", async (req: Request, res: Response) => {
     const { name, content } = req.body ?? {};
     if (!name || typeof name !== "string" || typeof content !== "string") {
       res.status(400).json({ error: "name and content required" });
@@ -272,12 +273,16 @@ export function createConfigRouter() {
 
     fs.mkdirSync(path.dirname(commandPath), { recursive: true });
     fs.writeFileSync(commandPath, content, "utf-8");
-    syncClaudeHome().catch((err: unknown) => {
-      console.warn("[config] Failed to sync claude-home to GCS:", errorMessage(err));
-    });
-
+    let synced = true;
+    try {
+      await syncClaudeHome();
+    } catch (err: unknown) {
+      logger.warn("[config] Failed to sync claude-home to GCS", { error: errorMessage(err) });
+      synced = false;
+    }
     res.json({
       ok: true,
+      synced,
       file: {
         name: `commands/${filename}`,
         path: commandPath,
@@ -288,92 +293,83 @@ export function createConfigRouter() {
     });
   });
 
-  // Update guardrails settings
-  router.put("/api/settings/guardrails", (req: Request, res: Response) => {
-    // biome-ignore lint/suspicious/noExplicitAny: Express Request augmentation for auth
-    const user = (req as any).user;
-    if (user?.sub === "agent-service") {
-      res.status(403).json({ error: "Agents are not allowed to change guardrails" });
-      return;
-    }
+  // Update guardrails settings (data-driven validation)
+  const GUARDRAIL_SPECS: Array<{
+    key: string;
+    min: number;
+    max: number;
+    setter: (v: number) => void;
+    errorMsg: string;
+  }> = [
+    {
+      key: "maxPromptLength",
+      min: 1000,
+      max: 1_000_000,
+      setter: guardrails.setMaxPromptLength,
+      errorMsg: "maxPromptLength must be between 1,000 and 1,000,000",
+    },
+    {
+      key: "maxTurns",
+      min: 1,
+      max: 10_000,
+      setter: guardrails.setMaxTurns,
+      errorMsg: "maxTurns must be between 1 and 10,000",
+    },
+    {
+      key: "maxAgents",
+      min: 1,
+      max: 100,
+      setter: guardrails.setMaxAgents,
+      errorMsg: "maxAgents must be between 1 and 100",
+    },
+    {
+      key: "maxBatchSize",
+      min: 1,
+      max: 50,
+      setter: guardrails.setMaxBatchSize,
+      errorMsg: "maxBatchSize must be between 1 and 50",
+    },
+    {
+      key: "maxAgentDepth",
+      min: 1,
+      max: 10,
+      setter: guardrails.setMaxAgentDepth,
+      errorMsg: "maxAgentDepth must be between 1 and 10",
+    },
+    {
+      key: "maxChildrenPerAgent",
+      min: 1,
+      max: 20,
+      setter: guardrails.setMaxChildrenPerAgent,
+      errorMsg: "maxChildrenPerAgent must be between 1 and 20",
+    },
+    {
+      key: "sessionTtlMs",
+      min: 60_000,
+      max: 24 * 60 * 60 * 1000,
+      setter: guardrails.setSessionTtlMs,
+      errorMsg: "sessionTtlMs must be between 1 minute and 24 hours",
+    },
+  ];
 
-    const { maxPromptLength, maxTurns, maxAgents, maxBatchSize, maxAgentDepth, maxChildrenPerAgent, sessionTtlMs } =
-      req.body ?? {};
-
-    // Validate and update each setting if provided
+  router.put("/api/settings/guardrails", requireHumanUser, (req: Request, res: Response) => {
+    const user = (req as AuthenticatedRequest).user;
+    const body = req.body ?? {};
     const updates: Record<string, number> = {};
 
-    if (maxPromptLength !== undefined) {
-      const val = Number(maxPromptLength);
-      if (!Number.isInteger(val) || val < 1000 || val > 1_000_000) {
-        res.status(400).json({ error: "maxPromptLength must be between 1,000 and 1,000,000" });
+    for (const { key, min, max, setter, errorMsg } of GUARDRAIL_SPECS) {
+      const raw = body[key];
+      if (raw === undefined) continue;
+      const val = Number(raw);
+      if (!Number.isInteger(val) || val < min || val > max) {
+        res.status(400).json({ error: errorMsg });
         return;
       }
-      guardrails.setMaxPromptLength(val);
-      updates.maxPromptLength = val;
+      setter(val);
+      updates[key] = val;
     }
 
-    if (maxTurns !== undefined) {
-      const val = Number(maxTurns);
-      if (!Number.isInteger(val) || val < 1 || val > 10000) {
-        res.status(400).json({ error: "maxTurns must be between 1 and 10,000" });
-        return;
-      }
-      guardrails.setMaxTurns(val);
-      updates.maxTurns = val;
-    }
-
-    if (maxAgents !== undefined) {
-      const val = Number(maxAgents);
-      if (!Number.isInteger(val) || val < 1 || val > 100) {
-        res.status(400).json({ error: "maxAgents must be between 1 and 100" });
-        return;
-      }
-      guardrails.setMaxAgents(val);
-      updates.maxAgents = val;
-    }
-
-    if (maxBatchSize !== undefined) {
-      const val = Number(maxBatchSize);
-      if (!Number.isInteger(val) || val < 1 || val > 50) {
-        res.status(400).json({ error: "maxBatchSize must be between 1 and 50" });
-        return;
-      }
-      guardrails.setMaxBatchSize(val);
-      updates.maxBatchSize = val;
-    }
-
-    if (maxAgentDepth !== undefined) {
-      const val = Number(maxAgentDepth);
-      if (!Number.isInteger(val) || val < 1 || val > 10) {
-        res.status(400).json({ error: "maxAgentDepth must be between 1 and 10" });
-        return;
-      }
-      guardrails.setMaxAgentDepth(val);
-      updates.maxAgentDepth = val;
-    }
-
-    if (maxChildrenPerAgent !== undefined) {
-      const val = Number(maxChildrenPerAgent);
-      if (!Number.isInteger(val) || val < 1 || val > 20) {
-        res.status(400).json({ error: "maxChildrenPerAgent must be between 1 and 20" });
-        return;
-      }
-      guardrails.setMaxChildrenPerAgent(val);
-      updates.maxChildrenPerAgent = val;
-    }
-
-    if (sessionTtlMs !== undefined) {
-      const val = Number(sessionTtlMs);
-      if (!Number.isInteger(val) || val < 60_000 || val > 24 * 60 * 60 * 1000) {
-        res.status(400).json({ error: "sessionTtlMs must be between 1 minute and 24 hours" });
-        return;
-      }
-      guardrails.setSessionTtlMs(val);
-      updates.sessionTtlMs = val;
-    }
-
-    console.warn(`[AUDIT] Guardrails updated by user: ${user?.sub ?? "unknown"}`, updates);
+    logger.warn(`[AUDIT] Guardrails updated by user: ${user?.sub ?? "unknown"}`, updates);
 
     res.json({
       ok: true,
@@ -390,7 +386,7 @@ export function createConfigRouter() {
   });
 
   // Delete a config file
-  router.delete("/api/claude-config/file", (req: Request, res: Response) => {
+  router.delete("/api/claude-config/file", async (req: Request, res: Response) => {
     const filePath = req.query.path;
     if (!filePath || typeof filePath !== "string") {
       res.status(400).json({ error: "path query param required" });
@@ -417,10 +413,14 @@ export function createConfigRouter() {
       return;
     }
     fs.unlinkSync(filePath);
-    syncClaudeHome().catch((err: unknown) => {
-      console.warn("[config] Failed to sync claude-home to GCS:", errorMessage(err));
-    });
-    res.json({ ok: true });
+    let synced = true;
+    try {
+      await syncClaudeHome();
+    } catch (err: unknown) {
+      logger.warn("[config] Failed to sync claude-home to GCS", { error: errorMessage(err) });
+      synced = false;
+    }
+    res.json({ ok: true, synced });
   });
 
   return router;

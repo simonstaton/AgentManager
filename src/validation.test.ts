@@ -88,7 +88,7 @@ describe("validateCreateAgent", () => {
 
   it("rejects blocked content", () => {
     const res = mockRes();
-    validateCreateAgent(mockReq({ prompt: "DROP TABLE users" }), res, next);
+    validateCreateAgent(mockReq({ prompt: "DROP TABLE users;" }), res, next);
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({ error: "Prompt contains blocked content" });
   });

@@ -1,11 +1,12 @@
 import { existsSync, type FSWatcher, mkdirSync, rmSync, watch, writeFileSync } from "node:fs";
 import fsPromises from "node:fs/promises";
 import path from "node:path";
+import { logger } from "./logger";
 import { errorMessage } from "./types";
 import { getContextDir } from "./utils/context";
 import { walkDir } from "./utils/files";
 
-const fileExists = (p: string): Promise<boolean> =>
+export const fileExists = (p: string): Promise<boolean> =>
   fsPromises.access(p).then(
     () => true,
     () => false,
@@ -43,7 +44,7 @@ async function retryWithBackoff<T>(fn: () => Promise<T>, label: string): Promise
     } catch (err: unknown) {
       lastErr = err;
       if (attempt < RETRY_DELAYS.length) {
-        console.warn(
+        logger.warn(
           `[retry] ${label} failed (attempt ${attempt + 1}/${RETRY_DELAYS.length + 1}), retrying in ${RETRY_DELAYS[attempt]}ms...`,
         );
         await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt]));
@@ -61,7 +62,7 @@ async function getStorage() {
     storage = new Storage();
     return storage;
   } catch {
-    console.warn("@google-cloud/storage not available, GCS sync disabled");
+    logger.warn("@google-cloud/storage not available, GCS sync disabled");
     return null;
   }
 }
@@ -88,10 +89,10 @@ async function downloadDir(prefix: string, localDir: string): Promise<void> {
         await fsPromises.writeFile(localPath, contents);
         await yieldToEventLoop();
       }
-      console.log(`Synced from GCS: ${prefix} -> ${localDir} (${files.length} files)`);
+      logger.info(`Synced from GCS: ${prefix} -> ${localDir} (${files.length} files)`);
     }, `downloadDir(${prefix})`);
   } catch (err: unknown) {
-    console.warn(`GCS download failed for ${prefix}:`, errorMessage(err));
+    logger.warn(`GCS download failed for ${prefix}`, { error: errorMessage(err) });
   }
 }
 
@@ -112,10 +113,10 @@ async function uploadDir(localDir: string, prefix: string): Promise<void> {
         await bucket.upload(filePath, { destination: gcsPath });
         await yieldToEventLoop();
       }
-      console.log(`Synced to GCS: ${localDir} -> ${prefix} (${files.length} files)`);
+      logger.info(`Synced to GCS: ${localDir} -> ${prefix} (${files.length} files)`);
     }, `uploadDir(${localDir})`);
   } catch (err: unknown) {
-    console.warn(`GCS upload failed for ${localDir}:`, errorMessage(err));
+    logger.warn(`GCS upload failed for ${localDir}`, { error: errorMessage(err) });
   }
 }
 
@@ -130,10 +131,10 @@ async function downloadFile(gcsPath: string, localPath: string): Promise<void> {
       const [contents] = await bucket.file(gcsPath).download();
       await fsPromises.mkdir(path.dirname(localPath), { recursive: true });
       await fsPromises.writeFile(localPath, contents);
-      console.log(`Synced from GCS: ${gcsPath} -> ${localPath}`);
+      logger.info(`Synced from GCS: ${gcsPath} -> ${localPath}`);
     }, `downloadFile(${gcsPath})`);
   } catch (err: unknown) {
-    console.warn(`GCS download failed for ${gcsPath}:`, errorMessage(err));
+    logger.warn(`GCS download failed for ${gcsPath}`, { error: errorMessage(err) });
   }
 }
 
@@ -145,10 +146,10 @@ async function uploadFile(localPath: string, gcsPath: string): Promise<void> {
     await retryWithBackoff(async () => {
       const bucket = gcs.bucket(GCS_BUCKET);
       await bucket.upload(localPath, { destination: gcsPath });
-      console.log(`Synced to GCS: ${localPath} -> ${gcsPath}`);
+      logger.info(`Synced to GCS: ${localPath} -> ${gcsPath}`);
     }, `uploadFile(${localPath})`);
   } catch (err: unknown) {
-    console.warn(`GCS upload failed for ${localPath}:`, errorMessage(err));
+    logger.warn(`GCS upload failed for ${localPath}`, { error: errorMessage(err) });
   }
 }
 
@@ -160,14 +161,14 @@ async function deleteFile(gcsPath: string): Promise<void> {
       const bucket = gcs.bucket(GCS_BUCKET);
       const [exists] = await bucket.file(gcsPath).exists();
       if (!exists) {
-        console.log(`File not found in GCS, skipping: ${gcsPath}`);
+        logger.info(`File not found in GCS, skipping: ${gcsPath}`);
         return;
       }
       await bucket.file(gcsPath).delete();
-      console.log(`Deleted from GCS: ${gcsPath}`);
+      logger.info(`Deleted from GCS: ${gcsPath}`);
     }, `deleteFile(${gcsPath})`);
   } catch (err: unknown) {
-    console.warn(`GCS deletion failed for ${gcsPath}:`, errorMessage(err));
+    logger.warn(`GCS deletion failed for ${gcsPath}`, { error: errorMessage(err) });
   }
 }
 
@@ -253,13 +254,13 @@ export async function cleanupClaudeHome(activeWorkspaceDirs: Set<string>): Promi
   }
 
   if (localCleaned > 0) {
-    console.log(`[cleanup] Removed ${localCleaned} stale claude-home entries locally`);
+    logger.info(`[cleanup] Removed ${localCleaned} stale claude-home entries locally`);
   }
 
   // Delete stale entries from GCS so they don't get re-downloaded on next cold start
   if (gcsPrefixesToDelete.length > 0) {
     deleteGCSPrefixes(gcsPrefixesToDelete).catch((err: unknown) => {
-      console.warn("[cleanup] GCS stale entry deletion failed:", errorMessage(err));
+      logger.warn("[cleanup] GCS stale entry deletion failed", { error: errorMessage(err) });
     });
   }
 }
@@ -283,10 +284,9 @@ async function deleteGCSPrefixes(prefixes: string[]): Promise<void> {
             await Promise.all(
               files.map((f: { delete: () => Promise<unknown> }) =>
                 f.delete().catch((err: unknown) => {
-                  console.error(
-                    `[storage] Failed to delete GCS file ${prefix}:`,
-                    err instanceof Error ? err.message : String(err),
-                  );
+                  logger.error(`[storage] Failed to delete GCS file ${prefix}`, {
+                    error: err instanceof Error ? err.message : String(err),
+                  });
                 }),
               ),
             );
@@ -296,18 +296,16 @@ async function deleteGCSPrefixes(prefixes: string[]): Promise<void> {
               .file(prefix)
               .delete()
               .catch((err: unknown) => {
-                console.error(
-                  `[storage] Failed to delete GCS file ${prefix}:`,
-                  err instanceof Error ? err.message : String(err),
-                );
+                logger.error(`[storage] Failed to delete GCS file ${prefix}`, {
+                  error: err instanceof Error ? err.message : String(err),
+                });
               });
             deleted++;
           }
         } catch (err: unknown) {
-          console.error(
-            `[storage] Error deleting GCS prefix ${prefix}:`,
-            err instanceof Error ? err.message : String(err),
-          );
+          logger.error(`[storage] Error deleting GCS prefix ${prefix}`, {
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
       }),
     );
@@ -315,7 +313,7 @@ async function deleteGCSPrefixes(prefixes: string[]): Promise<void> {
   }
 
   if (deleted > 0) {
-    console.log(`[cleanup] Deleted ${deleted} stale file(s) from GCS claude-home/`);
+    logger.info(`[cleanup] Deleted ${deleted} stale file(s) from GCS claude-home/`);
   }
 }
 
@@ -357,22 +355,21 @@ export async function cleanupAgentClaudeData(workspaceDir: string): Promise<void
   }
 
   if (cleaned > 0) {
-    console.log(`[cleanup] Removed ${cleaned} claude-home entries for workspace ${match[1].slice(0, 8)}`);
+    logger.info(`[cleanup] Removed ${cleaned} claude-home entries for workspace ${match[1].slice(0, 8)}`);
     deleteGCSPrefixes(gcsToDelete).catch((err) => {
-      console.error(
-        `[storage] Failed to delete GCS prefixes for cleanup:`,
-        err instanceof Error ? err.message : String(err),
-      );
+      logger.error("[storage] Failed to delete GCS prefixes for cleanup", {
+        error: err instanceof Error ? err.message : String(err),
+      });
     });
   }
 }
 
 export async function syncFromGCS(): Promise<void> {
   if (!GCS_BUCKET) {
-    console.log("GCS_BUCKET not set, skipping GCS sync");
+    logger.info("GCS_BUCKET not set, skipping GCS sync");
     return;
   }
-  console.log("Syncing from GCS...");
+  logger.info("Syncing from GCS...");
   await downloadDir("claude-home/", CLAUDE_HOME);
   // Restore ~/CLAUDE.md (user-level instructions, lives outside ~/.claude/)
   await downloadFile("home-claude-md", path.join(HOME, "CLAUDE.md"));
@@ -406,18 +403,13 @@ export async function syncClaudeHome(): Promise<void> {
 export async function syncToGCS(): Promise<void> {
   if (!GCS_BUCKET) return;
   if (syncInProgress) {
-    console.log("[sync] syncToGCS already in progress, skipping");
+    logger.info("[sync] syncToGCS already in progress, skipping");
     return;
   }
   syncInProgress = true;
   try {
-    console.log("Syncing to GCS...");
-    await uploadDir(CLAUDE_HOME, "claude-home/");
-    // Also sync ~/CLAUDE.md (user-level instructions, lives outside ~/.claude/)
-    const homeClaude = path.join(HOME, "CLAUDE.md");
-    if (await fileExists(homeClaude)) {
-      await uploadFile(homeClaude, "home-claude-md");
-    }
+    logger.info("Syncing to GCS...");
+    await syncClaudeHome();
     if (!FUSE_ACTIVE) {
       await uploadDir(SHARED_CONTEXT_DIR, "shared-context/");
     }
@@ -443,7 +435,7 @@ export function debouncedSyncToGCS(): Promise<void> {
       try {
         await syncToGCS();
       } catch (err: unknown) {
-        console.warn("[sync] Debounced syncToGCS failed:", errorMessage(err));
+        logger.warn("[sync] Debounced syncToGCS failed", { error: errorMessage(err) });
       }
       for (const r of resolvers) r();
     }, DEBOUNCE_MS);
@@ -567,7 +559,7 @@ export function ensureDefaultContextFiles(): void {
     const filePath = path.join(SHARED_CONTEXT_DIR, filename);
     if (!existsSync(filePath)) {
       writeFileSync(filePath, content);
-      console.log(`[context] Created default ${filename} in shared context`);
+      logger.info(`[context] Created default ${filename} in shared context`);
     }
   }
 }
@@ -586,19 +578,19 @@ export function startPeriodicSync(): void {
         if (contextSyncTimeout) clearTimeout(contextSyncTimeout);
         contextSyncTimeout = setTimeout(async () => {
           try {
-            console.log("[sync] Shared context changed, syncing to GCS...");
+            logger.info("[sync] Shared context changed, syncing to GCS...");
             await uploadDir(SHARED_CONTEXT_DIR, "shared-context/");
           } catch (err: unknown) {
-            console.warn("Context watch sync failed:", errorMessage(err));
+            logger.warn("Context watch sync failed", { error: errorMessage(err) });
           }
         }, 3_000);
       });
-      console.log(`[sync] Watching ${SHARED_CONTEXT_DIR} for changes`);
+      logger.info(`[sync] Watching ${SHARED_CONTEXT_DIR} for changes`);
     } catch (err: unknown) {
-      console.warn(`[sync] Could not watch ${SHARED_CONTEXT_DIR}:`, errorMessage(err));
+      logger.warn(`[sync] Could not watch ${SHARED_CONTEXT_DIR}`, { error: errorMessage(err) });
     }
   } else {
-    console.log("[sync] FUSE active, skipping shared-context watch/sync");
+    logger.info("[sync] FUSE active, skipping shared-context watch/sync");
   }
 
   // Also sync everything every 5 minutes as a safety net
@@ -609,7 +601,7 @@ export function startPeriodicSync(): void {
       }
       await uploadDir(CLAUDE_HOME, "claude-home/");
     } catch (err: unknown) {
-      console.warn("Periodic GCS sync failed:", errorMessage(err));
+      logger.warn("Periodic GCS sync failed", { error: errorMessage(err) });
     }
   }, 5 * 60_000);
 }

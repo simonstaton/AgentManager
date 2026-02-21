@@ -31,8 +31,22 @@ export function parseCorsOrigins(raw: string | undefined): Set<string> | "*" | n
   return origins.length > 0 ? new Set(origins) : null;
 }
 
+let cachedCorsOrigins: ReturnType<typeof parseCorsOrigins> | undefined;
+
+function getCorsOrigins(): ReturnType<typeof parseCorsOrigins> {
+  if (cachedCorsOrigins === undefined) {
+    cachedCorsOrigins = parseCorsOrigins(process.env.CORS_ORIGINS);
+  }
+  return cachedCorsOrigins;
+}
+
+/** Reset cached CORS origins (for tests that change CORS_ORIGINS). */
+export function resetCorsOriginsCache(): void {
+  cachedCorsOrigins = undefined;
+}
+
 export function corsMiddleware(req: Request, res: Response, next: NextFunction): void {
-  const allowed = parseCorsOrigins(process.env.CORS_ORIGINS);
+  const allowed = getCorsOrigins();
 
   // No CORS configured - skip entirely (same-origin-only mode)
   if (allowed === null) {

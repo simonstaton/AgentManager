@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { logger } from "./logger";
 
 export interface MCPOAuthToken {
   server: string;
@@ -20,7 +21,7 @@ const MCP_TOKEN_DIR = process.env.MCP_TOKEN_DIR || "/persistent/mcp-tokens";
 export function ensureTokenDir(): void {
   if (!fs.existsSync(MCP_TOKEN_DIR)) {
     fs.mkdirSync(MCP_TOKEN_DIR, { recursive: true });
-    console.log(`[MCP-OAuth] Created token directory: ${MCP_TOKEN_DIR}`);
+    logger.info(`[MCP-OAuth] Created token directory: ${MCP_TOKEN_DIR}`);
   }
 }
 
@@ -38,7 +39,7 @@ export function saveToken(token: MCPOAuthToken): void {
   ensureTokenDir();
   const filePath = getTokenFilePath(token.server);
   fs.writeFileSync(filePath, JSON.stringify(token, null, 2), "utf8");
-  console.log(`[MCP-OAuth] Saved token for ${token.server}`);
+  logger.info(`[MCP-OAuth] Saved token for ${token.server}`);
 }
 
 /**
@@ -56,7 +57,9 @@ export function loadToken(server: string): MCPOAuthToken | null {
     const token = JSON.parse(data) as MCPOAuthToken;
     return token;
   } catch (err) {
-    console.error(`[MCP-OAuth] Failed to load token for ${server}:`, err);
+    logger.error(`[MCP-OAuth] Failed to load token for ${server}`, {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return null;
   }
 }
@@ -68,21 +71,24 @@ export function deleteToken(server: string): void {
   const filePath = getTokenFilePath(server);
   if (fs.existsSync(filePath)) {
     fs.unlinkSync(filePath);
-    console.log(`[MCP-OAuth] Deleted token for ${server}`);
+    logger.info(`[MCP-OAuth] Deleted token for ${server}`);
   }
 }
 
+/** Buffer (ms) before nominal expiry to consider token expired. Avoids using a token that expires mid-request. */
+const TOKEN_EXPIRY_BUFFER_MS = 60_000;
+
 /**
- * Check if a token is expired
+ * Check if a token is expired (or within buffer of expiry).
  */
 export function isTokenExpired(token: MCPOAuthToken): boolean {
   if (!token.expiresAt) {
     return false; // No expiry means token doesn't expire
   }
 
-  const expiresAt = new Date(token.expiresAt);
-  const now = new Date();
-  return now >= expiresAt;
+  const expiresAt = new Date(token.expiresAt).getTime();
+  const now = Date.now();
+  return now >= expiresAt - TOKEN_EXPIRY_BUFFER_MS;
 }
 
 /**
@@ -94,7 +100,9 @@ export function listStoredTokens(): string[] {
     const files = fs.readdirSync(MCP_TOKEN_DIR);
     return files.filter((f) => f.endsWith(".json")).map((f) => f.replace(/\.json$/, ""));
   } catch (err) {
-    console.error("[MCP-OAuth] Failed to list stored tokens:", err);
+    logger.error("[MCP-OAuth] Failed to list stored tokens", {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return [];
   }
 }

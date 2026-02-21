@@ -1,6 +1,8 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
-import { access, rename, unlink, writeFile } from "node:fs/promises";
+import { rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { logger } from "./logger";
+import { fileExists } from "./storage";
 import type { Agent, AgentStatus } from "./types";
 import { errorMessage } from "./types";
 
@@ -9,6 +11,7 @@ const PERSISTENT_AVAILABLE = existsSync(PERSISTENT_BASE);
 
 const STATE_DIR = PERSISTENT_AVAILABLE ? `${PERSISTENT_BASE}/agent-state` : "/tmp/agent-state";
 export const EVENTS_DIR = PERSISTENT_AVAILABLE ? `${PERSISTENT_BASE}/agent-events` : "/tmp/agent-events";
+const TOMBSTONE_FILE = path.join(STATE_DIR, "_kill-switch-tombstone");
 
 mkdirSync(STATE_DIR, { recursive: true });
 mkdirSync(EVENTS_DIR, { recursive: true });
@@ -26,7 +29,7 @@ async function writeAgentState(agent: Agent): Promise<void> {
     await writeFile(tmpPath, JSON.stringify(agent), "utf-8");
     await rename(tmpPath, filePath);
   } catch (err: unknown) {
-    console.warn(`[persistence] Failed to save agent ${agent.id}:`, errorMessage(err));
+    logger.warn(`[persistence] Failed to save agent ${agent.id}`, { error: errorMessage(err) });
   }
 }
 
@@ -61,7 +64,7 @@ export function saveAgentState(agent: Agent): void {
 export function loadAllAgentStates(): Agent[] {
   // If a kill-switch tombstone exists, skip all restoration
   if (existsSync(TOMBSTONE_FILE)) {
-    console.log("[persistence] Kill switch tombstone found - skipping agent restoration");
+    logger.info("[persistence] Kill switch tombstone found - skipping agent restoration");
     return [];
   }
   const agents: Agent[] = [];
@@ -74,22 +77,22 @@ export function loadAllAgentStates(): Agent[] {
         const data = readFileSync(path.join(STATE_DIR, file), "utf-8");
         if (!data.trim()) {
           // Empty file - leftover from a failed FUSE delete, clean it up
-          console.warn(`[persistence] Removing empty state file: ${file}`);
+          logger.warn(`[persistence] Removing empty state file: ${file}`);
           unlinkSync(path.join(STATE_DIR, file));
           continue;
         }
         const agent = JSON.parse(data) as Agent;
         if (!agent.id) {
-          console.warn(`[persistence] Skipping invalid state file (no id): ${file}`);
+          logger.warn(`[persistence] Skipping invalid state file (no id): ${file}`);
           continue;
         }
         agents.push(agent);
       } catch (err: unknown) {
-        console.warn(`[persistence] Failed to load ${file}:`, errorMessage(err));
+        logger.warn(`[persistence] Failed to load ${file}`, { error: errorMessage(err) });
       }
     }
   } catch (err: unknown) {
-    console.warn("[persistence] Failed to read state directory:", errorMessage(err));
+    logger.warn("[persistence] Failed to read state directory", { error: errorMessage(err) });
   }
   return agents;
 }
@@ -134,11 +137,9 @@ export function cleanupStaleState(): void {
   } catch {}
 
   if (cleanedTmp > 0 || cleanedEvents > 0) {
-    console.log(`[cleanup] Removed ${cleanedTmp} stale .tmp file(s), ${cleanedEvents} orphaned event file(s)`);
+    logger.info(`[cleanup] Removed ${cleanedTmp} stale .tmp file(s), ${cleanedEvents} orphaned event file(s)`);
   }
 }
-
-const TOMBSTONE_FILE = path.join(STATE_DIR, "_kill-switch-tombstone");
 
 /**
  * Write a tombstone file so loadAllAgentStates() skips all restoration on next
@@ -147,9 +148,9 @@ const TOMBSTONE_FILE = path.join(STATE_DIR, "_kill-switch-tombstone");
 export function writeTombstone(): void {
   try {
     writeFileSync(TOMBSTONE_FILE, JSON.stringify({ killedAt: new Date().toISOString() }), "utf-8");
-    console.log("[persistence] Kill switch tombstone written");
+    logger.info("[persistence] Kill switch tombstone written");
   } catch (err: unknown) {
-    console.warn("[persistence] Failed to write tombstone:", errorMessage(err));
+    logger.warn("[persistence] Failed to write tombstone", { error: errorMessage(err) });
   }
 }
 
@@ -167,22 +168,13 @@ export function clearTombstone(): void {
   }
 }
 
-async function fileExists(p: string): Promise<boolean> {
-  try {
-    await access(p);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export async function removeAgentState(id: string): Promise<void> {
   const filePath = path.join(STATE_DIR, `${id}.json`);
   try {
     await unlink(filePath);
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-      console.warn(`[persistence] Failed to remove state for ${id}:`, errorMessage(err));
+      logger.warn(`[persistence] Failed to remove state for ${id}`, { error: errorMessage(err) });
     }
   }
   try {
@@ -196,11 +188,11 @@ export async function removeAgentState(id: string): Promise<void> {
   // marker that loadAllAgentStates will skip, then retry unlink.
   try {
     if (await fileExists(filePath)) {
-      console.warn(`[persistence] State file for ${id} still exists after unlink, retrying...`);
+      logger.warn(`[persistence] State file for ${id} still exists after unlink, retrying...`);
       await writeFile(filePath, "", "utf-8");
       await unlink(filePath);
     }
   } catch (err: unknown) {
-    console.error(`[persistence] CRITICAL: Could not remove state file for ${id}:`, errorMessage(err));
+    logger.error(`[persistence] CRITICAL: Could not remove state file for ${id}`, { error: errorMessage(err) });
   }
 }

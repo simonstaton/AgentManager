@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { corsMiddleware, parseCorsOrigins } from "./cors";
+import { corsMiddleware, parseCorsOrigins, resetCorsOriginsCache } from "./cors";
 
 function mockReq(method: string, origin?: string): Request {
   return { method, headers: origin ? { origin } : {} } as unknown as Request;
@@ -67,6 +67,7 @@ describe("corsMiddleware", () => {
   const originalEnv = process.env.CORS_ORIGINS;
 
   beforeEach(() => {
+    resetCorsOriginsCache();
     process.env.CORS_ORIGINS = undefined;
   });
 

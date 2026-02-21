@@ -1,7 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import express, { type Request, type Response } from "express";
+import { logger } from "../logger";
 import { deleteContextFile, syncContextFile } from "../storage";
+import { errorMessage } from "../types";
 import { getContextDir } from "../utils/context";
 
 function validateContextPath(contextDir: string, name: string): string | null {
@@ -95,8 +97,8 @@ export function createContextRouter() {
 
     fs.mkdirSync(path.dirname(filepath), { recursive: true });
     fs.writeFileSync(filepath, content, "utf-8");
-    syncContextFile(name).catch((err) => {
-      console.error(`[context] Failed to sync context file ${name}:`, err instanceof Error ? err.message : String(err));
+    syncContextFile(name).catch((err: unknown) => {
+      logger.error(`[context] Failed to sync context file ${name}`, { error: errorMessage(err) });
     });
     res.json({ ok: true });
   });
@@ -123,11 +125,8 @@ export function createContextRouter() {
     }
 
     fs.unlinkSync(filepath);
-    deleteContextFile(name).catch((err) => {
-      console.error(
-        `[context] Failed to delete context file ${name}:`,
-        err instanceof Error ? err.message : String(err),
-      );
+    deleteContextFile(name).catch((err: unknown) => {
+      logger.error(`[context] Failed to delete context file ${name}`, { error: errorMessage(err) });
     });
     res.json({ ok: true });
   });

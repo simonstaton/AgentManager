@@ -11,6 +11,7 @@ import {
 import path from "node:path";
 import { generateServiceToken } from "./auth";
 import { getDepCacheEnv } from "./dep-cache";
+import { logger } from "./logger";
 import { generateWorkspaceClaudeMd } from "./templates/workspace-claude-md";
 import type { Agent, PromptAttachment } from "./types";
 import { errorMessage } from "./types";
@@ -121,7 +122,7 @@ export class WorkspaceManager {
       try {
         repoList = readdirSync(persistentRepos).filter((f) => f.endsWith(".git"));
       } catch (err) {
-        console.warn("[workspace] Failed to list persistent repos:", errorMessage(err));
+        logger.warn("[workspace] Failed to list persistent repos", { error: errorMessage(err) });
       }
     }
 
@@ -135,7 +136,7 @@ export class WorkspaceManager {
       try {
         skillFiles = scanCommands(commandsDir);
       } catch (err) {
-        console.warn("[workspace] Failed to scan skills/commands:", errorMessage(err));
+        logger.warn("[workspace] Failed to scan skills/commands", { error: errorMessage(err) });
       }
     }
 
@@ -190,11 +191,11 @@ export class WorkspaceManager {
         this.writeAgentTokenFile(agentProc.agent.workspaceDir, id);
         refreshed++;
       } catch (err: unknown) {
-        console.warn(`[workspace] Failed to refresh token for ${id.slice(0, 8)}:`, errorMessage(err));
+        logger.warn(`[workspace] Failed to refresh token for ${id.slice(0, 8)}`, { error: errorMessage(err) });
       }
     }
     if (refreshed > 0) {
-      console.log(`[workspace] Refreshed auth tokens for ${refreshed} agent(s)`);
+      logger.info(`[workspace] Refreshed auth tokens for ${refreshed} agent(s)`);
     }
   }
 
@@ -250,7 +251,7 @@ export class WorkspaceManager {
   }
 
   buildEnv(agentId?: string): NodeJS.ProcessEnv {
-    // Layer 0: Allowlist approach - only forward env vars agents actually need.
+    // Allowlist approach - only forward env vars agents actually need.
     const ALLOWED_ENV_KEYS = [
       // Anthropic API access (needed for Claude CLI)
       "ANTHROPIC_API_KEY",

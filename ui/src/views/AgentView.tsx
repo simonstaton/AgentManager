@@ -239,7 +239,7 @@ export function AgentView({ agentId }: { agentId: string }) {
 
   const getPlaceholder = () => {
     if (agent?.status === "error") return "Agent errored";
-    if (agent?.status === "disconnected") return "Agent disconnected after server restart — dismiss to remove";
+    if (agent?.status === "disconnected") return "Agent disconnected after server restart - dismiss to remove";
     if (agent?.status === "restored") return "Agent restored from crash - send a message to resume...";
     if (agent?.status === "stalled") return "Agent appears stalled - send a message to attempt recovery...";
     if (agent?.status === "paused") return "Agent is paused - resume to continue...";

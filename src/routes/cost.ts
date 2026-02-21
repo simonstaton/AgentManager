@@ -1,9 +1,11 @@
 import express, { type Request, type Response } from "express";
 import type { AgentManager } from "../agents";
+import { requireHumanUser } from "../auth";
 import type { CostTracker } from "../cost-tracker";
 import { logger } from "../logger";
 import type { MessageBus } from "../messages";
-import type { AuthenticatedRequest } from "../types";
+import { param } from "../utils/express";
+import { requireAgent } from "./require-agent";
 
 /**
  * Cost tracking route handler.
@@ -63,7 +65,7 @@ export function createCostRouter(agentManager: AgentManager, costTracker?: CostT
       // Debounce: only kill if we haven't killed recently
       if (activeAgents.length > 0 && now - lastAutoKillTime > AUTO_KILL_DEBOUNCE_MS) {
         lastAutoKillTime = now;
-        logger.warn("[cost] Spend limit exceeded — destroying all agents", {
+        logger.warn("[cost] Spend limit exceeded - destroying all agents", {
           limit: spendLimit,
           allTimeCost: allTime.allTimeCost,
           agentCount: activeAgents.length,
@@ -130,12 +132,7 @@ export function createCostRouter(agentManager: AgentManager, costTracker?: CostT
    * DELETE /api/cost/history
    * Resets all persistent cost records.
    */
-  router.delete("/api/cost/history", (req: Request, res: Response) => {
-    // Agents must not be able to wipe cost history
-    if ((req as AuthenticatedRequest).user?.sub === "agent-service") {
-      res.status(403).json({ error: "Agent service tokens cannot delete cost history" });
-      return;
-    }
+  router.delete("/api/cost/history", requireHumanUser, (_req: Request, res: Response) => {
     if (!costTracker) {
       res.json({ ok: true, deleted: 0 });
       return;
@@ -159,11 +156,7 @@ export function createCostRouter(agentManager: AgentManager, costTracker?: CostT
    * Sets or clears the spend limit.
    * Body: { spendLimit: number | null }
    */
-  router.put("/api/cost/limit", (req: Request, res: Response) => {
-    if ((req as AuthenticatedRequest).user?.sub === "agent-service") {
-      res.status(403).json({ error: "Agent service tokens cannot modify spend limits" });
-      return;
-    }
+  router.put("/api/cost/limit", requireHumanUser, (req: Request, res: Response) => {
     if (!costTracker) {
       res.status(503).json({ error: "Cost tracker not available" });
       return;
@@ -182,13 +175,9 @@ export function createCostRouter(agentManager: AgentManager, costTracker?: CostT
    * Returns cost details for a specific agent.
    */
   router.get("/api/cost/agent/:agentId", (req: Request, res: Response) => {
-    const { agentId } = req.params;
-    const agent = agentManager.list().find((a) => a.id === agentId);
-
-    if (!agent) {
-      res.status(404).json({ error: "Agent not found" });
-      return;
-    }
+    const agentId = param(req.params.agentId);
+    const agent = requireAgent(agentManager, agentId, res);
+    if (!agent) return;
 
     const tokensUsed = agent.usage?.totalTokensSpent ?? (agent.usage?.tokensIn ?? 0) + (agent.usage?.tokensOut ?? 0);
     const estimatedCost = agent.usage?.estimatedCost ?? 0;

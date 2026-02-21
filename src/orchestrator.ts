@@ -1,3 +1,4 @@
+import { logger } from "./logger";
 import type { TaskGraph, TaskGraphEvent, TaskMessage, TaskNode, TaskResult } from "./task-graph";
 import type { Agent } from "./types";
 
@@ -502,6 +503,6 @@ export class Orchestrator {
     if (this.eventLog.length > Orchestrator.MAX_EVENT_LOG) {
       this.eventLog = this.eventLog.slice(-Orchestrator.MAX_EVENT_LOG);
     }
-    console.log(`[orchestrator] ${type}:`, JSON.stringify(details));
+    logger.info(`[orchestrator] ${type}`, details as Record<string, unknown>);
   }
 }

@@ -23,19 +23,28 @@ describe("BLOCKED_COMMAND_PATTERNS", () => {
     expect(matches("rm -r /tmp/test")).toBe(false);
   });
 
-  it("blocks DROP TABLE and DROP DATABASE", () => {
-    expect(matches("DROP TABLE users")).toBe(true);
-    expect(matches("DROP DATABASE production")).toBe(true);
-    expect(matches("drop table orders")).toBe(true); // case insensitive
-    expect(matches("Some text DROP TABLE test more text")).toBe(true);
+  it("blocks DROP TABLE/DATABASE when SQL context (semicolon) present", () => {
+    expect(matches("DROP TABLE users;")).toBe(true);
+    expect(matches("DROP DATABASE production;")).toBe(true);
+    expect(matches("drop table orders;")).toBe(true);
+    expect(matches("Some text DROP TABLE test;")).toBe(true);
   });
 
-  it("blocks DELETE FROM patterns", () => {
-    expect(matches("DELETE FROM users")).toBe(true);
+  it("allows DROP TABLE/DATABASE in non-SQL context (no semicolon)", () => {
+    expect(matches("Documentation for DROP TABLE syntax")).toBe(false);
+    expect(matches("Explain DROP DATABASE")).toBe(false);
+  });
+
+  it("blocks DELETE FROM when followed by ; or WHERE (SQL context)", () => {
     expect(matches("DELETE FROM users;")).toBe(true);
-    expect(matches("DELETE FROM users WHERE id=1")).toBe(true); // now blocks qualified DELETEs
-    expect(matches("delete from orders")).toBe(true); // case insensitive
+    expect(matches("DELETE FROM users WHERE id=1")).toBe(true);
+    expect(matches("delete from orders WHERE 1=1")).toBe(true);
     expect(matches("Some preamble DELETE FROM items WHERE price > 100")).toBe(true);
+  });
+
+  it("allows natural language DELETE FROM (no semicolon or WHERE)", () => {
+    expect(matches("delete from the list")).toBe(false);
+    expect(matches("remove items delete from cache")).toBe(false);
   });
 
   it("blocks database connection strings", () => {

@@ -8,7 +8,7 @@ const RATE_LIMIT = 120; // requests per minute (sized for high-concurrency agent
 const REFILL_INTERVAL_MS = 60_000;
 
 // Cleanup old rate limiter buckets to prevent memory leak
-setInterval(() => {
+const cleanupInterval = setInterval(() => {
   const now = Date.now();
   for (const [key, bucket] of buckets) {
     if (now - bucket.lastRefill > 5 * 60_000) {
@@ -16,6 +16,7 @@ setInterval(() => {
     }
   }
 }, 60_000);
+cleanupInterval.unref();
 
 /** Sanitize agent name: alphanumeric, hyphens, underscores, spaces only. Max 50 chars. */
 export function sanitizeAgentName(name: string): string {
@@ -143,7 +144,7 @@ export function validateMessage(req: Request, res: Response, next: NextFunction)
     req.body.maxTurns = turns;
   }
 
-  // Layer 5: Apply blocked patterns on message() too, not just create().
+  // Apply blocked patterns on message() too, not just create().
   // Closes the gap where an agent gets an innocent initial prompt, then receives
   // blocked content via follow-up messages.
   if (hasPrompt) {
@@ -158,73 +159,44 @@ export function validateMessage(req: Request, res: Response, next: NextFunction)
   next();
 }
 
+const PATCH_STRING_SPECS: Array<{ key: string; maxLen: number; sanitize: "alphanumeric" | "name" }> = [
+  { key: "role", maxLen: 100, sanitize: "alphanumeric" },
+  { key: "currentTask", maxLen: 1000, sanitize: "alphanumeric" },
+  { key: "name", maxLen: 100, sanitize: "name" },
+];
+const PATCH_ALLOWED_KEYS = new Set([...PATCH_STRING_SPECS.map((s) => s.key), "dangerouslySkipPermissions"]);
+
 /** Validate PATCH /api/agents/:id request.
  *  Enforces whitelist of allowed fields (role, currentTask, name, dangerouslySkipPermissions) to prevent prompt injection.
  *  Rejects any fields not in the whitelist and enforces max lengths on string fields.
  */
 export function validatePatchAgent(req: Request, res: Response, next: NextFunction): void {
   const body = req.body ?? {};
-
-  // Define allowed fields and their max lengths
-  const ALLOWED_FIELDS = {
-    role: 100,
-    currentTask: 1000,
-    name: 100,
-    dangerouslySkipPermissions: null, // boolean, no max length
-  };
-
-  // Extract only allowed fields from the request body
   const sanitized: Record<string, unknown> = {};
   const providedFields = Object.keys(body);
 
-  // Check for unauthorized fields
-  const unauthorizedFields = providedFields.filter((field) => !Object.hasOwn(ALLOWED_FIELDS, field));
+  const unauthorizedFields = providedFields.filter((f) => !PATCH_ALLOWED_KEYS.has(f));
   if (unauthorizedFields.length > 0) {
     res.status(400).json({ error: `Unauthorized fields: ${unauthorizedFields.join(", ")}` });
     return;
   }
 
-  // Validate role if provided
-  if (body.role !== undefined) {
-    if (typeof body.role !== "string") {
-      res.status(400).json({ error: "role must be a string" });
+  for (const { key, maxLen, sanitize: sanitizeType } of PATCH_STRING_SPECS) {
+    const raw = body[key];
+    if (raw === undefined) continue;
+    if (typeof raw !== "string") {
+      res.status(400).json({ error: `${key} must be a string` });
       return;
     }
-    if (body.role.length > ALLOWED_FIELDS.role) {
-      res.status(400).json({ error: `role must not exceed ${ALLOWED_FIELDS.role} characters` });
+    if (raw.length > maxLen) {
+      res.status(400).json({ error: `${key} must not exceed ${maxLen} characters` });
       return;
     }
-    // Strip non-alphanumeric characters (including spaces and underscores are allowed)
-    sanitized.role = body.role.replace(/[^a-zA-Z0-9\-_ ]/g, "").trim() || undefined;
+    const value =
+      sanitizeType === "name" ? sanitizeAgentName(raw) : raw.replace(/[^a-zA-Z0-9\-_ ]/g, "").trim() || undefined;
+    sanitized[key] = value;
   }
 
-  // Validate currentTask if provided
-  if (body.currentTask !== undefined) {
-    if (typeof body.currentTask !== "string") {
-      res.status(400).json({ error: "currentTask must be a string" });
-      return;
-    }
-    if (body.currentTask.length > ALLOWED_FIELDS.currentTask) {
-      res.status(400).json({ error: `currentTask must not exceed ${ALLOWED_FIELDS.currentTask} characters` });
-      return;
-    }
-    sanitized.currentTask = body.currentTask;
-  }
-
-  // Validate name if provided
-  if (body.name !== undefined) {
-    if (typeof body.name !== "string") {
-      res.status(400).json({ error: "name must be a string" });
-      return;
-    }
-    if (body.name.length > ALLOWED_FIELDS.name) {
-      res.status(400).json({ error: `name must not exceed ${ALLOWED_FIELDS.name} characters` });
-      return;
-    }
-    sanitized.name = sanitizeAgentName(body.name);
-  }
-
-  // Validate dangerouslySkipPermissions if provided
   if (body.dangerouslySkipPermissions !== undefined) {
     if (typeof body.dangerouslySkipPermissions !== "boolean") {
       res.status(400).json({ error: "dangerouslySkipPermissions must be a boolean" });
@@ -233,7 +205,6 @@ export function validatePatchAgent(req: Request, res: Response, next: NextFuncti
     sanitized.dangerouslySkipPermissions = body.dangerouslySkipPermissions;
   }
 
-  // Replace request body with sanitized data
   req.body = sanitized;
   next();
 }

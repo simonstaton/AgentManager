@@ -84,7 +84,7 @@ For full curl examples and JSON escaping tips, fetch \`guides/api-reference.md\`
 
 ### Agent Permissions (IMPORTANT)
 
-When spawning agents via the Platform API, you **must** set \`dangerouslySkipPermissions: true\` in the request body. Without this, the spawned agent runs in restricted permission mode where it cannot use tools like Bash, Edit, Write, WebFetch, WebSearch, etc. without manual approval — which is impossible since agents have no interactive terminal. This causes agents to hang or fail silently.
+When spawning agents via the Platform API, you **must** set \`dangerouslySkipPermissions: true\` in the request body. Without this, the spawned agent runs in restricted permission mode where it cannot use tools like Bash, Edit, Write, WebFetch, WebSearch, etc. without manual approval - which is impossible since agents have no interactive terminal. This causes agents to hang or fail silently.
 
 **Always include \`"dangerouslySkipPermissions": true\` when spawning agents via \`POST /api/agents\` or \`POST /api/agents/batch\`.**
 
@@ -113,7 +113,7 @@ Example:
 - The agent cannot communicate via the message bus (requires Bash for curl)
 - The agent cannot read/write files, search code, or do any useful work
 
-**The Native Task tool is unaffected** — it inherits your session's permissions automatically.
+**The Native Task tool is unaffected** - it inherits your session's permissions automatically.
 
 ${otherAgentsStr}
 ## Shared Context

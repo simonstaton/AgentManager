@@ -39,6 +39,7 @@ import { TaskGraph } from "./src/task-graph";
 import { getContextDir } from "./src/utils/context";
 import { getContainerMemoryUsage } from "./src/utils/memory";
 import { rateLimitMiddleware } from "./src/validation";
+import { isAllowedWebhookUrl } from "./src/webhook-url";
 import { startWorktreeGC } from "./src/worktrees";
 
 /** Format a message for auto-delivery to an agent. */
@@ -46,7 +47,6 @@ function formatDeliveryPrompt(header: string, content: string, replyToId: string
   return `${header}\n<message-content>\n${content}\n</message-content>\n\n(Reply by sending a message back to agent ID: ${replyToId})`;
 }
 
-// Exception handlers will be set up after server and agentManager are initialized
 let exceptionHandlersSetup = false;
 
 const app = express();
@@ -282,10 +282,14 @@ agentManager.onIdle((agentId) => {
     if (!agentManager.canDeliver(agentId)) return;
 
     const agent = agentManager.get(agentId);
+    if (!agent) {
+      agentManager.deliveryDone(agentId);
+      return;
+    }
     const pending = messageBus.query({
       to: agentId,
       unreadBy: agentId,
-      agentRole: agent?.role,
+      agentRole: agent.role,
     });
 
     // Find the oldest actionable message (skip status messages)
@@ -338,9 +342,10 @@ app.get("/agents/:id{/*rest}", (_req, res, next) => {
 // Fallback: serve 404.html for unknown routes (Next.js generates this).
 // Falls back to a plain text message if UI isn't built yet.
 app.get("/{*splat}", (_req, res) => {
+  res.status(404);
   res.sendFile(path.join(uiDistPath, "404.html"), (err) => {
     if (err) {
-      res.status(200).send("AgentManager API is running. Build the UI with: cd ui && npm run build");
+      res.status(404).send("AgentManager API is running. Build the UI with: cd ui && npm run build");
     }
   });
 });
@@ -473,56 +478,37 @@ async function start() {
   if (!exceptionHandlersSetup) {
     exceptionHandlersSetup = true;
 
-    process.on("uncaughtException", (err) => {
-      console.error(`[FATAL] Uncaught exception at ${new Date().toISOString()}:`, err.stack || err);
-      console.error("[FATAL] Attempting graceful shutdown...");
+    const handleFatalError = (source: string, detail: unknown) => {
+      logger.error(`[FATAL] ${source} at ${new Date().toISOString()}`, {
+        error: detail instanceof Error ? detail.message : String(detail),
+        stack: detail instanceof Error ? detail.stack : undefined,
+      });
+      logger.error("[FATAL] Attempting graceful shutdown...");
 
-      // Close HTTP server
       server.close(() => {
-        console.error("[FATAL] HTTP server closed");
+        logger.error("[FATAL] HTTP server closed");
       });
 
-      // Destroy all agents
       try {
         agentManager.emergencyDestroyAll();
-      } catch (destroyErr) {
-        console.error(
-          "[FATAL] Error during agent destruction:",
-          destroyErr instanceof Error ? destroyErr.message : String(destroyErr),
-        );
+      } catch (destroyErr: unknown) {
+        logger.error("[FATAL] Error during agent destruction", {
+          error: destroyErr instanceof Error ? destroyErr.message : String(destroyErr),
+        });
       }
 
-      // Exit after a brief delay to allow logs to flush
       setTimeout(() => {
-        console.error("[FATAL] Exiting due to uncaught exception");
+        logger.error(`[FATAL] Exiting due to ${source.toLowerCase()}`);
         process.exit(1);
       }, 1000);
+    };
+
+    process.on("uncaughtException", (err) => {
+      handleFatalError("Uncaught exception", err);
     });
 
     process.on("unhandledRejection", (reason) => {
-      console.error(`[FATAL] Unhandled rejection at ${new Date().toISOString()}:`, reason);
-      console.error("[FATAL] Attempting graceful shutdown...");
-
-      // Close HTTP server
-      server.close(() => {
-        console.error("[FATAL] HTTP server closed");
-      });
-
-      // Destroy all agents
-      try {
-        agentManager.emergencyDestroyAll();
-      } catch (destroyErr) {
-        console.error(
-          "[FATAL] Error during agent destruction:",
-          destroyErr instanceof Error ? destroyErr.message : String(destroyErr),
-        );
-      }
-
-      // Exit after a brief delay to allow logs to flush
-      setTimeout(() => {
-        console.error("[FATAL] Exiting due to unhandled rejection");
-        process.exit(1);
-      }, 1000);
+      handleFatalError("Unhandled rejection", reason);
     });
   }
 
@@ -585,6 +571,10 @@ async function start() {
     // Wire scheduler execution context and start
     scheduler.setExecutionContext({
       sendWebhook: async (url, body) => {
+        if (!isAllowedWebhookUrl(url)) {
+          logger.warn("[scheduler] Webhook URL rejected (SSRF protection)", { url });
+          return;
+        }
         await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

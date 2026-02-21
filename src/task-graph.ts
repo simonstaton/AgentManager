@@ -98,7 +98,6 @@ export const MAX_TIMEOUT_MS = 3_600_000;
 export class TaskGraph {
   private db: Database.Database;
 
-  // Prepared statements
   private insertStmt: Database.Statement;
   private updateStatusStmt: Database.Statement;
   private assignStmt: Database.Statement;
@@ -398,19 +397,37 @@ export class TaskGraph {
       )`);
     }
 
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    // When filtering by capability we need to fetch more rows then filter (JSON column);
+    // apply limit after filter so caller gets up to `limit` matching tasks.
     const limit = query?.limit ?? 100;
+    const cap = query?.requiredCapability;
+    const fetchLimit = cap ? Math.min(limit * 3, 500) : limit; // heuristic to get enough rows
 
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
     const rows = this.db
       .prepare(`SELECT * FROM tasks ${where} ORDER BY priority ASC, created_at ASC LIMIT @limit`)
-      .all({ ...params, limit }) as Array<Record<string, unknown>>;
+      .all({ ...params, limit: fetchLimit }) as Array<Record<string, unknown>>;
 
-    let tasks = rows.map((r) => this.rowToTask(r));
+    if (rows.length === 0) return [];
 
-    // Post-filter for required capability (stored as JSON, can't easily filter in SQL)
-    if (query?.requiredCapability) {
-      const cap = query.requiredCapability;
+    // Batch-load dependencies to avoid N+1 (H4)
+    const ids = rows.map((r) => r.id as string);
+    const placeholders = ids.map(() => "?").join(", ");
+    const depRows = this.db
+      .prepare(`SELECT task_id, depends_on_id FROM task_dependencies WHERE task_id IN (${placeholders})`)
+      .all(...ids) as Array<{ task_id: string; depends_on_id: string }>;
+    const depsByTask = new Map<string, string[]>();
+    for (const d of depRows) {
+      const arr = depsByTask.get(d.task_id) ?? [];
+      arr.push(d.depends_on_id);
+      depsByTask.set(d.task_id, arr);
+    }
+
+    let tasks = rows.map((r) => this.rowToTask(r, depsByTask.get(r.id as string)));
+
+    if (cap) {
       tasks = tasks.filter((t) => t.requiredCapabilities.includes(cap));
+      tasks = tasks.slice(0, limit);
     }
 
     return tasks;
@@ -848,9 +865,9 @@ export class TaskGraph {
     return blocked;
   }
 
-  private rowToTask(row: Record<string, unknown>): TaskNode {
+  private rowToTask(row: Record<string, unknown>, deps?: string[]): TaskNode {
     const id = row.id as string;
-    const deps = this.getDepStmt.all(id) as Array<{ depends_on_id: string }>;
+    const depIds = deps ?? (this.getDepStmt.all(id) as Array<{ depends_on_id: string }>).map((d) => d.depends_on_id);
 
     return {
       id,
@@ -866,7 +883,7 @@ export class TaskGraph {
         : null,
       acceptanceCriteria: (row.acceptance_criteria as string) ?? null,
       requiredCapabilities: JSON.parse(row.required_capabilities as string) as string[],
-      dependsOn: deps.map((d) => d.depends_on_id),
+      dependsOn: depIds,
       version: row.version as number,
       retryCount: row.retry_count as number,
       maxRetries: row.max_retries as number,

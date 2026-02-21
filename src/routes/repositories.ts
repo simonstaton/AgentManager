@@ -4,11 +4,12 @@ import path from "node:path";
 import { promisify } from "node:util";
 import express, { type Request, type Response } from "express";
 import type { AgentManager } from "../agents";
+import { logger } from "../logger";
 
 const execFileAsync = promisify(execFile);
 const PERSISTENT_REPOS = "/persistent/repos";
 
-/** Set of targetDirs currently being cloned — prevents concurrent duplicate clones. */
+/** Set of targetDirs currently being cloned - prevents concurrent duplicate clones. */
 const cloningInProgress = new Set<string>();
 
 /** Extract and sanitize a repository name from an HTTPS or SSH git URL. */
@@ -115,7 +116,7 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
 
       res.json({ repositories });
     } catch (err) {
-      console.error("[repositories] Failed to list repos:", err);
+      logger.error("[repositories] Failed to list repos", { error: err instanceof Error ? err.message : String(err) });
       res.status(500).json({ error: "Failed to list repositories" });
     }
   });
@@ -200,14 +201,14 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
       cloningInProgress.delete(resolvedTarget);
       if (code === 0) {
         sendEvent({ type: "clone-complete", repo: repoName });
-        console.log(`[repositories] Cloned ${trimmedUrl} -> ${targetDir}`);
+        logger.info(`[repositories] Cloned ${trimmedUrl} -> ${targetDir}`);
       } else {
         // Clean up partial clone
         try {
           fs.rmSync(targetDir, { recursive: true, force: true });
         } catch {}
         sendEvent({ type: "clone-error", error: `Clone failed (exit code ${code})`, details: stderr.slice(-500) });
-        console.error(`[repositories] Clone failed for ${trimmedUrl}: exit code ${code}`);
+        logger.error(`[repositories] Clone failed for ${trimmedUrl}: exit code ${code}`);
       }
       res.end();
     });
@@ -218,7 +219,9 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
         fs.rmSync(targetDir, { recursive: true, force: true });
       } catch {}
       sendEvent({ type: "clone-error", error: `Clone process error: ${err.message}` });
-      console.error(`[repositories] Clone process error for ${trimmedUrl}:`, err);
+      logger.error(`[repositories] Clone process error for ${trimmedUrl}`, {
+        error: err instanceof Error ? err.message : String(err),
+      });
       res.end();
     });
 
@@ -253,7 +256,7 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
     if (activeAgents.length > 0) {
       const agentNames = activeAgents.map((a) => a.name).join(", ");
       res.status(409).json({
-        error: `Cannot remove repository — ${activeAgents.length} active agent(s) are using it: ${agentNames}. Destroy these agents first.`,
+        error: `Cannot remove repository - ${activeAgents.length} active agent(s) are using it: ${agentNames}. Destroy these agents first.`,
         activeAgents,
       });
       return;
@@ -271,10 +274,12 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
       }
 
       fs.rmSync(repoPath, { recursive: true, force: true });
-      console.log(`[repositories] Removed repository: ${dirName}`);
+      logger.info(`[repositories] Removed repository: ${dirName}`);
       res.json({ ok: true });
     } catch (err) {
-      console.error(`[repositories] Failed to remove ${dirName}:`, err);
+      logger.error(`[repositories] Failed to remove ${dirName}`, {
+        error: err instanceof Error ? err.message : String(err),
+      });
       res.status(500).json({ error: "Failed to remove repository" });
     }
   });

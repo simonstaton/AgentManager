@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
+import { logger } from "./logger";
 import { errorMessage } from "./types";
 
 // Always store SQLite on local filesystem - WAL mode requires POSIX mmap/flock
@@ -90,7 +91,7 @@ export class CostTracker {
     try {
       this.upsertStmt.run(record);
     } catch (err: unknown) {
-      console.warn("[cost-tracker] Failed to upsert:", errorMessage(err));
+      logger.warn("[cost-tracker] Failed to upsert", { error: errorMessage(err) });
     }
   }
 
@@ -99,7 +100,7 @@ export class CostTracker {
     try {
       this.finalizeStmt.run({ agentId, closedAt: new Date().toISOString() });
     } catch (err: unknown) {
-      console.warn("[cost-tracker] Failed to finalize:", errorMessage(err));
+      logger.warn("[cost-tracker] Failed to finalize", { error: errorMessage(err) });
     }
   }
 

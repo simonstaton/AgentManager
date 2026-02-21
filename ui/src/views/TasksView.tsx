@@ -355,9 +355,6 @@ export function TasksView() {
 
   const apiRef = useRef(api);
   apiRef.current = api;
-  const actionInFlight = useRef(false);
-
-  const agentMap = useMemo(() => new Map(agents.map((a) => [a.id, a.name])), [agents]);
 
   const load = useCallback(async () => {
     try {
@@ -381,9 +378,29 @@ export function TasksView() {
     return () => clearInterval(interval);
   }, [load]);
 
+  const agentMap = useMemo(() => new Map(agents.map((a) => [a.id, a.name])), [agents]);
+
+  /** Run an async action with busy guard and load refresh. Returns a no-arg function so callers can do runAction("x")(fn)(). */
+  const runAction = useCallback(
+    (actionKey: string) =>
+      (fn: () => Promise<unknown>): (() => Promise<void>) =>
+      async () => {
+        if (busyAction !== null) return;
+        setBusyAction(actionKey);
+        try {
+          await fn();
+          await load();
+        } catch (err: unknown) {
+          setError(err instanceof Error ? err.message : "Failed");
+        } finally {
+          setBusyAction(null);
+        }
+      },
+    [busyAction, load],
+  );
+
   const handleCreate = async (data: CreateFormData) => {
-    if (actionInFlight.current) return;
-    actionInFlight.current = true;
+    if (busyAction !== null) return;
     setSubmitting(true);
     try {
       await api.createTask(data);
@@ -393,108 +410,39 @@ export function TasksView() {
       setError(err instanceof Error ? err.message : "Failed to create task");
     } finally {
       setSubmitting(false);
-      actionInFlight.current = false;
     }
   };
 
-  const handleAssign = async (taskId: string, agentId: string) => {
-    if (actionInFlight.current) return;
-    actionInFlight.current = true;
-    setBusyAction("assign");
-    try {
-      await api.assignTask(taskId, agentId);
-      await load();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to assign task");
-    } finally {
-      setBusyAction(null);
-      actionInFlight.current = false;
-    }
-  };
+  const handleAssign = (taskId: string, agentId: string) =>
+    runAction("assign")(() => api.assignTask(taskId, agentId))();
 
-  const handleCancel = async (taskId: string) => {
-    if (actionInFlight.current) return;
-    actionInFlight.current = true;
-    setBusyAction("cancel");
-    try {
-      await api.cancelTask(taskId);
-      await load();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to cancel task");
-    } finally {
-      setBusyAction(null);
-      actionInFlight.current = false;
-    }
-  };
+  const handleCancel = (taskId: string) => runAction("cancel")(() => api.cancelTask(taskId))();
 
-  const handleRetry = async (taskId: string) => {
-    if (actionInFlight.current) return;
-    actionInFlight.current = true;
-    setBusyAction("retry");
-    try {
-      await api.retryTask(taskId);
-      await load();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to retry task");
-    } finally {
-      setBusyAction(null);
-      actionInFlight.current = false;
-    }
-  };
+  const handleRetry = (taskId: string) => runAction("retry")(() => api.retryTask(taskId))();
 
-  const handleDelete = async (taskId: string) => {
-    if (actionInFlight.current) return;
-    actionInFlight.current = true;
-    setBusyAction("delete");
-    try {
+  const handleDelete = (taskId: string) =>
+    runAction("delete")(async () => {
       await api.deleteTask(taskId);
       if (expandedId === taskId) setExpandedId(null);
-      await load();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to delete task");
-    } finally {
-      setBusyAction(null);
-      actionInFlight.current = false;
-    }
-  };
+    })();
 
-  const handleClearAll = async () => {
-    if (actionInFlight.current) return;
+  const handleClearAll = () => {
     if (!confirm("Delete ALL tasks? This cannot be undone.")) return;
-    actionInFlight.current = true;
-    setBusyAction("clearAll");
-    try {
+    runAction("clearAll")(async () => {
       await api.clearAllTasks();
       setExpandedId(null);
-      await load();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to clear tasks");
-    } finally {
-      setBusyAction(null);
-      actionInFlight.current = false;
-    }
+    })();
   };
 
-  const handleTriggerAssignment = async () => {
-    if (actionInFlight.current) return;
-    actionInFlight.current = true;
-    setBusyAction("triggerAssign");
-    try {
+  const handleTriggerAssignment = () =>
+    runAction("triggerAssign")(async () => {
       const result = await api.triggerAssignment();
-      const count = result.assignments.length;
-      if (count === 0) {
+      if (result.assignments.length === 0) {
         setError("No assignments made -- no matching idle agents or pending tasks");
       } else {
         setError(null);
       }
-      await load();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to trigger assignment");
-    } finally {
-      setBusyAction(null);
-      actionInFlight.current = false;
-    }
-  };
+    })();
 
   return (
     <div className="flex flex-col h-screen bg-zinc-950 text-zinc-100">
@@ -798,7 +746,7 @@ export function TasksView() {
                                   e.stopPropagation();
                                   handleCancel(task.id);
                                 }}
-                                disabled={actionInFlight.current}
+                                disabled={busyAction !== null}
                                 className="px-1.5 py-0.5 text-xs bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded disabled:opacity-50"
                               >
                                 Cancel
@@ -811,7 +759,7 @@ export function TasksView() {
                                   e.stopPropagation();
                                   handleRetry(task.id);
                                 }}
-                                disabled={actionInFlight.current}
+                                disabled={busyAction !== null}
                                 className="px-1.5 py-0.5 text-xs bg-amber-700 hover:bg-amber-600 text-white rounded disabled:opacity-50"
                               >
                                 Retry
@@ -826,7 +774,7 @@ export function TasksView() {
                                   e.stopPropagation();
                                   handleDelete(task.id);
                                 }}
-                                disabled={actionInFlight.current}
+                                disabled={busyAction !== null}
                                 className="px-1.5 py-0.5 text-xs bg-red-800/60 hover:bg-red-700 text-red-300 rounded disabled:opacity-50"
                               >
                                 Del

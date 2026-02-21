@@ -17,6 +17,7 @@ export function walkDir(dir: string): string[] {
   const results: string[] = [];
   try {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (IGNORED.has(entry.name)) continue;
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         results.push(...walkDir(fullPath));

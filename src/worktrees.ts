@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import { logger } from "./logger";
 import { errorMessage } from "./types";
 
 const execFileAsync = promisify(execFile);
@@ -95,7 +96,7 @@ export async function pruneAllWorktrees(
             try {
               await git(["-C", repoPath, "worktree", "remove", "--force", wtPath]);
               result.pruned++;
-              console.log(`[worktree] Pruned orphaned worktree: ${wtPath} (repo: ${repo})`);
+              logger.info(`[worktree] Pruned orphaned worktree: ${wtPath} (repo: ${repo})`);
             } catch (err: unknown) {
               result.errors.push(`Failed to remove ${wtPath}: ${errorMessage(err)}`);
             }
@@ -122,11 +123,11 @@ export function startWorktreeGC(getActiveWorkspaceDirs: () => Set<string>): Retu
   pruneAllWorktrees(getActiveWorkspaceDirs())
     .then((initial) => {
       if (initial.pruned > 0) {
-        console.log(`[worktree] Startup GC: pruned ${initial.pruned} stale worktrees`);
+        logger.info(`[worktree] Startup GC: pruned ${initial.pruned} stale worktrees`);
       }
     })
     .catch((err) => {
-      console.error("[worktree] Startup GC error:", err);
+      logger.error("[worktree] Startup GC error", { error: err instanceof Error ? err.message : String(err) });
     });
 
   return setInterval(
@@ -134,11 +135,11 @@ export function startWorktreeGC(getActiveWorkspaceDirs: () => Set<string>): Retu
       pruneAllWorktrees(getActiveWorkspaceDirs())
         .then((result) => {
           if (result.pruned > 0) {
-            console.log(`[worktree] Periodic GC: pruned ${result.pruned} stale worktrees`);
+            logger.info(`[worktree] Periodic GC: pruned ${result.pruned} stale worktrees`);
           }
         })
         .catch((err) => {
-          console.error("[worktree] GC error:", err);
+          logger.error("[worktree] GC error", { error: err instanceof Error ? err.message : String(err) });
         });
     },
     10 * 60 * 1000,

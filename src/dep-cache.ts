@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
+import { logger } from "./logger";
 import { errorMessage } from "./types";
 
 /** Persistent paths for dependency caches. */
@@ -55,7 +56,7 @@ function signalReady(): void {
  */
 export function initDepCache(): void {
   if (!hasPersistentCache()) {
-    console.log("[dep-cache] No persistent storage - cache disabled, agents will use local installs");
+    logger.info("[dep-cache] No persistent storage - cache disabled, agents will use local installs");
     signalReady();
     return;
   }
@@ -73,17 +74,19 @@ export function initDepCache(): void {
         timeout: 10_000,
         stdio: "pipe",
       });
-      console.log(`[dep-cache] pnpm store configured at ${DEP_CACHE_PATHS.pnpmStore}`);
+      logger.info(`[dep-cache] pnpm store configured at ${DEP_CACHE_PATHS.pnpmStore}`);
     } catch (err: unknown) {
       // pnpm may not be installed in dev - that's OK, npm cache still works
-      console.warn("[dep-cache] Failed to configure pnpm store (pnpm may not be installed):", errorMessage(err));
+      logger.warn("[dep-cache] Failed to configure pnpm store (pnpm may not be installed)", {
+        error: errorMessage(err),
+      });
     }
 
-    console.log("[dep-cache] Cache directories initialized");
-    console.log(`[dep-cache]   npm cache:   ${DEP_CACHE_PATHS.npmCache}`);
-    console.log(`[dep-cache]   pnpm store:  ${DEP_CACHE_PATHS.pnpmStore}`);
+    logger.info("[dep-cache] Cache directories initialized");
+    logger.info(`[dep-cache]   npm cache:   ${DEP_CACHE_PATHS.npmCache}`);
+    logger.info(`[dep-cache]   pnpm store:  ${DEP_CACHE_PATHS.pnpmStore}`);
   } catch (err: unknown) {
-    console.warn("[dep-cache] Failed to initialize cache directories:", errorMessage(err));
+    logger.warn("[dep-cache] Failed to initialize cache directories", { error: errorMessage(err) });
   }
 
   signalReady();

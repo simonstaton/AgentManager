@@ -12,7 +12,6 @@ function getSecretPatterns(): string[] {
     "API_KEY",
     "NOTION_API_KEY",
     "SLACK_TOKEN",
-    "GCS_BUCKET",
   ];
 
   const values: string[] = [];
@@ -43,7 +42,7 @@ export function resetSanitizeCache(): void {
 function sanitizeString(input: string, patterns: string[]): string {
   let result = input;
   for (const secret of patterns) {
-    result = result.split(secret).join(REDACTED);
+    result = result.replaceAll(secret, REDACTED);
   }
   return result;
 }

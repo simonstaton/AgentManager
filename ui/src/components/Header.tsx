@@ -5,7 +5,16 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../auth";
 import { useApi } from "../hooks/useApi";
 import type { KillSwitchState } from "../hooks/useKillSwitch";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { LinearWorkflowDialog } from "./LinearWorkflowDialog";
+
+const NAV_LINKS: Array<{ path: string; label: string; active: (pathname: string) => boolean }> = [
+  { path: "/graph", label: "Graph", active: (p) => p === "/graph" },
+  { path: "/costs", label: "Costs", active: (p) => p === "/costs" },
+  { path: "/tasks", label: "Tasks", active: (p) => p === "/tasks" },
+  { path: "/messages", label: "Messages", active: (p) => p === "/messages" },
+  { path: "/settings", label: "Settings", active: (p) => p.startsWith("/settings") },
+];
 
 interface HeaderProps {
   agentCount: number;
@@ -100,66 +109,19 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
           )}
 
           <nav aria-label="Main navigation" className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => router.push("/graph")}
-              aria-current={pathname === "/graph" ? "page" : undefined}
-              className={`px-3 py-1.5 text-sm rounded transition-colors ${
-                pathname === "/graph"
-                  ? "bg-zinc-700 text-zinc-100"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
-              }`}
-            >
-              Graph
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push("/costs")}
-              aria-current={pathname === "/costs" ? "page" : undefined}
-              className={`px-3 py-1.5 text-sm rounded transition-colors ${
-                pathname === "/costs"
-                  ? "bg-zinc-700 text-zinc-100"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
-              }`}
-            >
-              Costs
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push("/tasks")}
-              aria-current={pathname === "/tasks" ? "page" : undefined}
-              className={`px-3 py-1.5 text-sm rounded transition-colors ${
-                pathname === "/tasks"
-                  ? "bg-zinc-700 text-zinc-100"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
-              }`}
-            >
-              Tasks
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push("/messages")}
-              aria-current={pathname === "/messages" ? "page" : undefined}
-              className={`px-3 py-1.5 text-sm rounded transition-colors ${
-                pathname === "/messages"
-                  ? "bg-zinc-700 text-zinc-100"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
-              }`}
-            >
-              Messages
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push("/settings")}
-              aria-current={pathname.startsWith("/settings") ? "page" : undefined}
-              className={`px-3 py-1.5 text-sm rounded transition-colors ${
-                pathname.startsWith("/settings")
-                  ? "bg-zinc-700 text-zinc-100"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
-              }`}
-            >
-              Settings
-            </button>
+            {NAV_LINKS.map(({ path: href, label, active }) => (
+              <button
+                key={href}
+                type="button"
+                onClick={() => router.push(href)}
+                aria-current={active(pathname) ? "page" : undefined}
+                className={`px-3 py-1.5 text-sm rounded transition-colors ${
+                  active(pathname) ? "bg-zinc-700 text-zinc-100" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
             <button
               type="button"
               onClick={logout}
@@ -171,108 +133,68 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
         </div>
       </header>
 
-      {/* Full-screen confirmation modal - rendered outside the header so it covers the whole page */}
-      {confirming && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="kill-switch-dialog-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setConfirming(false);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") setConfirming(false);
-          }}
-        >
-          <div className="bg-zinc-900 border border-red-800 rounded-lg shadow-2xl max-w-md w-full mx-4 p-6">
-            {/* Header */}
-            <div className="flex items-start gap-3 mb-4">
-              <span className="text-red-500 text-2xl leading-none mt-0.5" aria-hidden="true">
-                &#9888;
+      <ConfirmDialog
+        open={confirming}
+        onConfirm={handleConfirmKill}
+        onCancel={() => setConfirming(false)}
+        title="Activate Emergency Kill Switch?"
+        description="This action is immediate and cannot be undone without manual re-authentication."
+        variant="destructive"
+        confirmLabel={killSwitch.loading ? "Activating..." : "Yes, kill all agents"}
+        cancelLabel="Cancel"
+        confirmDisabled={killSwitch.loading}
+      >
+        <p className="text-sm text-zinc-400 mt-1 mb-4">
+          This action is immediate and cannot be undone without manual re-authentication.
+        </p>
+        <div className="bg-zinc-950 border border-zinc-800 rounded-md p-4 mb-4">
+          <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
+            What will happen immediately:
+          </p>
+          <ul className="space-y-2">
+            <li className="flex items-start gap-2 text-sm text-zinc-300">
+              <span className="text-red-500 mt-0.5 flex-shrink-0">&#8226;</span>
+              <span>
+                All {agentCount > 0 ? agentCount : ""} running agent{agentCount !== 1 ? "s" : ""} will be{" "}
+                <strong className="text-red-400">force-killed</strong> (SIGKILL) - any in-progress work is lost
               </span>
-              <div>
-                <h2 id="kill-switch-dialog-title" className="text-base font-semibold text-red-400">
-                  Activate Emergency Kill Switch?
-                </h2>
-                <p className="text-sm text-zinc-400 mt-1">
-                  This action is immediate and cannot be undone without manual re-authentication.
-                </p>
-              </div>
-            </div>
-
-            {/* What will happen */}
-            <div className="bg-zinc-950 border border-zinc-800 rounded-md p-4 mb-5">
-              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-                What will happen immediately:
-              </p>
-              <ul className="space-y-2">
-                <li className="flex items-start gap-2 text-sm text-zinc-300">
-                  <span className="text-red-500 mt-0.5 flex-shrink-0">&#8226;</span>
-                  <span>
-                    All {agentCount > 0 ? agentCount : ""} running agent{agentCount !== 1 ? "s" : ""} will be{" "}
-                    <strong className="text-red-400">force-killed</strong> (SIGKILL) - any in-progress work is lost
-                  </span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-zinc-300">
-                  <span className="text-red-500 mt-0.5 flex-shrink-0">&#8226;</span>
-                  <span>
-                    All agent state files are <strong className="text-red-400">permanently deleted</strong> - agents
-                    cannot be restored
-                  </span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-zinc-300">
-                  <span className="text-red-500 mt-0.5 flex-shrink-0">&#8226;</span>
-                  <span>
-                    All API tokens are <strong className="text-red-400">invalidated</strong> - every session (including
-                    this one) will require re-login
-                  </span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-zinc-300">
-                  <span className="text-red-500 mt-0.5 flex-shrink-0">&#8226;</span>
-                  <span>
-                    New agents <strong className="text-red-400">cannot be spawned</strong> until you manually deactivate
-                    the kill switch
-                  </span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-zinc-300">
-                  <span className="text-red-500 mt-0.5 flex-shrink-0">&#8226;</span>
-                  <span>
-                    Kill switch state is <strong className="text-red-400">persisted to GCS</strong> - it survives
-                    container restarts
-                  </span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Error */}
-            {killSwitch.error && (
-              <p className="text-xs text-red-400 mb-4 p-2 bg-red-950/50 border border-red-800 rounded">
-                {killSwitch.error}
-              </p>
-            )}
-
-            {/* Actions */}
-            <div className="flex gap-3 justify-end">
-              <button
-                type="button"
-                onClick={() => setConfirming(false)}
-                className="px-4 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmKill}
-                disabled={killSwitch.loading}
-                className="px-4 py-2 text-sm font-semibold bg-red-700 hover:bg-red-600 text-white rounded transition-colors disabled:opacity-50"
-              >
-                {killSwitch.loading ? "Activating..." : "Yes, kill all agents"}
-              </button>
-            </div>
-          </div>
+            </li>
+            <li className="flex items-start gap-2 text-sm text-zinc-300">
+              <span className="text-red-500 mt-0.5 flex-shrink-0">&#8226;</span>
+              <span>
+                All agent state files are <strong className="text-red-400">permanently deleted</strong> - agents cannot
+                be restored
+              </span>
+            </li>
+            <li className="flex items-start gap-2 text-sm text-zinc-300">
+              <span className="text-red-500 mt-0.5 flex-shrink-0">&#8226;</span>
+              <span>
+                All API tokens are <strong className="text-red-400">invalidated</strong> - every session (including this
+                one) will require re-login
+              </span>
+            </li>
+            <li className="flex items-start gap-2 text-sm text-zinc-300">
+              <span className="text-red-500 mt-0.5 flex-shrink-0">&#8226;</span>
+              <span>
+                New agents <strong className="text-red-400">cannot be spawned</strong> until you manually deactivate the
+                kill switch
+              </span>
+            </li>
+            <li className="flex items-start gap-2 text-sm text-zinc-300">
+              <span className="text-red-500 mt-0.5 flex-shrink-0">&#8226;</span>
+              <span>
+                Kill switch state is <strong className="text-red-400">persisted to GCS</strong> - it survives container
+                restarts
+              </span>
+            </li>
+          </ul>
         </div>
-      )}
+        {killSwitch.error && (
+          <p className="text-xs text-red-400 mb-4 p-2 bg-red-950/50 border border-red-800 rounded">
+            {killSwitch.error}
+          </p>
+        )}
+      </ConfirmDialog>
 
       {/* Linear workflow dialog */}
       <LinearWorkflowDialog
