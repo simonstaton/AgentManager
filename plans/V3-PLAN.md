@@ -6,38 +6,7 @@
 
 ## Status: Substantially Complete
 
-V3 implementation is complete across all five phases, with two larger features planned for future work. See the completion summary below and the dedicated plan documents for remaining items.
-
 ---
-
-## Phase 1: Stability and Performance - COMPLETE
-
-| Item | Status | PR |
-|---|---|---|
-| 1.1 AgentTerminal Output Virtualisation | Done | #158 |
-| 1.2 Agent Process Isolation | Done | #158 |
-| 1.3 npm Install Caching / Fast Starts | Done | #169 |
-| 1.4 Agent Status Detection | Done | #158 |
-| 1.5 Persistent Cost Tracking | Done | #158 |
-
-## Phase 2: Agent Control and UX Polish - COMPLETE
-
-| Item | Status | PR |
-|---|---|---|
-| 2.1 Pause and Resume | Done | #158 |
-| 2.2 Agent Metadata Panel | Done | #167 |
-| 2.3 Confidence Grading for Agent Fixes | Done | #170 |
-| 2.4 UI / UX Cleanup (em-dashes, cursor, copy) | Done | #168 |
-
-## Phase 3: Coordination Intelligence - COMPLETE
-
-| Item | Status | PR |
-|---|---|---|
-| 3.1 Structured World Model (Task Graph) | Done | #158 |
-| 3.2 Orchestrator with Plan-Execute-Observe | Done | #158 |
-| 3.3 Capability-Aware Routing | Done | #158 |
-| 3.4 Structured Inter-Agent Contracts | Done | #158 |
-| 3.5 Failure Propagation and Recovery | Done | #158 |
 
 ## Phase 4: Observability and Memory - PARTIAL
 
