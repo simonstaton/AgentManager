@@ -12,6 +12,8 @@ function getSecretPatterns(): string[] {
     "API_KEY",
     "NOTION_API_KEY",
     "SLACK_TOKEN",
+    "FIGMA_TOKEN",
+    "LINEAR_API_KEY",
   ];
 
   const values: string[] = [];

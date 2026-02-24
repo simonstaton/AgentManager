@@ -2,6 +2,8 @@
 
 Contributions are welcome. Fork the repo, make your changes, and open a pull request.
 
+**Important:** The only supported way to run AgentManager for use is **Docker** (`npm run docker:local`). Running the server or UI outside Docker (e.g. `npm run dev`, `npm start`) is unsupported and unsafe. The commands below that start a dev server are for **developing the codebase only**—not for running the product.
+
 ## Finding work
 
 - Browse [open issues](https://github.com/simonstaton/AgentManager/issues) labelled `good first issue` for approachable starting points.
@@ -50,13 +52,15 @@ JWT_SECRET=any-random-string
 GITHUB_TOKEN=github_pat_...
 ```
 
-Run the full setup:
+For **running the app** (to test your changes end-to-end), use Docker:
 
 ```bash
-npm run setup
+npm run docker:local
 ```
 
-This installs dependencies, creates the shared context directory, and starts the dev server. Open `http://localhost:5173` and log in with your `API_KEY`.
+Then open `http://localhost:8080` and log in with your `API_KEY`. Do not use `npm run setup` or `npm run dev` to run the product.
+
+For **UI development** (hot reload while editing frontend code), you may run `npm run setup` once to install deps and create shared-context, then `npm run dev` to start the dev server at `http://localhost:5173`. This is for development only and is not a supported way to run AgentManager.
 
 ## Development workflow
 
@@ -64,8 +68,9 @@ This installs dependencies, creates the shared context directory, and starts the
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start the server and Vite UI dev server concurrently |
-| `npm run dev:server` | Start the server only (without the UI) |
+| `npm run docker:local` | **Run the app (supported).** Build and start via Docker at http://localhost:8080 |
+| `npm run dev` | Dev server + Vite (development only; do not use to run the product) |
+| `npm run dev:server` | Server only (development only; do not use to run the product) |
 | `npm test` | Run all tests once |
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run lint` | Lint with Biome |
@@ -145,7 +150,7 @@ Always reference the issue your PR resolves:
 
 ### Before submitting
 
-Run the full quality check:
+Run the full quality check. **CI should use `npm run check`**; do not rely on `npm start` or `npm run dev` to run the app.
 
 ```bash
 npm run check

@@ -35,6 +35,13 @@ function isValidGitUrl(url: string): boolean {
   return false;
 }
 
+/** Redact credential-like URLs (e.g. https://user:token@host) from text before sending over SSE or logs. */
+function redactCredentialUrls(text: string): string {
+  return text.replace(/https?:\/\/[^/]+@/g, (m) =>
+    m.startsWith("http:") ? "http://[REDACTED]@" : "https://[REDACTED]@",
+  );
+}
+
 /** Get the remote origin URL for a bare repo. */
 async function getRemoteUrl(repoPath: string): Promise<string | null> {
   try {
@@ -149,7 +156,7 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
   });
 
   // Clone a new repository (SSE streaming for progress). Uses global GitHub token from Settings if set.
-  router.post("/api/repositories", (req: Request, res: Response) => {
+  router.post("/api/repositories", requireHumanUser, (req: Request, res: Response) => {
     const { url } = req.body ?? {};
 
     if (!url || typeof url !== "string") {
@@ -239,21 +246,21 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
 
     proc.stdout?.on("data", (chunk: Buffer) => {
       const text = chunk.toString().trim();
-      if (text) sendEvent({ type: "clone-progress", text });
+      if (text) sendEvent({ type: "clone-progress", text: redactCredentialUrls(text) });
     });
 
     proc.stderr?.on("data", (chunk: Buffer) => {
       const text = chunk.toString().trim();
       stderr += `${text}\n`;
-      // git clone --progress writes progress to stderr
-      if (text) sendEvent({ type: "clone-progress", text });
+      // git clone --progress writes progress to stderr; redact any URL that might contain credentials
+      if (text) sendEvent({ type: "clone-progress", text: redactCredentialUrls(text) });
     });
 
     proc.on("close", (code) => {
       cloningInProgress.delete(resolvedTarget);
       if (code === 0) {
         sendEvent({ type: "clone-complete", repo: repoName });
-        logger.info(`[repositories] Cloned ${trimmedUrl} -> ${targetDir}`);
+        logger.info(`[repositories] Cloned ${displayUrl} -> ${targetDir}`);
       } else {
         // Clean up partial clone
         try {
@@ -261,8 +268,10 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
         } catch {
           /* ignore rm errors */
         }
-        sendEvent({ type: "clone-error", error: `Clone failed (exit code ${code})`, details: stderr.slice(-500) });
-        logger.error(`[repositories] Clone failed for ${trimmedUrl}: exit code ${code}`);
+        sendEvent({ type: "clone-error", error: `Clone failed (exit code ${code})` });
+        logger.error(`[repositories] Clone failed for ${displayUrl}: exit code ${code}`, {
+          stderr: redactCredentialUrls(stderr.slice(-500)),
+        });
       }
       res.end();
     });
@@ -272,10 +281,10 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
       try {
         fs.rmSync(targetDir, { recursive: true, force: true });
       } catch {
-        /* ignore readdir */
+        /* ignore rm errors */
       }
       sendEvent({ type: "clone-error", error: `Clone process error: ${errorMessage(err)}` });
-      logger.error(`[repositories] Clone process error for ${trimmedUrl}`, {
+      logger.error(`[repositories] Clone process error for ${displayUrl}`, {
         error: errorMessage(err),
       });
       res.end();
@@ -290,7 +299,7 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
   });
 
   // Delete a repository
-  router.delete("/api/repositories/:name", async (req: Request, res: Response) => {
+  router.delete("/api/repositories/:name", requireHumanUser, async (req: Request, res: Response) => {
     const name = req.params.name as string;
     const dirName = name.endsWith(".git") ? name : `${name}.git`;
     const repoPath = path.join(PERSISTENT_REPOS, dirName);

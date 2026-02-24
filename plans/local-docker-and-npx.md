@@ -29,7 +29,7 @@
 **Optional local-mode tweaks (later):**
 
 - Env override for repos dir when not using `/persistent` (e.g. `PERSISTENT_REPOS` or “repos dir” from env).
-- Document “Local development” / “Local mode” in README with minimal env and volume layout.
+- Document local mode in README (Docker only; no non-Docker run).
 
 ---
 
@@ -57,7 +57,7 @@
 
 **Shared context:**
 
-- Read/write via `SHARED_CONTEXT_DIR` (default `/shared-context`; with FUSE, entrypoint sets `/persistent/shared-context`).
+- Read/write via `SHARED_CONTEXT_DIR` (default `/shared-context`; when `/persistent` is mounted—e.g. Docker volume or FUSE—entrypoint sets `/persistent/shared-context`).
 - With no `GCS_BUCKET`: no sync; all file-based. For local Docker, use `SHARED_CONTEXT_DIR=/persistent/shared-context` and mount `/persistent`.
 
 **Logs:**
@@ -102,12 +102,7 @@
 
 **Package options:** `@org/agent-manager` or `create-agent-manager`, single bin.
 
-**Two modes:**
-
-| Mode | Trigger | Pros | Cons |
-|------|---------|------|------|
-| **Node (default)** | `npx @org/agent-manager` | No Docker, fast, works with only Node | User needs Node + deps; no built-in git/gh/Claude CLI in wrapper |
-| **Docker** | `npx @org/agent-manager --docker` | Same runtime as prod, includes git/gh/Claude CLI | Requires Docker, image pull |
+**Mode:** Docker only. Running outside Docker is not supported. A future npx wrapper would run the Docker image (e.g. `npx @org/agent-manager` → pull image and `docker run`).
 
 **Docker flow:**
 
@@ -133,21 +128,38 @@
 
 **Phase 2 – Docs and defaults**
 
-4. README “Local development” section: minimal env, “run without GCP,” link to docker-local.
+4. README: Docker-only quick start, minimal env, link to docker-local.
 5. Optional: `.env.docker.example` with only local-needed vars.
 
 **Phase 3 – Optional repo path override**
 
-6. If desired: support env override for repos dir when `/persistent` is not used (e.g. local `npm run dev` with repos in `./data/repos`).
+6. (Optional) Env override for repos dir when not using `/persistent` is out of scope—running outside Docker is not supported.
 
 **Phase 4 – npx wrapper (later)**
 
-7. New package or bin in this repo: CLI that runs Node server with defaults (or `--docker` to run image).
-8. Publish to npm; document `npx @org/agent-manager` and first-run steps.
+7. New package or bin: CLI that runs the Docker image (e.g. `npx @org/agent-manager` → pull image and `docker run`). No non-Docker run.
+8. Publish to npm; document first-run steps.
 
 ---
 
-## 8. References
+## 8. Verification and plan of action
+
+**Verification (codebase check):** The plan was verified against the repo. GCP-free mode (unset `GCS_BUCKET`), persistence paths (`/persistent` vs `/tmp`), repos/worktrees (readdir, clone --bare, symlink, GC), and existing `docker-compose.yml` + npm scripts all match. No hallucinations; one wording fix applied in §4 (FUSE → “when /persistent is mounted”).
+
+**Plan of action (easy for non-technical users):**
+
+- **Phase 1 (done):** `docker-compose.yml` and npm scripts `docker:local`, `docker:local:down`, `docker:local:logs` already exist. One-command run: `npm run docker:local`.
+- **Phase 2 (implement):** Docs and README so anyone can run without GCP:
+  - **Prerequisites:** Explain what Docker is and how to get it (Docker Desktop for Mac/Windows, Docker Engine for Linux); how to check (`docker --version`). For later npx: Node.js from nodejs.org and `npx --version`.
+  - **Run with Docker:** Copy `.env.example` → `.env`, set `API_KEY` and `ANTHROPIC_AUTH_TOKEN`, do not set `GCS_BUCKET`, run `npm run docker:local`, open http://localhost:8080. Data persists in a Docker volume.
+  - **Troubleshooting:** “Docker not found” → Prerequisites; port 8080 in use → change PORT; login fails → check API_KEY.
+  - **First-run message:** Server (and optionally entrypoint) prints “AgentManager is running at http://localhost:8080 — log in with your API_KEY from .env.”
+- **Concrete task list and file changes:** See [local-docker-phase1-2-implementation.md](./local-docker-phase1-2-implementation.md).
+- **Phase 4 (later):** npx “just run it” and optional `--docker`; not in this implementation.
+
+---
+
+## 9. References
 
 - **GCP touchpoints:** `src/storage.ts`, `src/kill-switch.ts`, `server.ts`, `entrypoint.sh`; persistence/messages/task-graph under `src/`.
 - **Repos/worktrees:** `src/paths.ts`, `src/worktrees.ts`, `src/workspace-manager.ts`, `src/routes/repositories.ts`, `src/agents.ts`.

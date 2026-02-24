@@ -273,6 +273,7 @@ async function start() {
   // GCS sync and agent restoration happen in the background.
   const server = app.listen(PORT, () => {
     logger.info(`AgentManager listening on :${PORT}`);
+    logger.info(`Open http://localhost:${PORT} in your browser and log in with your API_KEY from .env`);
   });
 
   let tokenRefreshInterval: ReturnType<typeof setInterval>;

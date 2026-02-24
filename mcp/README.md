@@ -58,7 +58,7 @@ FIGMA_TOKEN=figd_xxxxx
 LINEAR_API_KEY=lin_api_xxxxx
 ```
 
-Then `npm run dev` - the entrypoint auto-merges MCP settings when these env vars are present.
+Then run the app via Docker (`npm run docker:local`). The entrypoint auto-merges MCP settings when these env vars are present in `.env`.
 
 ### OAuth (operator-only, not for agents)
 

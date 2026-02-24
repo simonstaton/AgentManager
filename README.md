@@ -28,60 +28,38 @@ The SDK gives you chat completions with tool calling. Claude Code gives you a co
 
 Claude Code's `--output-format stream-json` gives typed JSON events (not terminal scraping) that the platform parses for real-time UI streaming, state tracking and cost calculation. New capabilities Anthropic adds to Claude Code show up in AgentManager without any work on my end.
 
-## Quick Start (Local Development)
+## Prerequisites
 
-**1. Clone the repository**
-```bash
-git clone https://github.com/simonstaton/AgentManager.git AgentManager
-cd AgentManager
-```
+You need [Docker](https://www.docker.com/products/docker-desktop/). Don't have it? [Install Docker Desktop](https://docs.docker.com/desktop/install/) for Mac/Windows or [Docker Engine](https://docs.docker.com/engine/install/) for Linux. Check: run `docker --version` in a terminal; if you see a version, you're set.
 
-**2. Configure environment variables**
-```bash
-cp .env.example .env
-```
+**Docker is the only supported way to run AgentManager.** Running the server or UI outside Docker is unsupported and unsafe.
 
-Edit `.env` and set these required values:
-```bash
-ANTHROPIC_BASE_URL=https://openrouter.ai/api
-ANTHROPIC_AUTH_TOKEN=sk-or-v1-YOUR_OPENROUTER_KEY_HERE
-ANTHROPIC_API_KEY=                                      # Leave empty for OpenRouter
-API_KEY=your-password-here                              # Your UI login password
-JWT_SECRET=any-random-string-min-32-chars               # For JWT token signing
-```
+## Quick Start
 
-Get an OpenRouter API key at [openrouter.ai/keys](https://openrouter.ai/keys) (or use a direct Anthropic API key with `ANTHROPIC_API_KEY` instead).
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/simonstaton/AgentManager.git AgentManager
+   cd AgentManager
+   ```
 
-**3. Install dependencies and start**
-```bash
-npm run setup
-```
+2. **Configure environment variables**
+   ```bash
+   cp .env.example .env
+   ```
+   Edit `.env` and set:
+   - **API_KEY** — The password you'll use to log in to the web UI.
+   - **ANTHROPIC_AUTH_TOKEN** — Your OpenRouter or Anthropic API key (e.g. from [openrouter.ai/keys](https://openrouter.ai/keys)).
+   - **Do not set GCS_BUCKET** — Leave it unset for local mode.
 
-This command:
-- Installs all npm dependencies (server + UI)
-- Creates the `shared-context/` directory
-- Starts both the Express API server and React UI dev server
+3. **Start the app**
+   ```bash
+   npm run docker:local
+   ```
+   The first run may take a few minutes while the image builds.
 
-**4. Open the UI**
+4. **Open the UI** — Go to **http://localhost:8080** and log in with your API_KEY.
 
-Go to `http://localhost:5173`, log in with your `API_KEY`, and start creating agents.
-
-### Alternative: Docker (Local)
-
-Skip npm setup and run via Docker instead:
-
-```bash
-docker build -t agent-manager .
-docker run -p 8080:8080 \
-  -e ANTHROPIC_BASE_URL=https://openrouter.ai/api \
-  -e ANTHROPIC_AUTH_TOKEN=sk-or-v1-... \
-  -e ANTHROPIC_API_KEY= \
-  -e API_KEY=your-password \
-  -e JWT_SECRET=any-random-string \
-  agent-manager
-```
-
-Open `http://localhost:8080` (note the different port).
+Your data (repos, shared context, logs) is stored in a Docker volume and survives restarts. Full steps and troubleshooting: [Run locally with Docker](docs/docker-local.md).
 
 ## Features
 
@@ -414,7 +392,7 @@ Go to [GitHub Settings > Tokens (classic)](https://github.com/settings/tokens/ne
 
 #### Configuring the token
 
-**Local development** - add to `.env`:
+**When running with Docker locally** — add to `.env`:
 ```
 GITHUB_TOKEN=github_pat_xxxxx
 ```

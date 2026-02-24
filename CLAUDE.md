@@ -22,14 +22,11 @@ A platform for conducting autonomous agents via a web UI backed by Cloud Run. Ag
 
 For the **full module map, route table (paths + dependencies), and flow traceability**, see `docs/ARCHITECTURE.md`; keep that doc in sync when adding or changing routes.
 
-## Local development
-```bash
-cp .env.example .env  # fill in your keys
-npm install && cd ui && npm install && cd ..
-npm run dev           # starts server + Vite dev server
-```
+## Running the app (Docker only)
 
-**Local Docker (no GCP):** One-command run with full persistence (repos, shared-context, state, logs):
+**The only supported way to run AgentManager is Docker.** Do not run the server or UI with `npm run dev` or `npm start` outside Docker.
+
+One-command run with full persistence (repos, shared-context, state, logs):
 ```bash
 cp .env.example .env   # set API_KEY and ANTHROPIC_AUTH_TOKEN; do not set GCS_BUCKET
 npm run docker:local   # builds image and starts at http://localhost:8080
@@ -139,42 +136,12 @@ Agents can use bare repos in `/persistent/repos/` with git worktrees for fast ch
 - Use unique worktree names if you need multiple checkouts: `../repo-feature-x`, `../repo-main`
 - Fetch before creating worktrees to get latest refs: `git -C repos/repo.git fetch --all`
 
-## Running the UI (self-serve for agents)
-Agents can clone, build, and run the AgentManager UI locally for self-learning, validation, and test-driven prompting.
+## Running the UI (Docker only)
+The only supported way to run AgentManager is via Docker. Do not run the server or UI with `npm start` or `npm run dev` outside Docker.
 
-**Quick start (from agent workspace):**
-```bash
-# 1. Clone via worktree (if bare repo exists) or fresh clone
-git -C repos/agent-manager.git worktree add ../workdir main
-# OR: git clone https://github.com/your-org/agent-manager.git workdir
+To run the platform from a clone: from the repo root, copy `.env.example` to `.env`, set `API_KEY` and `ANTHROPIC_AUTH_TOKEN` (and do not set `GCS_BUCKET`), then run `npm run docker:local`. The UI will be at http://localhost:8080.
 
-# 2. Install dependencies
-cd workdir && npm install && cd ui && npm install && cd ..
-
-# 3. Create minimal .env for local dev
-cat > .env << 'ENVEOF'
-ANTHROPIC_BASE_URL=https://openrouter.ai/api
-ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN}
-ANTHROPIC_API_KEY=
-API_KEY=dev-test-key
-JWT_SECRET=dev-secret
-SHARED_CONTEXT_DIR=./shared-context
-ENVEOF
-
-# 4. Build the UI
-npm run build
-
-# 5. Start the server (serves built UI on port 8080)
-npm start &
-
-# 6. The UI is now running at http://localhost:8080
-```
-
-**Notes:**
-- The `ANTHROPIC_AUTH_TOKEN` env var is already available in the agent environment
-- Use `API_KEY=dev-test-key` for local testing - exchange it for a JWT via `POST /api/auth/token`
-- The dev server (`npm run dev`) runs Vite on port 5173 with HMR, proxying API calls to port 8080
-- For headless UI testing, agents can use `curl` against the API endpoints directly
+For headless API testing, use `curl` against the API endpoints (the platform must be running in Docker).
 
 ## Agent guardrails
 - Allowed tools: Bash, Edit, Write, Read, Glob, Grep, LS, TodoRead, TodoWrite, Task, WebFetch, WebSearch, NotebookEdit

@@ -475,10 +475,12 @@ export function createApi(authFetch: AuthFetch) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(integrations),
       });
-      if (!res.ok) throw new Error("Failed to save integration tokens");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || "Failed to save integration tokens");
+      }
       return res.json();
     },
-
     async updateGuardrails(settings: {
       maxPromptLength?: number;
       maxTurns?: number;
@@ -822,14 +824,16 @@ export function createApi(authFetch: AuthFetch) {
         throw new Error((data as { error?: string }).error || "Failed to delete repository");
       }
     },
-
     async setRepositoryPat(repoName: string, pat: string): Promise<{ ok: boolean; patConfigured: boolean }> {
       const res = await authFetch(`/api/repositories/${encodeURIComponent(repoName)}/pat`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pat }),
       });
-      if (!res.ok) throw new Error("Failed to save repository PAT");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || "Failed to save repository PAT");
+      }
       return res.json();
     },
   };
