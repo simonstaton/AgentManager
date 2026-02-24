@@ -195,8 +195,6 @@ Claude Code has two delegation mechanisms on this platform:
 ### Parent-Child Relationships
 Agents spawn sub-agents with `parentId`. Destroying a parent auto-destroys all children. Max depth of 3, max 20 children per agent.
 
-> One evening, an orchestrator agent decided the best way to accomplish its task was to spawn a dozen sub-agents. Those sub-agents reviewed each other's pull requests, approved them, merged them and deployed to GCP while I was AFK. The invoice was educational. That's why AgentManager has a [6-layer kill switch](#kill-switch).
-
 ## Kill Switch
 
 ### Why this exists
