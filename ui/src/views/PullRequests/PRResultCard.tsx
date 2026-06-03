@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import type { PullRequestItem } from "../../api";
 import { timeAgo } from "../../constants";
@@ -148,14 +147,14 @@ export function PRResultCard({ pr }: PRResultCardProps) {
       {/* Agent attribution */}
       {pr.agent && (
         <div className="mt-3 pt-2.5 border-t border-zinc-800/60">
-          <Link
+          <a
             href={`/agents/${pr.agent.id}/`}
             onClick={(e) => e.stopPropagation()}
             className="inline-flex items-center gap-1.5 text-[11px] text-blue-400/80 hover:text-blue-300 transition-colors"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
             {pr.agent.name}
-          </Link>
+          </a>
         </div>
       )}
     </div>
