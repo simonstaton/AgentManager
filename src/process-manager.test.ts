@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import type { EventPipeline } from "./event-pipeline";
 import { capOversizedToolResults, cleanupAllProcesses, killProcessGroup, ProcessManager } from "./process-manager";
+import type { AgentRegistry } from "./usage-tracker";
 
 // ---------------------------------------------------------------------------
 // capOversizedToolResults
@@ -104,11 +106,11 @@ describe("cleanupAllProcesses", () => {
 // ProcessManager.buildClaudeArgs
 // ---------------------------------------------------------------------------
 describe("ProcessManager.buildClaudeArgs", () => {
-  const pm = new ProcessManager(
-    new Map() as Parameters<typeof ProcessManager>[0],
-    {} as Parameters<typeof ProcessManager>[1],
-    { onAgentUpdated: () => {}, onIdle: () => {}, onEphemeralIdle: () => {} },
-  );
+  const pm = new ProcessManager(new Map() as unknown as AgentRegistry, {} as unknown as EventPipeline, {
+    onAgentUpdated: () => {},
+    onIdle: () => {},
+    onEphemeralIdle: () => {},
+  });
 
   it("includes --dangerously-skip-permissions by default (headless agents)", () => {
     const args = pm.buildClaudeArgs({ prompt: "hello" }, "claude-sonnet-4-6");
