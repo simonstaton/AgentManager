@@ -7,14 +7,14 @@ describe("deriveChecksStatus", () => {
     expect(deriveChecksStatus(null as never)).toBe("none");
   });
   it("returns failing when any check failed", () => {
-    expect(deriveChecksStatus([{ conclusion: "FAILURE", state: null, status: null }])).toBe("failing");
-    expect(deriveChecksStatus([{ conclusion: "ERROR", state: null, status: null }])).toBe("failing");
+    expect(deriveChecksStatus([{ conclusion: "FAILURE", state: undefined, status: undefined }])).toBe("failing");
+    expect(deriveChecksStatus([{ conclusion: "ERROR", state: undefined, status: undefined }])).toBe("failing");
   });
   it("returns pending when any check is in progress", () => {
-    expect(deriveChecksStatus([{ conclusion: null, state: null, status: "IN_PROGRESS" }])).toBe("pending");
+    expect(deriveChecksStatus([{ conclusion: undefined, state: undefined, status: "IN_PROGRESS" }])).toBe("pending");
   });
   it("returns passing when all checks succeeded", () => {
-    expect(deriveChecksStatus([{ conclusion: "SUCCESS", state: null, status: null }])).toBe("passing");
+    expect(deriveChecksStatus([{ conclusion: "SUCCESS", state: undefined, status: undefined }])).toBe("passing");
   });
 });
 
