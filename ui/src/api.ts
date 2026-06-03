@@ -267,6 +267,7 @@ export interface Workflow {
   updatedAt: string;
 }
 
+// ── Hook Config types ──────────────────────────────────────────────────────────
 export type HookEvent = "PreToolUse" | "PostToolUse" | "Stop" | "SubagentStart" | "SubagentStop";
 export type HookType = "http" | "command";
 
@@ -1115,7 +1116,7 @@ export function createApi(authFetch: AuthFetch) {
       const res = await authFetch(`/api/agents/${agentId}/hooks`);
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      return data.rules as HookRule[];
+      return (data.rules ?? []) as HookRule[];
     },
 
     async setHookConfig(agentId: string, rules: HookRule[]): Promise<HookRule[]> {
@@ -1126,7 +1127,7 @@ export function createApi(authFetch: AuthFetch) {
       });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      return data.rules as HookRule[];
+      return (data.rules ?? []) as HookRule[];
     },
 
     // Tool timeline
@@ -1134,7 +1135,7 @@ export function createApi(authFetch: AuthFetch) {
       const res = await authFetch(`/api/hooks/${encodeURIComponent(agentId)}/timeline`);
       if (!res.ok) return [];
       const data = await res.json();
-      return data.timeline ?? [];
+      return (data.timeline ?? []) as ToolTimelineEntry[];
     },
 
     // Bulk agent ops

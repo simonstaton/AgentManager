@@ -9,11 +9,13 @@ import { AgentMetadataPanel } from "../components/AgentMetadataPanel";
 import { AgentTerminal } from "../components/AgentTerminal";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Header } from "../components/Header";
+import { HooksConfigPanel } from "../components/HooksConfigPanel";
 import { type Attachment, PromptInput } from "../components/PromptInput";
 import { RiskBadge } from "../components/RiskBadge";
 import { Sidebar } from "../components/Sidebar";
 import { AgentHeaderSkeleton } from "../components/Skeleton";
 import { useToast } from "../components/Toast";
+import { ToolTimeline } from "../components/ToolTimeline";
 import { STATUS_BADGE_VARIANT, STATUS_LABELS } from "../constants";
 import { useAgentPolling } from "../hooks/useAgentPolling";
 import { useAgentStream } from "../hooks/useAgentStream";
@@ -414,6 +416,12 @@ export function AgentView({ agentId }: { agentId: string }) {
 
           {/* Metadata panel */}
           {id && <AgentMetadataPanel agentId={id} />}
+
+          {/* Tool timeline panel */}
+          {id && <ToolTimeline agentId={id} />}
+
+          {/* Hook rules panel */}
+          {id && <HooksConfigPanel agentId={id} />}
 
           {/* Disconnected warning banner */}
           {agent?.status === "disconnected" && (
