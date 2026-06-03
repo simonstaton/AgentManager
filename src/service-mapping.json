@@ -1,0 +1,19 @@
+{
+  "envToService": {
+    "GITHUB_TOKEN": "github",
+    "GH_TOKEN": "github",
+    "LINEAR_API_KEY": "linear",
+    "FIGMA_TOKEN": "figma",
+    "NOTION_API_KEY": "notion",
+    "SLACK_TOKEN": "slack",
+    "GOOGLE_CREDENTIALS": "google-calendar"
+  },
+  "serviceToEnv": {
+    "github": "GITHUB_TOKEN",
+    "linear": "LINEAR_API_KEY",
+    "figma": "FIGMA_TOKEN",
+    "notion": "NOTION_API_KEY",
+    "slack": "SLACK_TOKEN",
+    "google-calendar": "GOOGLE_CREDENTIALS"
+  }
+}

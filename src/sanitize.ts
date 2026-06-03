@@ -29,16 +29,31 @@ function getSecretPatterns(): string[] {
 
 let cachedPatterns: string[] | null = null;
 
+/** Dynamic secrets registered at runtime (e.g. tokens loaded from disk). */
+const dynamicSecrets = new Set<string>();
+
 function getPatterns(): string[] {
   if (!cachedPatterns) {
     cachedPatterns = getSecretPatterns();
   }
-  return cachedPatterns;
+  return dynamicSecrets.size > 0 ? [...cachedPatterns, ...dynamicSecrets] : cachedPatterns;
 }
 
 /** Reset the cached patterns (useful when env vars change, e.g. API key rotation). */
 export function resetSanitizeCache(): void {
   cachedPatterns = null;
+}
+
+/** Register a runtime secret value for redaction. No-op for values shorter than 8 chars. */
+export function registerSecretValue(value: string): void {
+  if (value && value.length >= 8) {
+    dynamicSecrets.add(value);
+  }
+}
+
+/** Unregister a previously registered runtime secret value. */
+export function unregisterSecretValue(value: string): void {
+  dynamicSecrets.delete(value);
 }
 
 function sanitizeString(input: string, patterns: string[]): string {
