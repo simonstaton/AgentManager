@@ -15,6 +15,24 @@ import type { StoredToken } from "./token-storage";
 
 type Mod = typeof import("./token-storage");
 
+// ---------------------------------------------------------------------------
+// Clearly-fake mock values — short, obviously not real credentials
+// ---------------------------------------------------------------------------
+const MOCK_UI_TOKEN = "mock-ui-tok";
+const MOCK_UI_TOKEN_2 = "mock-ui-tok2";
+const MOCK_OAUTH_ACCESS = "mock-access";
+const MOCK_OAUTH_REFRESH = "mock-refresh";
+const MOCK_FIGMA_TOKEN = "mock-fig-tok";
+const MOCK_LINEAR_TOKEN = "mock-lin-tok";
+const MOCK_ENV_TOKEN = "mock-env-tok";
+const MOCK_CACHE_TOKEN = "mock-cache";
+const MOCK_OLD_TOKEN = "mock-old";
+const MOCK_NEW_TOKEN = "mock-new";
+const MOCK_CV_TOKEN_1 = "mock-cv-1";
+const MOCK_CV_TOKEN_2 = "mock-cv-2";
+const MOCK_STATUS_TOKEN = "mock-s123"; // ends in "s123" → hint "...s123"
+const MOCK_FIGMA_STATUS = "mock-figst";
+
 let tokenDir: string;
 let mod: Mod;
 let registerSecretValue: ReturnType<typeof vi.fn>;
@@ -67,14 +85,14 @@ describe("saveToken / loadToken round-trip", () => {
   it("persists a UI token and reads it back", () => {
     const token: StoredToken = {
       server: "github",
-      token: "test_token_abc123",
+      token: MOCK_UI_TOKEN,
       source: "ui",
       label: "my-gh-token",
       setAt: new Date().toISOString(),
     };
     mod.saveToken(token);
     const loaded = mod.loadToken("github");
-    expect(loaded?.token).toBe("test_token_abc123");
+    expect(loaded?.token).toBe(MOCK_UI_TOKEN);
     expect(loaded?.source).toBe("ui");
     expect(loaded?.label).toBe("my-gh-token");
   });
@@ -82,41 +100,41 @@ describe("saveToken / loadToken round-trip", () => {
   it("persists an OAuth token and reads it back", () => {
     mod.saveToken({
       server: "linear",
-      accessToken: "lin_oauth_abcdefgh",
-      refreshToken: "lin_refresh_xyz",
-      tokenType: "Bearer",
+      accessToken: MOCK_OAUTH_ACCESS,
+      refreshToken: MOCK_OAUTH_REFRESH,
+      tokenType: "mock",
       source: "oauth",
     });
     const loaded = mod.loadToken("linear");
-    expect(loaded?.accessToken).toBe("lin_oauth_abcdefgh");
-    expect(loaded?.refreshToken).toBe("lin_refresh_xyz");
+    expect(loaded?.accessToken).toBe(MOCK_OAUTH_ACCESS);
+    expect(loaded?.refreshToken).toBe(MOCK_OAUTH_REFRESH);
   });
 
   it("registers the secret with sanitize on save", () => {
-    mod.saveToken({ server: "figma", token: "figma-secret-value", source: "ui" });
-    expect(registerSecretValue).toHaveBeenCalledWith("figma-secret-value");
+    mod.saveToken({ server: "figma", token: MOCK_FIGMA_TOKEN, source: "ui" });
+    expect(registerSecretValue).toHaveBeenCalledWith(MOCK_FIGMA_TOKEN);
   });
 
   it("returns cached token without re-reading disk", () => {
-    mod.saveToken({ server: "github", token: "cached-token-12", source: "ui" });
+    mod.saveToken({ server: "github", token: MOCK_CACHE_TOKEN, source: "ui" });
     fs.unlinkSync(path.join(tokenDir, "github.json"));
-    expect(mod.loadToken("github")?.token).toBe("cached-token-12");
+    expect(mod.loadToken("github")?.token).toBe(MOCK_CACHE_TOKEN);
   });
 });
 
 describe("deleteToken", () => {
   it("removes the token file and cache entry", () => {
-    mod.saveToken({ server: "github", token: "test_token_del012", source: "ui" });
+    mod.saveToken({ server: "github", token: MOCK_UI_TOKEN, source: "ui" });
     mod.deleteToken("github");
     expect(mod.loadToken("github")).toBeNull();
     expect(fs.existsSync(path.join(tokenDir, "github.json"))).toBe(false);
   });
 
   it("calls unregisterSecretValue with the stored token value", () => {
-    mod.saveToken({ server: "figma", token: "figma-secret-del1", source: "ui" });
+    mod.saveToken({ server: "figma", token: MOCK_FIGMA_TOKEN, source: "ui" });
     vi.clearAllMocks();
     mod.deleteToken("figma");
-    expect(unregisterSecretValue).toHaveBeenCalledWith("figma-secret-del1");
+    expect(unregisterSecretValue).toHaveBeenCalledWith(MOCK_FIGMA_TOKEN);
   });
 
   it("is a no-op when no token exists", () => {
@@ -130,8 +148,8 @@ describe("listStoredTokens", () => {
   });
 
   it("returns all stored service names", () => {
-    mod.saveToken({ server: "github", token: "test_token_lst001", source: "ui" });
-    mod.saveToken({ server: "linear", token: "lin_list_test01", source: "ui" });
+    mod.saveToken({ server: "github", token: MOCK_UI_TOKEN, source: "ui" });
+    mod.saveToken({ server: "linear", token: MOCK_LINEAR_TOKEN, source: "ui" });
     const stored = mod.listStoredTokens();
     expect(stored.sort()).toEqual(["github", "linear"].sort());
   });
@@ -139,8 +157,8 @@ describe("listStoredTokens", () => {
 
 describe("getAllTokens", () => {
   it("returns all stored tokens as objects", () => {
-    mod.saveToken({ server: "github", token: "test_token_all001", source: "ui" });
-    mod.saveToken({ server: "figma", token: "fig_all_test0001", source: "ui" });
+    mod.saveToken({ server: "github", token: MOCK_UI_TOKEN, source: "ui" });
+    mod.saveToken({ server: "figma", token: MOCK_FIGMA_TOKEN, source: "ui" });
     const all = mod.getAllTokens();
     expect(all).toHaveLength(2);
     expect(all.map((t) => t.server).sort()).toEqual(["figma", "github"].sort());
@@ -165,15 +183,15 @@ describe("isTokenExpired", () => {
 
 describe("getEffectiveTokenValue", () => {
   it("returns UI token value when stored", () => {
-    mod.saveToken({ server: "github", token: "test_token_eff012", source: "ui" });
-    expect(mod.getEffectiveTokenValue("github")).toBe("test_token_eff012");
+    mod.saveToken({ server: "github", token: MOCK_UI_TOKEN, source: "ui" });
+    expect(mod.getEffectiveTokenValue("github")).toBe(MOCK_UI_TOKEN);
   });
 
   it("returns null for expired OAuth token with no env var fallback", () => {
     delete process.env.LINEAR_API_KEY;
     mod.saveToken({
       server: "linear",
-      accessToken: "lin_expired_token",
+      accessToken: MOCK_OAUTH_ACCESS,
       source: "oauth",
       expiresAt: new Date(Date.now() - 60_000).toISOString(),
     });
@@ -181,14 +199,14 @@ describe("getEffectiveTokenValue", () => {
   });
 
   it("falls back to env var when no stored token exists", () => {
-    process.env.GITHUB_TOKEN = "env-github-token";
-    expect(mod.getEffectiveTokenValue("github")).toBe("env-github-token");
+    process.env.GITHUB_TOKEN = MOCK_ENV_TOKEN;
+    expect(mod.getEffectiveTokenValue("github")).toBe(MOCK_ENV_TOKEN);
   });
 });
 
 describe("getTokenStatuses", () => {
   it("marks a service as configured when UI token is set", () => {
-    mod.saveToken({ server: "github", token: "test_token_sts123", source: "ui" });
+    mod.saveToken({ server: "github", token: MOCK_STATUS_TOKEN, source: "ui" });
     const statuses = mod.getTokenStatuses();
     expect(statuses.github.configured).toBe(true);
     expect(statuses.github.source).toBe("ui");
@@ -205,7 +223,7 @@ describe("getTokenStatuses", () => {
   it("exposes label and validatedUser from stored token", () => {
     mod.saveToken({
       server: "figma",
-      token: "fig_status_12345",
+      token: MOCK_FIGMA_STATUS,
       source: "ui",
       label: "prod-figma",
       validatedUser: "alice",
@@ -218,30 +236,30 @@ describe("getTokenStatuses", () => {
 
 describe("invalidateTokenCache + preloadTokens", () => {
   it("forces a fresh read from disk after invalidation", () => {
-    mod.saveToken({ server: "github", token: "test_token_cv1234", source: "ui" });
+    mod.saveToken({ server: "github", token: MOCK_CV_TOKEN_1, source: "ui" });
     const filePath = path.join(tokenDir, "github.json");
-    fs.writeFileSync(filePath, JSON.stringify({ server: "github", token: "test_token_cv2234", source: "ui" }));
-    expect(mod.loadToken("github")?.token).toBe("test_token_cv1234");
+    fs.writeFileSync(filePath, JSON.stringify({ server: "github", token: MOCK_CV_TOKEN_2, source: "ui" }));
+    expect(mod.loadToken("github")?.token).toBe(MOCK_CV_TOKEN_1);
     mod.invalidateTokenCache();
-    expect(mod.loadToken("github")?.token).toBe("test_token_cv2234");
+    expect(mod.loadToken("github")?.token).toBe(MOCK_CV_TOKEN_2);
   });
 
   it("preloadTokens: loads all stored tokens into cache", () => {
-    mod.saveToken({ server: "github", token: "test_token_pre123", source: "ui" });
+    mod.saveToken({ server: "github", token: MOCK_UI_TOKEN_2, source: "ui" });
     mod.invalidateTokenCache();
     mod.preloadTokens();
     fs.unlinkSync(path.join(tokenDir, "github.json"));
-    expect(mod.loadToken("github")?.token).toBe("test_token_pre123");
+    expect(mod.loadToken("github")?.token).toBe(MOCK_UI_TOKEN_2);
   });
 });
 
 describe("overwrite unregisters old secret", () => {
   it("calls unregisterSecretValue then registerSecretValue with new value", () => {
-    mod.saveToken({ server: "github", token: "test_token_old123", source: "ui" });
+    mod.saveToken({ server: "github", token: MOCK_OLD_TOKEN, source: "ui" });
     vi.clearAllMocks();
-    mod.saveToken({ server: "github", token: "test_token_new123", source: "ui" });
-    expect(unregisterSecretValue).toHaveBeenCalledWith("test_token_old123");
-    expect(registerSecretValue).toHaveBeenCalledWith("test_token_new123");
+    mod.saveToken({ server: "github", token: MOCK_NEW_TOKEN, source: "ui" });
+    expect(unregisterSecretValue).toHaveBeenCalledWith(MOCK_OLD_TOKEN);
+    expect(registerSecretValue).toHaveBeenCalledWith(MOCK_NEW_TOKEN);
   });
 });
 
