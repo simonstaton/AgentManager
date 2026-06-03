@@ -65,7 +65,7 @@ function makePR(overrides: Partial<PullRequestItem> = {}): PullRequestItem {
     repo: "owner/repo",
     branch: "feature/test",
     baseBranch: "main",
-    url: "https://github.com/owner/repo/pull/1",
+    url: "https://github.test/owner/repo/pull/1",
     author: "agent-001",
     additions: 10,
     deletions: 2,
