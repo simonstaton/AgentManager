@@ -12,6 +12,7 @@ const NAV_LINKS: Array<{ path: string; label: string; active: (pathname: string)
   { path: "/graph", label: "Graph", active: (p) => p === "/graph" },
   { path: "/costs", label: "Costs", active: (p) => p === "/costs" },
   { path: "/tasks", label: "Tasks", active: (p) => p === "/tasks" },
+  { path: "/logs", label: "Logs", active: (p) => p === "/logs" },
   { path: "/messages", label: "Messages", active: (p) => p === "/messages" },
   { path: "/settings", label: "Settings", active: (p) => p.startsWith("/settings") },
 ];
