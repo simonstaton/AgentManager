@@ -9,6 +9,7 @@ import { AgentMetadataPanel } from "../components/AgentMetadataPanel";
 import { AgentTerminal } from "../components/AgentTerminal";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Header } from "../components/Header";
+import { HooksConfigPanel } from "../components/HooksConfigPanel";
 import { type Attachment, PromptInput } from "../components/PromptInput";
 import { RiskBadge } from "../components/RiskBadge";
 import { Sidebar } from "../components/Sidebar";
@@ -414,6 +415,9 @@ export function AgentView({ agentId }: { agentId: string }) {
 
           {/* Metadata panel */}
           {id && <AgentMetadataPanel agentId={id} />}
+
+          {/* Hook rules panel */}
+          {id && <HooksConfigPanel agentId={id} />}
 
           {/* Disconnected warning banner */}
           {agent?.status === "disconnected" && (
