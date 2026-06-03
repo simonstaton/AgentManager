@@ -6,14 +6,13 @@
  * Invariant: workflow grade gates PR creation. CI confidence label gates merge. Neither reads the other's store.
  */
 
-import type { GradeResult } from "./grading";
+import type { GradeResult, RiskLevel } from "./grading";
 
-function numericScoreFromGrade(g: GradeResult): number {
-  const clarityMap: Record<string, number> = { high: 0, medium: 16, low: 33 };
-  const confidenceMap: Record<string, number> = { high: 0, medium: 17, low: 34 };
-  const blastMap: Record<string, number> = { isolated: 0, moderate: 17, broad: 33 };
-  return (clarityMap[g.ticketClarity] ?? 0) + (confidenceMap[g.fixConfidence] ?? 0) + (blastMap[g.blastRadius] ?? 0);
-}
+const RISK_SCORE: Record<RiskLevel, number> = {
+  low: 20,
+  medium: 55,
+  high: 90,
+};
 
 /**
  * Gate decision based on overall risk.
@@ -26,12 +25,11 @@ export function gradeGate(g: GradeResult): "CREATE_PR" | "NEEDS_HUMAN" {
 }
 
 /**
- * Invert numericScore to a display-safe confidence value where higher = better.
- * grading.ts numericScore is 0-100 where higher = riskier.
+ * Invert risk score to a display-safe confidence value where higher = better.
  * CRITICAL: overallRisk==='high' always yields confidence < 60 (the Medium threshold).
  */
 export function confidenceFromGrade(g: GradeResult): number {
-  return 100 - numericScoreFromGrade(g);
+  return 100 - RISK_SCORE[g.overallRisk];
 }
 
 /** Build the prompt for the workflow grader agent (Opus, maxTurns:12, read-only). */
