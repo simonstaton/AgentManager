@@ -23,6 +23,7 @@ import { createHealthRouter } from "./src/routes/health";
 import { createKillSwitchRouter } from "./src/routes/kill-switch";
 import { createMcpRouter } from "./src/routes/mcp";
 import { createMessagesRouter } from "./src/routes/messages";
+import { createRepoGateConfigRouter } from "./src/routes/repo-gate-config";
 import { createRepositoriesRouter } from "./src/routes/repositories";
 import { createSchedulerRouter } from "./src/routes/scheduler";
 import { createStartupRouter } from "./src/routes/startup";
@@ -205,6 +206,7 @@ app.use(createCostRouter(agentManager, costTracker, messageBus));
 app.use(createTasksRouter(taskGraph, orchestrator, gradeStore));
 app.use(createSchedulerRouter(scheduler));
 app.use(createWorkflowsRouter(agentManager, messageBus));
+app.use(createRepoGateConfigRouter());
 app.use(createRepositoriesRouter(agentManager));
 app.use(createStartupRouter(agentManager, messageBus));
 // Layer 1: Kill switch endpoint (no extra auth beyond authMiddleware above)
