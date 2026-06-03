@@ -114,6 +114,12 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     return;
   }
 
+  // TOTP verify endpoint only accepts pending tokens; skip normal auth flow
+  if (req.path === "/api/auth/totp/verify") {
+    next();
+    return;
+  }
+
   // Skip auth for non-API routes (static files)
   if (!req.path.startsWith("/api/")) {
     next();
@@ -125,6 +131,11 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
   if (authHeader?.startsWith("Bearer ")) {
     const payload = verifyJwt(authHeader.slice(7));
     if (payload) {
+      // Pending tokens are only valid at /api/auth/totp/verify — reject everywhere else
+      if (payload.sub === "user-pending") {
+        res.status(403).json({ error: "Complete TOTP verification before accessing this endpoint" });
+        return;
+      }
       (req as AuthenticatedRequest).user = payload;
       next();
       return;
@@ -137,6 +148,13 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     const provided = Buffer.from(apiKeyHeader);
     const expected = Buffer.from(apiKey);
     if (provided.length === expected.length && crypto.timingSafeEqual(provided, expected)) {
+      // Block x-api-key when TOTP 2FA is active to prevent second-factor bypass
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { isTotpEnabled } = require("./totp") as { isTotpEnabled: () => boolean };
+      if (isTotpEnabled()) {
+        res.status(403).json({ error: "x-api-key is disabled when TOTP 2FA is active — use the login flow" });
+        return;
+      }
       const now = unixNow();
       (req as AuthenticatedRequest).user = { sub: "api-key-user", iat: now, exp: now + 86400 };
       next();
@@ -159,8 +177,38 @@ export function requireHumanUser(req: Request, res: Response, next: NextFunction
   next();
 }
 
-/** Middleware that blocks requests from agent-service tokens.
- *  Use this to protect operations that should only be callable by human users. */
+/** Sign a full 24-hour user token (used for direct login and TOTP second-step). */
+export function signUserToken(): string {
+  const now = Math.floor(Date.now() / 1000);
+  return signJwt({ sub: "user", iat: now, exp: now + 86400 });
+}
+
+/** Generate a short-lived pending token for the TOTP second-factor step.
+ *  This token is only accepted by POST /api/auth/totp/verify. */
+export function generatePendingToken(): string {
+  const now = Math.floor(Date.now() / 1000);
+  return signJwt({ sub: "user-pending", iat: now, exp: now + 5 * 60 });
+}
+
+/** Verify a pending token (sub must be "user-pending"). */
+export function verifyPendingToken(token: string): AuthPayload | null {
+  const payload = verifyToken(token);
+  if (!payload || payload.sub !== "user-pending") return null;
+  return payload;
+}
+
+/** Middleware that rejects user-pending tokens.
+ *  Apply to routes that require a fully-authenticated user. */
+export function requireNotPendingToken(req: Request, res: Response, next: NextFunction): void {
+  const user = (req as AuthenticatedRequest).user;
+  if (user?.sub === "user-pending") {
+    res.status(403).json({ error: "Complete TOTP verification before accessing this endpoint" });
+    return;
+  }
+  next();
+}
+
+/** Middleware that blocks requests from agent-service tokens. */
 export function requireNotAgentService(req: Request, res: Response, next: NextFunction): void {
   const user = (req as AuthenticatedRequest).user;
   if (!user || user.sub === "agent-service") {
