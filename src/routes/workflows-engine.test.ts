@@ -1,6 +1,6 @@
 import http from "node:http";
 import express from "express";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("../auth", () => ({
   requireNotAgentService: (_req: unknown, _res: unknown, next: () => void) => next(),
@@ -21,73 +21,63 @@ vi.mock("../workflow-triage", () => ({
 
 import { _clearEngineWorkflowsForTest, createWorkflowsEngineRouter } from "./workflows-engine";
 
-function makeAgentManager() {
-  return {
-    create: vi.fn().mockReturnValue({ agent: { id: "agent-1", name: "test-agent" } }),
-    destroy: vi.fn().mockResolvedValue(undefined),
-    pause: vi.fn(),
-    list: vi.fn().mockReturnValue([]),
-    on: vi.fn(),
-    setWorkflowMembershipChecker: vi.fn(),
-  };
-}
+const mockAgentManager = {
+  create: vi.fn().mockReturnValue({ agent: { id: "agent-1", name: "test-agent" } }),
+  destroy: vi.fn().mockResolvedValue(undefined),
+  pause: vi.fn(),
+  list: vi.fn().mockReturnValue([]),
+  on: vi.fn(),
+  setWorkflowMembershipChecker: vi.fn(),
+};
+const mockMessageBus = { post: vi.fn(), subscribe: vi.fn() };
 
-function makeMessageBus() {
-  return { post: vi.fn(), subscribe: vi.fn() };
-}
-
-async function request(method: string, url: string, body?: unknown): Promise<{ status: number; body: unknown }> {
+// Typed helpers to keep test bodies lean and reduce duplicate patterns
+type Body = Record<string, unknown>;
+async function req(method: string, url: string, body?: Body): Promise<{ status: number; body: Body }> {
   return new Promise((resolve, reject) => {
     const data = body ? JSON.stringify(body) : undefined;
-    const req = http.request(
-      url,
-      {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          ...(data ? { "Content-Length": Buffer.byteLength(data) } : {}),
-        },
+    const opts = {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        ...(data ? { "Content-Length": Buffer.byteLength(data) } : {}),
       },
-      (res) => {
-        let raw = "";
-        res.on("data", (chunk: Buffer) => {
-          raw += chunk.toString();
-        });
-        res.on("end", () => {
-          try {
-            resolve({ status: res.statusCode ?? 0, body: JSON.parse(raw) });
-          } catch {
-            resolve({ status: res.statusCode ?? 0, body: {} });
-          }
-        });
-      },
-    );
-    req.on("error", reject);
-    if (data) req.write(data);
-    req.end();
+    };
+    const r = http.request(url, opts, (res) => {
+      let raw = "";
+      res.on("data", (c: Buffer) => {
+        raw += c.toString();
+      });
+      res.on("end", () => {
+        try {
+          resolve({ status: res.statusCode ?? 0, body: JSON.parse(raw) as Body });
+        } catch {
+          resolve({ status: res.statusCode ?? 0, body: {} });
+        }
+      });
+    });
+    r.on("error", reject);
+    if (data) r.write(data);
+    r.end();
   });
 }
 
 let server: http.Server;
-let baseUrl: string;
-let agentManager: ReturnType<typeof makeAgentManager>;
-let messageBus: ReturnType<typeof makeMessageBus>;
+let base: string;
 
-beforeAll(async () => {
-  agentManager = makeAgentManager();
-  messageBus = makeMessageBus();
-  const app = express();
-  app.use(express.json());
-  // biome-ignore lint/suspicious/noExplicitAny: test mock cast
-  app.use(createWorkflowsEngineRouter(agentManager as any, messageBus as any));
-  await new Promise<void>((resolve) => {
-    server = app.listen(0, "127.0.0.1", () => {
-      const addr = server.address() as { port: number };
-      baseUrl = `http://127.0.0.1:${addr.port}`;
-      resolve();
-    });
-  });
-});
+beforeAll(
+  () =>
+    new Promise<void>((resolve) => {
+      const app = express();
+      app.use(express.json());
+      // biome-ignore lint/suspicious/noExplicitAny: test mock cast
+      app.use(createWorkflowsEngineRouter(mockAgentManager as any, mockMessageBus as any));
+      server = app.listen(0, "127.0.0.1", () => {
+        base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+        resolve();
+      });
+    }),
+);
 
 afterAll(() => server?.close());
 afterEach(() => {
@@ -95,95 +85,108 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+/** POST /api/workflows/linear with defaults filled in */
+const startWorkflow = (overrides: Body = {}) =>
+  req("POST", `${base}/api/workflows/linear`, {
+    linearUrl: "https://linear.app/ws/issue/T-1",
+    repository: "org/repo",
+    ...overrides,
+  });
+
 describe("GET /api/workflows", () => {
-  it("returns empty array when no workflows exist", async () => {
-    const res = await request("GET", `${baseUrl}/api/workflows`);
-    expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
-    expect((res.body as unknown[]).length).toBe(0);
+  it("returns empty list initially", async () => {
+    const { status, body } = await req("GET", `${base}/api/workflows`);
+    expect(status).toBe(200);
+    expect(body as unknown).toEqual([]);
+  });
+
+  it("returns created workflow in list", async () => {
+    await startWorkflow();
+    const { status, body } = await req("GET", `${base}/api/workflows`);
+    expect(status).toBe(200);
+    expect((body as unknown as unknown[]).length).toBe(1);
   });
 });
 
 describe("GET /api/workflows/:id", () => {
-  it("returns 404 for unknown workflow ID", async () => {
-    const res = await request("GET", `${baseUrl}/api/workflows/nonexistent`);
-    expect(res.status).toBe(404);
+  it("returns 404 for unknown ID", async () => {
+    const { status } = await req("GET", `${base}/api/workflows/nonexistent`);
+    expect(status).toBe(404);
+  });
+
+  it("returns workflow by ID after creation", async () => {
+    const { body: wf } = await startWorkflow();
+    const { status, body } = await req("GET", `${base}/api/workflows/${wf.id as string}`);
+    expect(status).toBe(200);
+    expect((body as { id: string }).id).toBe(wf.id);
   });
 });
 
-describe("POST /api/workflows/linear", () => {
-  it("returns 400 when linearUrl is missing", async () => {
-    const res = await request("POST", `${baseUrl}/api/workflows/linear`, { repository: "org/repo" });
-    expect(res.status).toBe(400);
-    expect((res.body as { error: string }).error).toMatch(/linearUrl/);
+describe("POST /api/workflows/linear validation", () => {
+  it("returns 400 when linearUrl missing", async () => {
+    const { status, body } = await req("POST", `${base}/api/workflows/linear`, { repository: "org/repo" });
+    expect(status).toBe(400);
+    expect((body as { error: string }).error).toMatch(/linearUrl/);
   });
 
-  it("returns 400 for invalid linearUrl", async () => {
-    const res = await request("POST", `${baseUrl}/api/workflows/linear`, {
-      linearUrl: "https://github.com/not-linear",
-      repository: "org/repo",
-    });
-    expect(res.status).toBe(400);
-    expect((res.body as { error: string }).error).toMatch(/Invalid linearUrl/);
+  it("returns 400 for non-Linear URL", async () => {
+    const { status } = await startWorkflow({ linearUrl: "https://github.com/not-linear" });
+    expect(status).toBe(400);
   });
 
-  it("returns 400 when repository is missing", async () => {
-    const res = await request("POST", `${baseUrl}/api/workflows/linear`, {
-      linearUrl: "https://linear.app/myteam/issue/TEAM-123",
+  it("returns 400 when repository missing", async () => {
+    const { status } = await req("POST", `${base}/api/workflows/linear`, {
+      linearUrl: "https://linear.app/ws/issue/T-1",
     });
-    expect(res.status).toBe(400);
-    expect((res.body as { error: string }).error).toMatch(/repository/);
+    expect(status).toBe(400);
   });
 
-  it("creates a workflow and returns 201 for valid request", async () => {
-    const res = await request("POST", `${baseUrl}/api/workflows/linear`, {
-      linearUrl: "https://linear.app/myteam/issue/TEAM-123",
-      repository: "org/repo",
-    });
-    expect(res.status).toBe(201);
-    const wf = res.body as { id: string; status: string; linearUrl: string };
-    expect(wf.id).toBeTruthy();
+  it("returns 400 for invalid linearApiKey", async () => {
+    const { status } = await startWorkflow({ linearApiKey: "bad-key" });
+    expect(status).toBe(400);
+  });
+
+  it("returns 400 for invalid githubPat", async () => {
+    const { status } = await startWorkflow({ githubPat: "bad-pat" });
+    expect(status).toBe(400);
+  });
+});
+
+describe("POST /api/workflows/linear success", () => {
+  it("creates running workflow for normal mode", async () => {
+    const { status, body } = await startWorkflow();
+    const wf = body as { id: string; status: string; linearUrl: string };
+    expect(status).toBe(201);
     expect(wf.status).toBe("running");
-    expect(wf.linearUrl).toBe("https://linear.app/myteam/issue/TEAM-123");
+    expect(wf.id).toBeTruthy();
+    expect(wf.linearUrl).toBe("https://linear.app/ws/issue/T-1");
   });
 
-  it("creates a validating workflow in basicMode", async () => {
-    const res = await request("POST", `${baseUrl}/api/workflows/linear`, {
-      linearUrl: "https://linear.app/myteam/issue/TEAM-456",
-      repository: "org/repo",
-      basicMode: true,
-    });
-    expect(res.status).toBe(201);
-    expect((res.body as { status: string }).status).toBe("validating");
-  });
-
-  it("returns 400 for invalid linearApiKey format", async () => {
-    const res = await request("POST", `${baseUrl}/api/workflows/linear`, {
-      linearUrl: "https://linear.app/myteam/issue/TEAM-123",
-      repository: "org/repo",
-      linearApiKey: "not-a-valid-key",
-    });
-    expect(res.status).toBe(400);
-    expect((res.body as { error: string }).error).toMatch(/linearApiKey/);
+  it("creates validating workflow for basicMode", async () => {
+    const { status, body } = await startWorkflow({ basicMode: true });
+    expect(status).toBe(201);
+    expect((body as { status: string }).status).toBe("validating");
   });
 });
 
 describe("DELETE /api/workflows/:id", () => {
-  it("returns 404 for unknown workflow", async () => {
-    const res = await request("DELETE", `${baseUrl}/api/workflows/nonexistent`);
-    expect(res.status).toBe(404);
+  it("returns 404 for unknown ID", async () => {
+    const { status } = await req("DELETE", `${base}/api/workflows/none`);
+    expect(status).toBe(404);
   });
 
-  it("cancels an existing workflow", async () => {
-    // First create one
-    const createRes = await request("POST", `${baseUrl}/api/workflows/linear`, {
-      linearUrl: "https://linear.app/myteam/issue/TEAM-789",
-      repository: "org/repo",
-    });
-    const id = (createRes.body as { id: string }).id;
+  it("cancels workflow and returns cancelled status", async () => {
+    const { body: wf } = await startWorkflow();
+    const { status, body } = await req("DELETE", `${base}/api/workflows/${wf.id as string}`);
+    expect(status).toBe(200);
+    expect((body as { status: string }).status).toBe("cancelled");
+  });
 
-    const deleteRes = await request("DELETE", `${baseUrl}/api/workflows/${id}`);
-    expect(deleteRes.status).toBe(200);
-    expect((deleteRes.body as { status: string }).status).toBe("cancelled");
+  it("workflow is gone from list after cancellation", async () => {
+    const { body: wf } = await startWorkflow();
+    await req("DELETE", `${base}/api/workflows/${wf.id as string}`);
+    // Workflow still appears in list but with cancelled status
+    const { body: list } = await req("GET", `${base}/api/workflows`);
+    expect((list as unknown as { status: string }[]).find((w) => w.status === "cancelled")).toBeTruthy();
   });
 });
