@@ -90,13 +90,13 @@ describe("UsageTracker", () => {
     const usage = tracker.getUsage("test-id");
 
     expect(usage).not.toBeNull();
-    expect(usage!.tokensIn).toBe(100);
-    expect(usage!.tokensOut).toBe(50);
-    expect(usage!.tokensTotal).toBe(150);
-    expect(usage!.lastTurnTokensIn).toBe(80);
+    expect(usage?.tokensIn).toBe(100);
+    expect(usage?.tokensOut).toBe(50);
+    expect(usage?.tokensTotal).toBe(150);
+    expect(usage?.lastTurnTokensIn).toBe(80);
     // tokensRemaining uses lastTurnTokensIn, not cumulative
-    expect(usage!.tokensRemaining).toBe(1_000_000 - 80);
-    expect(usage!.model).toBe("claude-sonnet-4-6");
+    expect(usage?.tokensRemaining).toBe(1_000_000 - 80);
+    expect(usage?.model).toBe("claude-sonnet-4-6");
   });
 
   it("getAllUsage includes all agents", () => {
