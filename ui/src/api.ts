@@ -170,26 +170,6 @@ export interface Repository {
   activeAgents: Array<{ id: string; name: string }>;
 }
 
-export interface PullRequestItem {
-  number: number;
-  title: string;
-  url: string;
-  state: "open" | "closed" | "merged" | "draft";
-  branch: string;
-  baseBranch: string;
-  author: string;
-  repo: string;
-  isDraft: boolean;
-  additions: number;
-  deletions: number;
-  checksStatus: "pending" | "passing" | "failing" | "none";
-  reviewDecision: string;
-  createdAt: string;
-  updatedAt: string;
-  agent: { id: string; name: string } | null;
-  labels: string[];
-}
-
 export type RiskLevel = "low" | "medium" | "high";
 
 export type ConfidenceLabel = "high" | "medium" | "low" | "critical";
@@ -223,6 +203,26 @@ export interface TokenStatus {
   hint: string | null;
   label?: string;
   user?: string;
+}
+
+export interface PullRequestItem {
+  number: number;
+  title: string;
+  url: string;
+  state: "open" | "closed" | "merged" | "draft";
+  branch: string;
+  baseBranch: string;
+  author: string;
+  repo: string;
+  isDraft: boolean;
+  additions: number;
+  deletions: number;
+  checksStatus: "pending" | "passing" | "failing" | "none";
+  reviewDecision: string;
+  createdAt: string;
+  updatedAt: string;
+  agent: { id: string; name: string } | null;
+  labels: string[];
 }
 
 export interface Workflow {
