@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["src/**/*.test.ts", "scripts/**/*.test.js"],
+    include: ["src/**/*.test.ts", "ui/src/**/*.test.ts", "scripts/**/*.test.js"],
     env: {
       JWT_SECRET: "test-secret-for-vitest",
     },
