@@ -2,9 +2,10 @@
 import { EventPipeline } from "./event-pipeline";
 // Smoke: EventPipeline is constructible and exposes required public methods.
 describe("EventPipeline smoke", () => {
-  // biome-ignore lint/suspicious/noExplicitAny: test stub
   const ep = new EventPipeline(
+    // biome-ignore lint/suspicious/noExplicitAny: test stub
     { get: () => undefined } as any,
+    // biome-ignore lint/suspicious/noExplicitAny: test stub
     { upsertCostTracker: () => {} } as any,
     new Map(),
     () => {},
