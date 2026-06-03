@@ -1,9 +1,8 @@
-import { checkDangerousCommand } from "./hook-config";
 import express, { type Request, type Response } from "express";
 import type { AgentManager } from "../agents";
 import { logger } from "../logger";
 import { param } from "../utils/express";
-
+import { checkDangerousCommand } from "./hook-config";
 
 // ── Tool timeline in-memory store ─────────────────────────────────────────────
 

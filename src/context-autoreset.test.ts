@@ -1,10 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   COMPACT_COMMAND,
   ContextAutoResetManager,
   contextFillRatio,
   DEFAULT_AUTORESET_THRESHOLD,
-  DEFAULT_COOLDOWN_TURNS,
   shouldAutoReset,
 } from "./context-autoreset";
 
