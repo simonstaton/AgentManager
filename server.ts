@@ -37,6 +37,7 @@ import { createTasksRouter } from "./src/routes/tasks";
 import { createTokensRouter } from "./src/routes/tokens";
 import { createUsageRouter } from "./src/routes/usage";
 import { createWorkflowsRouter } from "./src/routes/workflows";
+import { createWorkflowsEngineRouter } from "./src/routes/workflows-engine";
 import { Scheduler } from "./src/scheduler";
 import { loadSecretsIntoEnv } from "./src/secrets-store";
 import {
@@ -212,8 +213,11 @@ app.use(createMcpRouter());
 app.use(createCostRouter(agentManager, costTracker, messageBus));
 app.use(createTasksRouter(taskGraph, orchestrator, gradeStore));
 app.use(createSchedulerRouter(scheduler));
-app.use(createWorkflowsRouter(agentManager, messageBus));
+// Engine-backed workflow routes are primary at /api/workflows (D1: namespace swap).
+// AM's original Linear spawner moved to /api/linear-workflows (PR22a #200).
+app.use(createWorkflowsEngineRouter(agentManager, messageBus));
 app.use(createLinearWorkflowsRouter(agentManager, messageBus));
+app.use(createWorkflowsRouter(agentManager, messageBus));
 app.use(createRepoGateConfigRouter());
 app.use(createMergeGateRouter(agentManager));
 app.use(createRepositoriesRouter(agentManager));
