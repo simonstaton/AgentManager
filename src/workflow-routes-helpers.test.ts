@@ -26,11 +26,11 @@ describe("constants", () => {
 
 describe("isValidLinearApiKey", () => {
   it("accepts valid lin_api_ key with 32+ chars", () => {
-    expect(isValidLinearApiKey("lin_api_" + "a".repeat(32))).toBe(true);
+    expect(isValidLinearApiKey(`lin_api_${"a".repeat(32)}`)).toBe(true);
   });
 
   it("rejects key missing lin_api_ prefix", () => {
-    expect(isValidLinearApiKey("not_linear_" + "a".repeat(32))).toBe(false);
+    expect(isValidLinearApiKey(`not_linear_${"a".repeat(32)}`)).toBe(false);
   });
 
   it("rejects key with fewer than 32 chars after prefix", () => {
@@ -38,17 +38,17 @@ describe("isValidLinearApiKey", () => {
   });
 
   it("accepts key with underscores and digits after prefix", () => {
-    expect(isValidLinearApiKey("lin_api_abc123_DEF456_" + "x".repeat(18))).toBe(true);
+    expect(isValidLinearApiKey(`lin_api_abc123_DEF456_${"x".repeat(18)}`)).toBe(true);
   });
 });
 
 describe("isValidGithubPat", () => {
   it("accepts classic PAT with ghp_ prefix (36+ chars)", () => {
-    expect(isValidGithubPat("ghp_" + "a".repeat(36))).toBe(true);
+    expect(isValidGithubPat(`ghp_${"a".repeat(36)}`)).toBe(true);
   });
 
   it("accepts fine-grained PAT with github_pat_ prefix", () => {
-    expect(isValidGithubPat("github_pat_" + "a".repeat(40))).toBe(true);
+    expect(isValidGithubPat(`github_pat_${"a".repeat(40)}`)).toBe(true);
   });
 
   it("accepts legacy 40-char hex PAT", () => {
