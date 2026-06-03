@@ -10,6 +10,7 @@ import {
   EVENT_FILE_TRUNCATE_THRESHOLD,
   EVENT_RING_BUFFER_SIZE,
   MAX_PERSISTED_EVENTS,
+  PAUSED_TTL_MS,
   PROMPT_NAME_MAX_INPUT,
   PROMPT_NAME_MAX_SLUG,
 } from "./config";
@@ -27,11 +28,13 @@ import { type AllowedModel, DEFAULT_MODEL, MODELS } from "./models";
 import { EVENTS_DIR, loadAllAgentStates, removeAgentState, saveAgentState, writeTombstone } from "./persistence";
 import { getRepoCredentialsForAgents, writeGitCredentialsFile } from "./repo-credentials";
 import { sanitizeEvent } from "./sanitize";
+import { StateNotifier } from "./state-notifier";
 import { cleanupAgentClaudeData, debouncedSyncToGCS } from "./storage";
 import type {
   Agent,
   AgentMetadata,
   AgentProcess,
+  AgentStateEvent,
   AgentUsage,
   CreateAgentRequest,
   PromptAttachment,
@@ -264,7 +267,8 @@ export class AgentManager {
   private cleanupInterval: ReturnType<typeof setInterval>;
   private flushInterval: ReturnType<typeof setInterval>;
   private watchdogInterval: ReturnType<typeof setInterval>;
-  private idleListeners = new Set<(agentId: string) => void>();
+  private notifier: StateNotifier;
+  private pendingMessageChecker: ((agentId: string) => boolean) | null = null;
   private writeQueues = new Map<string, Promise<void>>();
   /** Per-agent lifecycle lock to prevent concurrent message/destroy operations.
    *  Each entry is a promise chain - operations queue behind the previous one. */
@@ -283,6 +287,7 @@ export class AgentManager {
 
   constructor(opts?: { costTracker?: CostTracker }) {
     this.costTracker = opts?.costTracker ?? null;
+    this.notifier = new StateNotifier(this.agents);
     this.workspace.setAgentListProvider(this);
     // Cleanup idle agents every 60s
     this.cleanupInterval = setInterval(() => this.cleanupExpired(), 60_000);
@@ -294,10 +299,18 @@ export class AgentManager {
 
   /** Register a callback that fires when any agent transitions to idle. */
   onIdle(listener: (agentId: string) => void): () => void {
-    this.idleListeners.add(listener);
-    return () => {
-      this.idleListeners.delete(listener);
-    };
+    return this.notifier.onIdle(listener);
+  }
+
+  /** Register a callback for agent state change events (SSE push). */
+  onAgentState(listener: (event: AgentStateEvent) => void): () => void {
+    return this.notifier.onAgentState(listener);
+  }
+
+  /** Wire the pending-message checker so cleanupExpired() skips agents with queued work.
+   *  Called by message-delivery setup after the message bus is available. */
+  setPendingMessageChecker(checker: ((agentId: string) => boolean) | null): void {
+    this.pendingMessageChecker = checker;
   }
 
   /** Restore agents from persisted state files (call on startup). */
@@ -1156,7 +1169,7 @@ export class AgentManager {
     logger.info("[kill-switch] emergencyDestroyAll - starting nuclear shutdown");
 
     // Clear all idle listeners to prevent auto-delivery from re-triggering agent runs
-    this.idleListeners.clear();
+    this.notifier.clearIdleListeners();
 
     // SIGKILL all tracked processes immediately
     for (const [id, agentProc] of this.agents) {
@@ -1604,21 +1617,21 @@ export class AgentManager {
     }
   }
 
-  private static readonly PAUSED_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-
   private cleanupExpired(): void {
     const now = Date.now();
     for (const [id, agentProc] of [...this.agents]) {
       const lastActivity = new Date(agentProc.agent.lastActivity).getTime();
       // Paused agents get an extended 24-hour TTL instead of indefinite exemption
       if (agentProc.agent.status === "paused") {
-        if (now - lastActivity > AgentManager.PAUSED_TTL_MS) {
+        if (now - lastActivity > PAUSED_TTL_MS) {
           logger.info("Cleaning up paused agent (exceeded 24h TTL)", { agentId: id });
           this.destroy(id);
         }
         continue;
       }
       if (now - lastActivity > SESSION_TTL_MS) {
+        // Skip idle child agents that still have messages queued for delivery
+        if (this.pendingMessageChecker?.(id)) continue;
         logger.info("Cleaning up expired agent", { agentId: id });
         this.destroy(id);
       }
@@ -1631,15 +1644,8 @@ export class AgentManager {
   private static readonly STALL_TIMEOUT_MS = 10 * 60_000; // 10 minutes
   private static readonly MAX_STALL_COUNT = 3;
 
-  /** Notify all idle listeners for an agent. Encapsulates the for-loop + try/catch pattern. */
   private notifyIdleListeners(id: string): void {
-    for (const listener of this.idleListeners) {
-      try {
-        listener(id);
-      } catch (err: unknown) {
-        logger.warn("[agents] Idle listener error", { error: errorMessage(err) });
-      }
-    }
+    this.notifier.notifyIdleListeners(id);
   }
 
   private watchdogCheck(): void {
