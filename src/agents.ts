@@ -24,7 +24,7 @@ import {
 } from "./errors";
 import { ALLOWED_MODELS, MAX_AGENT_DEPTH, MAX_AGENTS, MAX_CHILDREN_PER_AGENT, SESSION_TTL_MS } from "./guardrails";
 import { logger } from "./logger";
-import { type AllowedModel, DEFAULT_MODEL, MODELS } from "./models";
+import { DEFAULT_MODEL } from "./models";
 import { EVENTS_DIR, loadAllAgentStates, removeAgentState, saveAgentState, writeTombstone } from "./persistence";
 import { getRepoCredentialsForAgents, writeGitCredentialsFile } from "./repo-credentials";
 import { sanitizeEvent } from "./sanitize";
@@ -41,6 +41,7 @@ import type {
   StreamEvent,
 } from "./types";
 import { errorMessage } from "./types";
+import { estimateCost, UsageTracker } from "./usage-tracker";
 import { WorkspaceManager } from "./workspace-manager";
 import { cleanupWorktreesForWorkspace } from "./worktrees";
 
@@ -282,11 +283,13 @@ export class AgentManager {
   killed = false;
   /** Optional persistent cost tracker (SQLite-backed). */
   private costTracker: CostTracker | null = null;
+  private usageTracker: UsageTracker;
   /** Workspace management (directories, symlinks, tokens, env). */
   private workspace = new WorkspaceManager();
 
   constructor(opts?: { costTracker?: CostTracker }) {
     this.costTracker = opts?.costTracker ?? null;
+    this.usageTracker = new UsageTracker(this.agents, this.costTracker);
     this.notifier = new StateNotifier(this.agents);
     this.workspace.setAgentListProvider(this);
     // Cleanup idle agents every 60s
@@ -891,46 +894,9 @@ export class AgentManager {
     return this.readPersistedEvents(id);
   }
 
-  /** Estimate cost in USD from token usage and model pricing. */
-  private static estimateCost(
-    model: string,
-    usage: {
-      input_tokens?: number;
-      output_tokens?: number;
-      cache_creation_input_tokens?: number;
-      cache_read_input_tokens?: number;
-    },
-  ): number {
-    const pricing = MODELS[model as AllowedModel]?.pricing;
-    if (!pricing) return 0;
-    const perM = 1_000_000;
-    return (
-      ((usage.input_tokens ?? 0) / perM) * pricing.input +
-      ((usage.output_tokens ?? 0) / perM) * pricing.output +
-      ((usage.cache_read_input_tokens ?? 0) / perM) * pricing.cacheRead +
-      ((usage.cache_creation_input_tokens ?? 0) / perM) * pricing.cacheWrite
-    );
-  }
-
   /** Return token usage and estimated cost for a single agent. */
   getUsage(id: string): AgentUsage | null {
-    const agentProc = this.agents.get(id);
-    if (!agentProc) return null;
-    const { agent } = agentProc;
-    const tokensIn = agent.usage?.tokensIn ?? 0;
-    const tokensOut = agent.usage?.tokensOut ?? 0;
-    const tokensTotal = tokensIn + tokensOut;
-    const tokenLimit = MODELS[agent.model as AllowedModel]?.tokenLimit ?? 200_000;
-    return {
-      tokensIn,
-      tokensOut,
-      tokensTotal,
-      tokenLimit,
-      tokensRemaining: Math.max(0, tokenLimit - tokensTotal),
-      estimatedCost: Math.round((agent.usage?.estimatedCost ?? 0) * 1e6) / 1e6,
-      model: agent.model,
-      sessionStart: agent.createdAt,
-    };
+    return this.usageTracker.getUsage(id);
   }
 
   /** Refresh cached git info on an agent (async, fire-and-forget safe). */
@@ -969,33 +935,14 @@ export class AgentManager {
     };
   }
 
-  /** Return token usage for all agents, keyed by agent ID. */
+  /** Return token usage for all agents. */
   getAllUsage(): { agents: Array<{ id: string; name: string; usage: AgentUsage }> } {
-    const result: Array<{ id: string; name: string; usage: AgentUsage }> = [];
-    for (const agentProc of this.agents.values()) {
-      const usage = this.getUsage(agentProc.agent.id);
-      if (usage) {
-        result.push({ id: agentProc.agent.id, name: agentProc.agent.name, usage });
-      }
-    }
-    return { agents: result };
+    return this.usageTracker.getAllUsage();
   }
 
-  /** Reset in-memory usage counters for all tracked agents.
-   *  Only clears in-memory state and persists to /persistent/ - callers are
-   *  responsible for clearing SQLite via costTracker.reset() if needed. */
+  /** Reset in-memory usage counters for all tracked agents. */
   resetAllUsage(): void {
-    for (const agentProc of this.agents.values()) {
-      agentProc.agent.usage = {
-        tokensIn: 0,
-        tokensOut: 0,
-        estimatedCost: 0,
-        totalTokensSpent: 0,
-        totalTokensIn: 0,
-        totalTokensOut: 0,
-      };
-      saveAgentState(agentProc.agent);
-    }
+    this.usageTracker.resetAllUsage();
   }
 
   /** Return session logs for an agent in a readable format.
@@ -1423,7 +1370,7 @@ export class AgentManager {
         const tokensIn =
           (usage.input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0);
         const tokensOut = usage.output_tokens ?? 0;
-        const cost = AgentManager.estimateCost(agentProc.agent.model, usage);
+        const cost = estimateCost(agentProc.agent.model, usage);
 
         if (tokensIn > 0 || tokensOut > 0) {
           const prev = agentProc.agent.usage ?? { tokensIn: 0, tokensOut: 0, estimatedCost: 0, totalTokensSpent: 0 };
@@ -1493,20 +1440,8 @@ export class AgentManager {
     }
   }
 
-  /** Persist usage snapshot to SQLite cost tracker. Only called when usage actually changes.
-   *  Uses cumulative token values (totalTokensIn/Out) so billing data survives context clears. */
   private upsertCostTracker(agentProc: AgentProcess): void {
-    if (!this.costTracker || !agentProc.agent.usage) return;
-    const usage = agentProc.agent.usage;
-    this.costTracker.upsert({
-      agentId: agentProc.agent.id,
-      agentName: agentProc.agent.name,
-      model: agentProc.agent.model,
-      tokensIn: usage.totalTokensIn ?? usage.tokensIn,
-      tokensOut: usage.totalTokensOut ?? usage.tokensOut,
-      estimatedCost: usage.estimatedCost,
-      createdAt: agentProc.agent.createdAt,
-    });
+    this.usageTracker.upsertCostTracker(agentProc);
   }
 
   /** Flush batched event persistence and listener notifications for an agent.
