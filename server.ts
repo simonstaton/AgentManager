@@ -20,6 +20,7 @@ import { createConfigRouter } from "./src/routes/config";
 import { createContextRouter } from "./src/routes/context";
 import { createCostRouter } from "./src/routes/cost";
 import { createHealthRouter } from "./src/routes/health";
+import hookConfigRouter from "./src/routes/hook-config";
 import { createKillSwitchRouter } from "./src/routes/kill-switch";
 import { createMcpRouter } from "./src/routes/mcp";
 import { createMessagesRouter } from "./src/routes/messages";
@@ -207,6 +208,7 @@ app.use(createSchedulerRouter(scheduler));
 app.use(createWorkflowsRouter(agentManager, messageBus));
 app.use(createRepositoriesRouter(agentManager));
 app.use(createStartupRouter(agentManager, messageBus));
+app.use("/api/agents", hookConfigRouter);
 // Layer 1: Kill switch endpoint (no extra auth beyond authMiddleware above)
 app.use(createKillSwitchRouter(agentManager));
 
