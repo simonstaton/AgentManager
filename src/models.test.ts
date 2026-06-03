@@ -13,7 +13,7 @@ describe("MODELS registry", () => {
   });
 
   it("each model has required fields", () => {
-    for (const [id, def] of Object.entries(MODELS)) {
+    for (const [_id, def] of Object.entries(MODELS)) {
       expect(typeof def.displayName).toBe("string");
       expect(def.tokenLimit).toBeGreaterThan(0);
       expect(def.costMultiplier).toBeGreaterThan(0);
