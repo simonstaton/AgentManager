@@ -10,8 +10,13 @@ vi.mock("./service-mapping.json", () => ({
 vi.mock("./logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 
 let tmpDir: string;
-beforeEach(() => { tmpDir = mkdtempSync(path.join(os.tmpdir(), "ts-test-")); });
-afterEach(() => { rmSync(tmpDir, { recursive: true, force: true }); vi.resetModules(); });
+beforeEach(() => {
+  tmpDir = mkdtempSync(path.join(os.tmpdir(), "ts-test-"));
+});
+afterEach(() => {
+  rmSync(tmpDir, { recursive: true, force: true });
+  vi.resetModules();
+});
 
 describe("token-storage constants", async () => {
   it("ENV_TO_SERVICE and SERVICE_TO_ENV are populated", async () => {

@@ -81,7 +81,6 @@ export function ToolTimeline({ agentId }: ToolTimelineProps) {
           {!error && reversed.length > 0 && (
             <div className="space-y-0.5 max-h-48 overflow-y-auto">
               {reversed.map((entry, i) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: stable index for timeline rows
                 <ToolTimelineRow key={`${entry.timestamp}-${i}`} entry={entry} />
               ))}
             </div>
