@@ -172,6 +172,132 @@ export interface Repository {
 
 export type RiskLevel = "low" | "medium" | "high";
 
+export type ConfidenceLabel = "high" | "medium" | "low" | "critical";
+
+export interface MergePolicyEntry {
+  allowed: boolean;
+  reason: string;
+}
+
+export interface GateRules {
+  autoMergeThreshold: ConfidenceLabel;
+  mergePolicy: Record<ConfidenceLabel, MergePolicyEntry>;
+}
+
+export interface GateOverrides {
+  autoMergeThreshold?: ConfidenceLabel;
+  mergePolicy?: Partial<Record<ConfidenceLabel, Partial<MergePolicyEntry>>>;
+}
+
+export interface RepoGateConfig {
+  defaults: GateRules;
+  overrides: GateOverrides;
+  effective: GateRules;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
+export interface TokenStatus {
+  configured: boolean;
+  source: string;
+  hint: string | null;
+  label?: string;
+  user?: string;
+}
+
+export interface PullRequestItem {
+  number: number;
+  title: string;
+  url: string;
+  state: "open" | "closed" | "merged" | "draft";
+  branch: string;
+  baseBranch: string;
+  author: string;
+  repo: string;
+  isDraft: boolean;
+  additions: number;
+  deletions: number;
+  checksStatus: "pending" | "passing" | "failing" | "none";
+  reviewDecision: string;
+  createdAt: string;
+  updatedAt: string;
+  agent: { id: string; name: string } | null;
+  labels: string[];
+}
+
+export interface Workflow {
+  id: string;
+  linearUrl: string;
+  repository: string;
+  status:
+    | "validating"
+    | "rejected"
+    | "starting"
+    | "running"
+    | "awaiting_confirm"
+    | "grading"
+    | "needs_human"
+    | "completed"
+    | "failed"
+    | "cancelled";
+  agents: Array<{ id: string; name: string; role: string; status?: string; currentTask?: string }>;
+  prUrl?: string;
+  error?: string;
+  validation?: {
+    verdict: "accept" | "accept_with_caveats" | "reject";
+    clarity: "high" | "medium" | "low";
+    missing: string[];
+    suggestions: string[];
+    readError?: "not_found" | "forbidden" | "auth_failed" | "rate_limited" | "multi_issue_empty";
+    evaluatedAt: string;
+  };
+  grade?: {
+    taskId: string;
+    agentId: string;
+    ticketClarity: "high" | "medium" | "low";
+    fixConfidence: "high" | "medium" | "low";
+    blastRadius: "isolated" | "moderate" | "broad";
+    overallRisk: "low" | "medium" | "high";
+    numericScore: number;
+    reasoning?: string;
+    createdAt: string;
+  };
+  confidence?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type HookEvent = "PreToolUse" | "PostToolUse" | "Stop" | "SubagentStart" | "SubagentStop";
+export type HookType = "http" | "command";
+
+export interface HookRule {
+  id: string;
+  event: HookEvent;
+  type: HookType;
+  matcher?: string;
+  url?: string;
+  command?: string;
+  timeout?: number;
+  async?: boolean;
+}
+
+export interface ToolTimelineEntry {
+  tool: string;
+  inputPreview: string;
+  timestamp: string;
+  durationMs?: number;
+  outcome: "allowed" | "blocked";
+}
+
+export interface AgentStateEvent {
+  type: "agent_state";
+  agentId: string;
+  status: AgentStatus;
+  currentTask?: string;
+  tokensUsed?: number;
+  estimatedCost?: number;
+}
+
 export interface GradeResult {
   taskId: string;
   agentId: string;
@@ -836,7 +962,308 @@ export function createApi(authFetch: AuthFetch) {
       }
       return res.json();
     },
+
+    // Repo-gate config
+    async getRepoGateConfig(repoName: string): Promise<RepoGateConfig> {
+      const res = await authFetch(`/api/repositories/${encodeURIComponent(repoName)}/gate-config`);
+      if (!res.ok) throw new Error(`Failed to load gate config: ${res.status}`);
+      return res.json();
+    },
+
+    async updateRepoGateConfig(repoName: string, overrides: GateOverrides): Promise<RepoGateConfig> {
+      const res = await authFetch(`/api/repositories/${encodeURIComponent(repoName)}/gate-config`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(overrides),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? `Failed to save gate config: ${res.status}`);
+      }
+      return res.json();
+    },
+
+    async resetRepoGateConfig(repoName: string): Promise<RepoGateConfig> {
+      const res = await authFetch(`/api/repositories/${encodeURIComponent(repoName)}/gate-config`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error(`Failed to reset gate config: ${res.status}`);
+      return res.json();
+    },
+
+    // Integration tokens
+    async listTokens(): Promise<{ tokens: Record<string, TokenStatus> }> {
+      const res = await authFetch("/api/tokens");
+      if (!res.ok) throw new Error("Failed to list tokens");
+      return res.json();
+    },
+
+    async setToken(
+      service: string,
+      token: string,
+      label?: string,
+    ): Promise<{ ok: boolean; service: string; hint: string; user?: string; validationWarning?: string }> {
+      const res = await authFetch(`/api/tokens/${encodeURIComponent(service)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, label }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || "Failed to set token");
+      }
+      return res.json();
+    },
+
+    async removeToken(service: string): Promise<{ ok: boolean; hasFallback: boolean }> {
+      const res = await authFetch(`/api/tokens/${encodeURIComponent(service)}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || "Failed to remove token");
+      }
+      return res.json();
+    },
+
+    // TOTP
+    async getTotpStatus(): Promise<{ enabled: boolean; backupCodesRemaining: number; enabledAt: string | null }> {
+      const res = await authFetch("/api/auth/totp/status");
+      if (!res.ok) throw new Error("Failed to get TOTP status");
+      return res.json();
+    },
+
+    async getTotpSetup(): Promise<{
+      setupToken: string;
+      secret: string;
+      qrCodeDataUrl: string;
+      backupCodes: string[];
+    }> {
+      const res = await authFetch("/api/auth/totp/setup");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || "Failed to get TOTP setup");
+      }
+      return res.json();
+    },
+
+    async enableTotp(setupToken: string, code: string): Promise<{ ok: boolean }> {
+      const res = await authFetch("/api/auth/totp/enable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ setupToken, code }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || "Failed to enable TOTP");
+      }
+      return res.json();
+    },
+
+    async disableTotp(code: string): Promise<{ ok: boolean }> {
+      const res = await authFetch("/api/auth/totp/disable", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || "Failed to disable TOTP");
+      }
+      return res.json();
+    },
+
+    async regenerateBackupCodes(code: string): Promise<{ backupCodes: string[] }> {
+      const res = await authFetch("/api/auth/totp/backup-codes/regenerate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || "Failed to regenerate backup codes");
+      }
+      return res.json();
+    },
+
+    // Pull Requests
+    async fetchPullRequests(forceRefresh = false): Promise<{ pullRequests: PullRequestItem[]; error?: string }> {
+      const url = forceRefresh ? "/api/pull-requests?refresh=true" : "/api/pull-requests";
+      const res = await authFetch(url);
+      if (!res.ok) throw new Error("Failed to fetch pull requests");
+      return res.json();
+    },
+
+    // Workflows
+    async fetchWorkflows(): Promise<Workflow[]> {
+      const res = await authFetch("/api/workflows");
+      if (!res.ok) throw new Error("Failed to fetch workflows");
+      return res.json();
+    },
+
+    async getWorkflow(id: string): Promise<Workflow> {
+      const res = await authFetch(`/api/workflows/${encodeURIComponent(id)}`);
+      if (!res.ok) throw new Error(`Failed to fetch workflow ${id}`);
+      return res.json();
+    },
+
+    async cancelWorkflow(id: string): Promise<void> {
+      const res = await authFetch(`/api/workflows/${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to cancel workflow");
+    },
+
+    // Hook config
+    async getHookConfig(agentId: string): Promise<HookRule[]> {
+      const res = await authFetch(`/api/agents/${agentId}/hooks`);
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      return data.rules as HookRule[];
+    },
+
+    async setHookConfig(agentId: string, rules: HookRule[]): Promise<HookRule[]> {
+      const res = await authFetch(`/api/agents/${agentId}/hooks`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rules }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      return data.rules as HookRule[];
+    },
+
+    // Tool timeline
+    async getToolTimeline(agentId: string): Promise<ToolTimelineEntry[]> {
+      const res = await authFetch(`/api/hooks/${encodeURIComponent(agentId)}/timeline`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.timeline ?? [];
+    },
+
+    // Bulk agent ops
+    async bulkUpdateAgents(
+      ids: string[],
+      patch: { status?: string; role?: string },
+    ): Promise<{ updated: number; errors: Array<{ id: string; error: string }> }> {
+      const res = await authFetch("/api/agents/bulk", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, patch }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || "Failed to bulk update agents");
+      }
+      return res.json();
+    },
+
+    async retryAgentTask(agentId: string): Promise<{ ok: boolean }> {
+      const res = await authFetch(`/api/agents/${agentId}/retry`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || "Failed to retry agent task");
+      }
+      return res.json();
+    },
+
+    // Agent batch creation
+    async createAgentBatch(
+      agents: Array<{
+        prompt: string;
+        name?: string;
+        model?: string;
+        role?: string;
+        parentId?: string;
+        maxTurns?: number;
+        dangerouslySkipPermissions?: boolean;
+      }>,
+    ): Promise<{ results: Array<{ agent?: Agent; error?: string }> }> {
+      const res = await authFetch("/api/agents/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agents }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || "Failed to create agent batch");
+      }
+      return res.json();
+    },
+
+    // SSE streams
+    agentStateStream(): { stream: Promise<ReadableStream<AgentStateEvent>>; abort: () => void } {
+      const controller = new AbortController();
+      const stream = authFetch("/api/agents/events", {
+        signal: controller.signal,
+      }).then((res) => {
+        if (!res.ok) throw new Error("Failed to connect to agent state stream");
+        return parseAgentStateSSEStream(res);
+      });
+      return { stream, abort: () => controller.abort() };
+    },
+
+    allAgentLogsStream(opts?: { tail?: number; agentIds?: string[] }): {
+      stream: Promise<ReadableStream<StreamEvent & { agentId: string; agentName: string }>>;
+      abort: () => void;
+    } {
+      const controller = new AbortController();
+      const params = new URLSearchParams();
+      if (opts?.tail) params.set("tail", String(opts.tail));
+      if (opts?.agentIds?.length) params.set("agents", opts.agentIds.join(","));
+      const qs = params.toString() ? `?${params}` : "";
+      const stream = authFetch(`/api/agents/logs/stream${qs}`, {
+        signal: controller.signal,
+      }).then((res) => {
+        if (!res.ok) throw new Error("Failed to connect to agent logs stream");
+        return parseSSEStream(res, { closeOnDone: false }) as ReadableStream<
+          StreamEvent & { agentId: string; agentName: string }
+        >;
+      });
+      return { stream, abort: () => controller.abort() };
+    },
   };
+}
+
+function parseAgentStateSSEStream(res: Response): ReadableStream<AgentStateEvent> {
+  if (!res.body) throw new Error("Response body is null");
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  return new ReadableStream<AgentStateEvent>({
+    async pull(controller) {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            controller.close();
+            return;
+          }
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (line.startsWith(":") || line.startsWith("id:") || !line.trim()) continue;
+            if (line.startsWith("data: ")) {
+              try {
+                const event = JSON.parse(line.slice(6)) as AgentStateEvent;
+                controller.enqueue(event);
+              } catch {
+                // Skip unparseable lines
+              }
+            }
+          }
+        }
+      } catch (err: unknown) {
+        reader.cancel().catch(() => {});
+        if (err instanceof DOMException && err.name === "AbortError") {
+          controller.close();
+        } else {
+          controller.error(err);
+        }
+      }
+    },
+    cancel() {
+      reader.cancel();
+    },
+  });
 }
 
 interface ParseSSEOptions {
