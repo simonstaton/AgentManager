@@ -62,10 +62,8 @@ export function PRResultCard({ pr }: PRResultCardProps) {
   const checksInfo = CHECKS_META[pr.checksStatus];
   const reviewInfo = REVIEW_BADGE[pr.reviewDecision] ?? null;
 
-  const stateVariant =
-    pr.state === "draft" ? "secondary" : pr.state === "merged" ? "info" : "success";
-  const stateLabel =
-    pr.state === "draft" ? "Draft" : pr.state === "merged" ? "Merged" : "Open";
+  const stateVariant = pr.state === "draft" ? "secondary" : pr.state === "merged" ? "info" : "success";
+  const stateLabel = pr.state === "draft" ? "Draft" : pr.state === "merged" ? "Merged" : "Open";
 
   return (
     <div
@@ -73,8 +71,7 @@ export function PRResultCard({ pr }: PRResultCardProps) {
       tabIndex={0}
       onClick={() => window.open(pr.url, "_blank", "noopener noreferrer")}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ")
-          window.open(pr.url, "_blank", "noopener noreferrer");
+        if (e.key === "Enter" || e.key === " ") window.open(pr.url, "_blank", "noopener noreferrer");
       }}
       className="block bg-zinc-900/50 border border-zinc-800 rounded-lg p-4 hover:border-zinc-700 hover:bg-zinc-900/80 transition-colors group cursor-pointer"
     >

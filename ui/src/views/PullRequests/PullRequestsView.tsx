@@ -1,12 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { PullRequestItem } from "../../api";
 import { Header } from "../../components/Header";
 import { Sidebar } from "../../components/Sidebar";
 import { useAgentPolling } from "../../hooks/useAgentPolling";
 import { usePRPolling } from "../../hooks/usePRPolling";
 import { useKillSwitchContext } from "../../killSwitch";
-import type { PullRequestItem } from "../../api";
 import { PRResultCard } from "./PRResultCard";
 
 type StateFilter = "all" | "open" | "draft";
@@ -59,8 +59,7 @@ export function PullRequestsView() {
                 {counts.withAgent > 0 && (
                   <span>
                     {" "}
-                    &middot;{" "}
-                    <span className="text-blue-400/70">{counts.withAgent} agent-owned</span>
+                    &middot; <span className="text-blue-400/70">{counts.withAgent} agent-owned</span>
                   </span>
                 )}
               </p>
