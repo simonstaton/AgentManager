@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DANGEROUS_BASH_PATTERNS, checkDangerousCommand } from "./hook-config";
+import { checkDangerousCommand, DANGEROUS_BASH_PATTERNS } from "./hook-config";
 
 describe("DANGEROUS_BASH_PATTERNS", () => {
   it("exports a non-empty array of patterns", () => {

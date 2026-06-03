@@ -51,10 +51,8 @@ describe("context-policy-store", () => {
 
       return {
         ...actual,
-        writeFile: (p: string, data: string, enc?: BufferEncoding) =>
-          actual.writeFile(patchPath(p), data, enc),
-        rename: (from: string, to: string) =>
-          actual.rename(patchPath(from), patchPath(to)),
+        writeFile: (p: string, data: string, enc?: BufferEncoding) => actual.writeFile(patchPath(p), data, enc),
+        rename: (from: string, to: string) => actual.rename(patchPath(from), patchPath(to)),
       };
     });
 
@@ -292,7 +290,7 @@ describe("context-policy-store", () => {
       const effective = store.getEffectiveContextPolicy("agent-z");
       expect(effective.autoReset.cooldownTurns).toBe(2);
       expect(effective.autoReset.threshold).toBe(0.8); // from global
-      expect(effective.autoReset.enabled).toBe(true);  // from builtin
+      expect(effective.autoReset.enabled).toBe(true); // from builtin
     });
 
     it("deleting per-agent override reverts to global", async () => {
@@ -317,9 +315,9 @@ describe("context-policy-store", () => {
       await store.setGlobalPolicy({ autoReset: { cooldownTurns: 10 } });
       await store.setAgentPolicy("agent-full", { autoReset: { enabled: false } });
       const effective = store.getEffectiveContextPolicy("agent-full");
-      expect(effective.autoReset.enabled).toBe(false);        // from agent
-      expect(effective.autoReset.cooldownTurns).toBe(10);     // from global
-      expect(effective.autoReset.threshold).toBe(0.72);       // from builtin
+      expect(effective.autoReset.enabled).toBe(false); // from agent
+      expect(effective.autoReset.cooldownTurns).toBe(10); // from global
+      expect(effective.autoReset.threshold).toBe(0.72); // from builtin
     });
 
     it("effective policy has no optional/undefined fields (fully resolved)", async () => {
