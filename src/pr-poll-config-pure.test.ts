@@ -6,7 +6,11 @@ function clampInterval(ms: number, min = 5_000, max = 300_000): number {
   return Math.max(min, Math.min(max, ms));
 }
 
-function shouldRefreshOnVisible(wasHidden: boolean, timeSinceLastFetch: number, threshold = PR_POLL_INTERVAL_MS): boolean {
+function shouldRefreshOnVisible(
+  wasHidden: boolean,
+  timeSinceLastFetch: number,
+  threshold = PR_POLL_INTERVAL_MS,
+): boolean {
   return wasHidden && timeSinceLastFetch >= threshold;
 }
 
