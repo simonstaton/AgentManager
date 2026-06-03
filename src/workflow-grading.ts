@@ -8,6 +8,13 @@
 
 import type { GradeResult } from "./grading";
 
+function numericScoreFromGrade(g: GradeResult): number {
+  const clarityMap: Record<string, number> = { high: 0, medium: 16, low: 33 };
+  const confidenceMap: Record<string, number> = { high: 0, medium: 17, low: 34 };
+  const blastMap: Record<string, number> = { isolated: 0, moderate: 17, broad: 33 };
+  return (clarityMap[g.ticketClarity] ?? 0) + (confidenceMap[g.fixConfidence] ?? 0) + (blastMap[g.blastRadius] ?? 0);
+}
+
 /**
  * Gate decision based on overall risk.
  * low/medium → CREATE_PR; high → NEEDS_HUMAN (withhold, no PR in v1).
@@ -24,7 +31,7 @@ export function gradeGate(g: GradeResult): "CREATE_PR" | "NEEDS_HUMAN" {
  * CRITICAL: overallRisk==='high' always yields confidence < 60 (the Medium threshold).
  */
 export function confidenceFromGrade(g: GradeResult): number {
-  return 100 - g.numericScore;
+  return 100 - numericScoreFromGrade(g);
 }
 
 /** Build the prompt for the workflow grader agent (Opus, maxTurns:12, read-only). */
