@@ -3,8 +3,10 @@ import { randomUUID } from "node:crypto";
 import { readdir, rm, unlink } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import { AgentWatchdog } from "./agent-watchdog";
 import { AGENT_DEDUP_WINDOW_MS, PAUSED_TTL_MS, PROMPT_NAME_MAX_INPUT, PROMPT_NAME_MAX_SLUG } from "./config";
 import type { CostTracker } from "./cost-tracker";
+import { EphemeralCleanup } from "./ephemeral-cleanup";
 import {
   AgentNotFoundError,
   AgentStateError,
@@ -198,6 +200,8 @@ export class AgentManager {
   private usageTracker: UsageTracker;
   private pipeline: EventPipeline;
   private processManager: ProcessManager;
+  private watchdog: AgentWatchdog;
+  private ephemeralCleanup: EphemeralCleanup;
   /** Workspace management (directories, symlinks, tokens, env). */
   private workspace = new WorkspaceManager();
 
@@ -208,20 +212,27 @@ export class AgentManager {
     this.pipeline = new EventPipeline(this.agents, this.usageTracker, this.writeQueues, (id, agent, immediate) =>
       this.notifier.scheduleAgentUpdated(id, agent, immediate),
     );
+    this.ephemeralCleanup = new EphemeralCleanup(this.agents, {
+      destroy: (id) => this.destroy(id),
+    });
     this.processManager = new ProcessManager(this.agents, this.pipeline, {
       onAgentUpdated: (id, agent, immediate) => this.notifier.scheduleAgentUpdated(id, agent, immediate),
       onIdle: (id) => this.notifyIdleListeners(id),
-      onEphemeralIdle: (_id) => {
-        // ephemeral auto-destroy wired in PR28 (ephemeral-cleanup.ts)
-      },
+      onEphemeralIdle: (id) => this.ephemeralCleanup.schedule(id),
+    });
+    this.watchdog = new AgentWatchdog(this.agents, {
+      hasLifecycleLock: (id) => this.lifecycleLocks.has(id),
+      scheduleAgentUpdated: (id, agent, immediate) => this.notifier.scheduleAgentUpdated(id, agent, immediate ?? false),
+      handleEvent: (id, event) => this.handleEvent(id, event),
+      notifyIdleListeners: (id) => this.notifyIdleListeners(id),
     });
     this.workspace.setAgentListProvider(this);
     // Cleanup idle agents every 60s
     this.cleanupInterval = setInterval(() => this.cleanupExpired(), 60_000);
     // Periodic state flush every 30s (catches lastActivity updates without writing on every poll)
     this.flushInterval = setInterval(() => this.flushAllStates(), 30_000);
-    // WI-4: Watchdog checks every 30s for dead/stalled/stuck-starting agents
-    this.watchdogInterval = setInterval(() => this.watchdogCheck(), 30_000);
+    // Watchdog checks every 30s for dead/stalled/stuck-starting agents
+    this.watchdogInterval = setInterval(() => this.watchdog.check(), 30_000);
   }
 
   /** Register a callback that fires when any agent transitions to idle. */
@@ -502,6 +513,9 @@ export class AgentManager {
     const killOld: Promise<void> = oldProc ? this.processManager.killAndWait(oldProc, agentProc) : Promise.resolve();
 
     agentProc.lineBuffer = "";
+
+    // Cancel any pending ephemeral auto-destroy (a new message keeps the agent alive)
+    this.ephemeralCleanup.cancel(id);
 
     // Persist a user_prompt event so the user's message appears in the terminal
     // on reconnect. Use displayText (clean user text) rather than the full prompt
@@ -1140,109 +1154,8 @@ export class AgentManager {
     }
   }
 
-  /** WI-4: Watchdog - detects dead processes, stalled agents, and start timeouts.
-   *  Runs every 30s. Skips agents with active lifecycle locks to avoid races. */
-  private static readonly START_TIMEOUT_MS = 2 * 60_000; // 2 minutes
-  private static readonly STALL_TIMEOUT_MS = 10 * 60_000; // 10 minutes
-  private static readonly MAX_STALL_COUNT = 3;
-
   private notifyIdleListeners(id: string): void {
     this.notifier.notifyIdleListeners(id);
-  }
-
-  private watchdogCheck(): void {
-    const now = Date.now();
-    for (const [id, agentProc] of this.agents) {
-      const { agent, proc } = agentProc;
-
-      // Skip agents with active lifecycle locks - they're in the middle of
-      // a message() or destroy() operation. Also skip paused and disconnected agents.
-      if (this.lifecycleLocks.has(id)) continue;
-      if (
-        agent.status === "destroying" ||
-        agent.status === "killing" ||
-        agent.status === "paused" ||
-        agent.status === "disconnected"
-      )
-        continue;
-
-      // 1. Dead process detection: exitCode is set when the process has exited.
-      //    proc.killed is unreliable (only set if WE killed it).
-      if (proc && proc.exitCode !== null && agent.status === "running") {
-        const exitCode = proc.exitCode;
-        logger.warn("[watchdog] Dead process detected", { agentId: id, agentName: agent.name, exitCode });
-        agent.status = exitCode === 0 ? "idle" : "error";
-        agent.lastActivity = nowISO();
-        saveAgentState(agent);
-        this.handleEvent(id, {
-          type: "system",
-          subtype: "watchdog",
-          message: `Process exited unexpectedly (code ${exitCode}). Status changed to ${agent.status}.`,
-        });
-        // Notify idle listeners if exit was clean
-        if (exitCode === 0) {
-          this.notifyIdleListeners(id);
-        }
-        continue;
-      }
-
-      // 2. Start timeout: agent stuck in "starting" for > 2 minutes
-      if (agent.status === "starting") {
-        const createdAt = new Date(agent.createdAt).getTime();
-        if (now - createdAt > AgentManager.START_TIMEOUT_MS) {
-          logger.warn("[watchdog] Start timeout", { agentId: id, agentName: agent.name });
-          agent.status = "error";
-          agent.lastActivity = nowISO();
-          saveAgentState(agent);
-          this.handleEvent(id, {
-            type: "system",
-            subtype: "watchdog",
-            message: "Agent failed to start within 2 minutes. Status changed to error.",
-          });
-        }
-        continue;
-      }
-
-      // 3. Stall detection: running agent with no output for > 10 minutes
-      //    AND process is still alive (exitCode is null)
-      if (agent.status === "running" && proc && proc.exitCode === null) {
-        const lastActivityTs = new Date(agent.lastActivity).getTime();
-        if (now - lastActivityTs > AgentManager.STALL_TIMEOUT_MS) {
-          agentProc.stallCount++;
-          if (agentProc.stallCount >= AgentManager.MAX_STALL_COUNT) {
-            // Too many consecutive stalls - escalate to error
-            logger.warn("[watchdog] Agent stalled too many times - marking as error", {
-              agentId: id,
-              agentName: agent.name,
-              stallCount: AgentManager.MAX_STALL_COUNT,
-            });
-            agent.status = "error";
-            saveAgentState(agent);
-            this.handleEvent(id, {
-              type: "system",
-              subtype: "watchdog",
-              message: `Agent stalled ${AgentManager.MAX_STALL_COUNT} consecutive times. Marked as error.`,
-            });
-          } else {
-            logger.warn("[watchdog] Stall detected - no output for 10+ minutes", {
-              agentId: id,
-              agentName: agent.name,
-              stallCount: agentProc.stallCount,
-              maxStallCount: AgentManager.MAX_STALL_COUNT,
-            });
-            agent.status = "stalled";
-            saveAgentState(agent);
-            this.handleEvent(id, {
-              type: "system",
-              subtype: "watchdog",
-              message: `No output for 10+ minutes (stall ${agentProc.stallCount}/${AgentManager.MAX_STALL_COUNT}). Send a message to attempt recovery.`,
-            });
-            // Notify idle listeners so stalled agents can receive queued messages
-            this.notifyIdleListeners(id);
-          }
-        }
-      }
-    }
   }
 
   /** Flush all agent states to disk. */

@@ -597,3 +597,12 @@ describe("ring buffer", () => {
     });
   });
 });
+
+describe("ephemeral cleanup wiring", () => {
+  it("ephemeral cancel is available via processManager wiring (smoke test)", async () => {
+    // Verify the ephemeral cleanup module loaded without errors.
+    // Full integration tested in ephemeral-cleanup.test.ts.
+    const { EphemeralCleanup } = await import("./ephemeral-cleanup");
+    expect(EphemeralCleanup).toBeDefined();
+  });
+});

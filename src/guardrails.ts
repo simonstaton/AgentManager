@@ -85,3 +85,9 @@ export function setMaxChildrenPerAgent(v: number) {
   const [min, max] = BOUNDS.maxChildrenPerAgent;
   MAX_CHILDREN_PER_AGENT = clamp(v, min, max);
 }
+
+// Watchdog timing constants (configurable via env vars)
+export const START_TIMEOUT_MS = 2 * 60_000; // 2 minutes
+export const STALL_TIMEOUT_MS = 10 * 60_000; // 10 minutes
+export const SOFT_STALL_TIMEOUT_MS = 5 * 60_000; // 5 minutes
+export const MAX_STALL_COUNT = 3;

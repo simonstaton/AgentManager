@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { ALLOWED_MODELS, BLOCKED_COMMAND_PATTERNS } from "./guardrails";
+import {
+  ALLOWED_MODELS,
+  BLOCKED_COMMAND_PATTERNS,
+  MAX_STALL_COUNT,
+  SOFT_STALL_TIMEOUT_MS,
+  STALL_TIMEOUT_MS,
+  START_TIMEOUT_MS,
+} from "./guardrails";
 
 describe("guardrails constants", () => {
   it("includes expected models", () => {
@@ -62,5 +69,23 @@ describe("BLOCKED_COMMAND_PATTERNS", () => {
     expect(matches("Create a user registration form")).toBe(false);
     expect(matches("Explain how databases work")).toBe(false);
     expect(matches("What is DELETE in SQL?")).toBe(false); // "DELETE" alone without "FROM" is OK
+  });
+});
+
+describe("watchdog timing constants", () => {
+  it("START_TIMEOUT_MS is 2 minutes", () => {
+    expect(START_TIMEOUT_MS).toBe(2 * 60_000);
+  });
+
+  it("STALL_TIMEOUT_MS is 10 minutes", () => {
+    expect(STALL_TIMEOUT_MS).toBe(10 * 60_000);
+  });
+
+  it("SOFT_STALL_TIMEOUT_MS is 5 minutes", () => {
+    expect(SOFT_STALL_TIMEOUT_MS).toBe(5 * 60_000);
+  });
+
+  it("MAX_STALL_COUNT is 3", () => {
+    expect(MAX_STALL_COUNT).toBe(3);
   });
 });
