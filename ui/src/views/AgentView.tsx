@@ -8,6 +8,7 @@ import type { Agent, GradeResult } from "../api";
 import { AgentMetadataPanel } from "../components/AgentMetadataPanel";
 import { AgentTerminal } from "../components/AgentTerminal";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { ContextPolicyPanel } from "../components/ContextPolicyPanel";
 import { Header } from "../components/Header";
 import { type Attachment, PromptInput } from "../components/PromptInput";
 import { RiskBadge } from "../components/RiskBadge";
@@ -414,6 +415,9 @@ export function AgentView({ agentId }: { agentId: string }) {
 
           {/* Metadata panel */}
           {id && <AgentMetadataPanel agentId={id} />}
+
+          {/* Context policy panel */}
+          {id && <ContextPolicyPanel api={api} agentId={id} compact />}
 
           {/* Disconnected warning banner */}
           {agent?.status === "disconnected" && (

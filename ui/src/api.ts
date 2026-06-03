@@ -197,6 +197,48 @@ export interface RepoGateConfig {
   updatedBy: string | null;
 }
 
+// ─── Context Policy ────────────────────────────────────────────────────────────
+
+export interface AutoResetPolicy {
+  enabled?: boolean;
+  threshold?: number;
+  cooldownTurns?: number;
+}
+
+export interface ContextPolicy {
+  autoReset?: AutoResetPolicy;
+}
+
+export interface EffectiveAutoReset {
+  enabled: boolean;
+  threshold: number;
+  cooldownTurns: number;
+}
+
+export interface EffectiveContextPolicy {
+  autoReset: EffectiveAutoReset;
+}
+
+export interface ContextPolicyRecord {
+  scope: string;
+  policy: ContextPolicy;
+  updatedAt: string;
+}
+
+export interface ContextPolicyBounds {
+  autoReset: {
+    threshold: { min: number; max: number };
+    cooldownTurns: { min: number; max: number };
+  };
+}
+
+export interface ContextPolicyResponse {
+  effective: EffectiveContextPolicy;
+  global: ContextPolicyRecord;
+  agent?: ContextPolicyRecord;
+  bounds: ContextPolicyBounds;
+}
+
 export interface TokenStatus {
   configured: boolean;
   source: string;
@@ -988,6 +1030,53 @@ export function createApi(authFetch: AuthFetch) {
         method: "DELETE",
       });
       if (!res.ok) throw new Error(`Failed to reset gate config: ${res.status}`);
+      return res.json();
+    },
+
+    // Context Policy
+    async getContextPolicy(): Promise<ContextPolicyResponse> {
+      const res = await authFetch("/api/context-policy");
+      if (!res.ok) throw new Error("Failed to get context policy");
+      return res.json();
+    },
+
+    async updateContextPolicy(patch: ContextPolicy): Promise<ContextPolicyResponse> {
+      const res = await authFetch("/api/context-policy", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? "Failed to save context policy");
+      }
+      return res.json();
+    },
+
+    async getAgentContextPolicy(agentId: string): Promise<ContextPolicyResponse> {
+      const res = await authFetch(`/api/context-policy/${encodeURIComponent(agentId)}`);
+      if (!res.ok) throw new Error(`Failed to get context policy for agent: ${res.status}`);
+      return res.json();
+    },
+
+    async updateAgentContextPolicy(agentId: string, patch: ContextPolicy): Promise<ContextPolicyResponse> {
+      const res = await authFetch(`/api/context-policy/${encodeURIComponent(agentId)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? "Failed to save agent context policy");
+      }
+      return res.json();
+    },
+
+    async resetAgentContextPolicy(agentId: string): Promise<ContextPolicyResponse> {
+      const res = await authFetch(`/api/context-policy/${encodeURIComponent(agentId)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error(`Failed to reset agent context policy: ${res.status}`);
       return res.json();
     },
 
