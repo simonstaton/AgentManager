@@ -190,9 +190,22 @@ if [ "$IMPORT_PENALTY" -gt 15 ]; then IMPORT_PENALTY=15; fi
 
 MAGIC_URLS=$(grep '^\+' "$DIFF_FILE" | grep -v '^\+\s*//' | grep -v '^\+\s*\*' | grep -v '^\+\s*#' | grep -cE 'https?://[^ ]+\.(com|io|org|net|dev)' || true)
 
+# Scan only non-test source files for hardcoded secrets/tokens.
+# Test files legitimately contain fake credentials (mock tokens, fixture PATs) —
+# scanning them produces false positives that penalise well-tested security routes.
+# URL scanning (above) uses the full diff since URLs in tests are usually real endpoints.
+SRC_DIFF_FILE=$(mktemp)
+trap 'rm -f "$DIFF_FILE" "$SRC_DIFF_FILE"' EXIT
+awk '
+  /^diff --git / {
+    skip = ($0 ~ /\.(test|spec)\.(ts|tsx|js|jsx)|\/__tests__\/|\.spec\.|__fixtures__|vitest\.config/)
+  }
+  !skip { print }
+' "$DIFF_FILE" > "$SRC_DIFF_FILE"
+
 # Use shell variable for single-quote matching (POSIX ERE does not support \x27)
 SQ="'"
-HARDCODED_KEYS=$(grep '^\+' "$DIFF_FILE" | grep -ciE "(api[_-]?key|secret|token|password)\s*[:=]\s*[\"${SQ}][^\"${SQ}]{8,}" || true)
+HARDCODED_KEYS=$(grep '^\+' "$SRC_DIFF_FILE" | grep -ciE "(api[_-]?key|secret|token|password)\s*[:=]\s*[\"${SQ}][^\"${SQ}]{8,}" || true)
 
 MAGIC_PENALTY=0
 if [ "$HARDCODED_KEYS" -gt 0 ]; then
