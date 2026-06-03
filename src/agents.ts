@@ -5,16 +5,25 @@ import { appendFile, readdir, readFile, rename, rm, stat, unlink, writeFile } fr
 import path from "node:path";
 import readline from "node:readline";
 import { promisify } from "node:util";
+import {
+  AGENT_DEDUP_WINDOW_MS,
+  EVENT_FILE_TRUNCATE_THRESHOLD,
+  EVENT_RING_BUFFER_SIZE,
+  MAX_PERSISTED_EVENTS,
+  PROMPT_NAME_MAX_INPUT,
+  PROMPT_NAME_MAX_SLUG,
+} from "./config";
 import type { CostTracker } from "./cost-tracker";
 import {
-  ALLOWED_MODELS,
-  DEFAULT_MODEL,
-  MAX_AGENT_DEPTH,
-  MAX_AGENTS,
-  MAX_CHILDREN_PER_AGENT,
-  SESSION_TTL_MS,
-} from "./guardrails";
+  AgentNotFoundError,
+  AgentStateError,
+  KillSwitchActiveError,
+  ResourceLimitError,
+  ValidationError,
+} from "./errors";
+import { ALLOWED_MODELS, MAX_AGENT_DEPTH, MAX_AGENTS, MAX_CHILDREN_PER_AGENT, SESSION_TTL_MS } from "./guardrails";
 import { logger } from "./logger";
+import { type AllowedModel, DEFAULT_MODEL, MODELS } from "./models";
 import { EVENTS_DIR, loadAllAgentStates, removeAgentState, saveAgentState, writeTombstone } from "./persistence";
 import { getRepoCredentialsForAgents, writeGitCredentialsFile } from "./repo-credentials";
 import { sanitizeEvent } from "./sanitize";
@@ -163,15 +172,6 @@ function cleanupAllProcesses(agentRootPids: number[]): void {
   }
 }
 
-const MAX_PERSISTED_EVENTS = 5_000;
-const EVENT_FILE_TRUNCATE_THRESHOLD = 10_000;
-const EVENT_RING_BUFFER_SIZE = 1_000;
-
-// Max chars of the prompt's first line to consider when building the slug.
-const PROMPT_NAME_MAX_INPUT = 120;
-// Hard cap on the final generated name length (content words + UUID suffix).
-const PROMPT_NAME_MAX_SLUG = 40;
-
 const NAME_STOP_WORDS = new Set([
   "the",
   "and",
@@ -274,7 +274,6 @@ export class AgentManager {
   /** Track recent agent creations to prevent duplicates from parallel requests.
    *  Key: "parentId:name" or "name", Value: timestamp of creation. */
   private recentCreations = new Map<string, number>();
-  private static readonly DEDUP_WINDOW_MS = 10_000; // 10 seconds
   /** Set to true by kill switch - blocks create() and message() at the code level. */
   killed = false;
   /** Optional persistent cost tracker (SQLite-backed). */
@@ -360,21 +359,21 @@ export class AgentManager {
   } {
     // Block spawning when kill switch is active
     if (this.killed) {
-      throw new Error("Kill switch is active - agent spawning is disabled");
+      throw new KillSwitchActiveError();
     }
     if (this.agents.size >= MAX_AGENTS) {
-      throw new Error(`Maximum of ${MAX_AGENTS} agents reached`);
+      throw new ResourceLimitError("agents", this.agents.size, MAX_AGENTS);
     }
     // Enforce immutable depth field and sibling limit
     const parentAgent = opts.parentId ? this.get(opts.parentId) : undefined;
     const depth = (parentAgent?.depth ?? 0) + 1;
     if (depth > MAX_AGENT_DEPTH) {
-      throw new Error(`Maximum agent depth of ${MAX_AGENT_DEPTH} exceeded`);
+      throw new ResourceLimitError("depth", depth, MAX_AGENT_DEPTH);
     }
     if (opts.parentId) {
       const siblingCount = this.list().filter((a) => a.parentId === opts.parentId).length;
       if (siblingCount >= MAX_CHILDREN_PER_AGENT) {
-        throw new Error(`Maximum of ${MAX_CHILDREN_PER_AGENT} children per agent exceeded`);
+        throw new ResourceLimitError("children", siblingCount, MAX_CHILDREN_PER_AGENT);
       }
     }
 
@@ -387,12 +386,12 @@ export class AgentManager {
     const dedupKey = opts.parentId ? `${opts.parentId}:${name}` : name;
     const dedupNow = Date.now();
     const lastCreated = this.recentCreations.get(dedupKey);
-    if (lastCreated && dedupNow - lastCreated < AgentManager.DEDUP_WINDOW_MS) {
+    if (lastCreated && dedupNow - lastCreated < AGENT_DEDUP_WINDOW_MS) {
       const existing = Array.from(this.agents.values()).find(
         (ap) => ap.agent.name === name && ap.agent.parentId === opts.parentId,
       );
       if (existing) {
-        throw new Error(
+        throw new ValidationError(
           `Agent "${name}" was already created recently. Use the existing agent (${existing.agent.id.slice(0, 8)}).`,
         );
       }
@@ -400,7 +399,7 @@ export class AgentManager {
     this.recentCreations.set(dedupKey, dedupNow);
     // Prune old entries from the dedup map
     for (const [key, ts] of this.recentCreations) {
-      if (dedupNow - ts > AgentManager.DEDUP_WINDOW_MS) this.recentCreations.delete(key);
+      if (dedupNow - ts > AGENT_DEDUP_WINDOW_MS) this.recentCreations.delete(key);
     }
 
     const model = opts.model && ALLOWED_MODELS.includes(opts.model) ? opts.model : DEFAULT_MODEL;
@@ -539,11 +538,11 @@ export class AgentManager {
     attachmentNames?: string[],
   ): { agent: Agent; subscribe: (listener: (event: StreamEvent) => void) => () => void } {
     // Block messaging when kill switch is active
-    if (this.killed) throw new Error("Kill switch is active - agent messaging is disabled");
+    if (this.killed) throw new KillSwitchActiveError();
     const agentProc = this.agents.get(id);
-    if (!agentProc) throw new Error("Agent not found");
+    if (!agentProc) throw new AgentNotFoundError(id);
     if (agentProc.agent.status === "killing")
-      throw new Error("Agent is shutting down a previous process, try again shortly");
+      throw new AgentStateError("Agent is shutting down a previous process, try again shortly");
 
     // Use targetSessionId if provided, otherwise use the agent's main session.
     // After clearContext(), claudeSessionId is undefined - start a fresh session (no --resume).
@@ -879,25 +878,6 @@ export class AgentManager {
     return this.readPersistedEvents(id);
   }
 
-  /** Context window limit per model (approximate values). */
-  private static readonly TOKEN_LIMITS: Record<string, number> = {
-    "claude-opus-4-6": 200_000,
-    "claude-sonnet-4-6": 200_000,
-    "claude-sonnet-4-5-20250929": 200_000,
-    "claude-haiku-4-5-20251001": 200_000,
-  };
-
-  /** Per-million-token pricing by model (USD). */
-  private static readonly MODEL_PRICING: Record<
-    string,
-    { input: number; output: number; cacheRead: number; cacheWrite: number }
-  > = {
-    "claude-opus-4-6": { input: 15, output: 75, cacheRead: 1.875, cacheWrite: 18.75 },
-    "claude-sonnet-4-6": { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
-    "claude-sonnet-4-5-20250929": { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
-    "claude-haiku-4-5-20251001": { input: 0.8, output: 4, cacheRead: 0.08, cacheWrite: 1 },
-  };
-
   /** Estimate cost in USD from token usage and model pricing. */
   private static estimateCost(
     model: string,
@@ -908,7 +888,7 @@ export class AgentManager {
       cache_read_input_tokens?: number;
     },
   ): number {
-    const pricing = AgentManager.MODEL_PRICING[model];
+    const pricing = MODELS[model as AllowedModel]?.pricing;
     if (!pricing) return 0;
     const perM = 1_000_000;
     return (
@@ -927,7 +907,7 @@ export class AgentManager {
     const tokensIn = agent.usage?.tokensIn ?? 0;
     const tokensOut = agent.usage?.tokensOut ?? 0;
     const tokensTotal = tokensIn + tokensOut;
-    const tokenLimit = AgentManager.TOKEN_LIMITS[agent.model] ?? 200_000;
+    const tokenLimit = MODELS[agent.model as AllowedModel]?.tokenLimit ?? 200_000;
     return {
       tokensIn,
       tokensOut,
