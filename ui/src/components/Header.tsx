@@ -10,6 +10,7 @@ import { LinearWorkflowDialog } from "./LinearWorkflowDialog";
 
 const NAV_LINKS: Array<{ path: string; label: string; active: (pathname: string) => boolean }> = [
   { path: "/graph", label: "Graph", active: (p) => p === "/graph" },
+  { path: "/workflows", label: "Workflows", active: (p) => p === "/workflows" },
   { path: "/costs", label: "Costs", active: (p) => p === "/costs" },
   { path: "/tasks", label: "Tasks", active: (p) => p === "/tasks" },
   { path: "/messages", label: "Messages", active: (p) => p === "/messages" },
