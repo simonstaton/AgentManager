@@ -1,6 +1,6 @@
 import http from "node:http";
 import express from "express";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("../auth", () => ({
   requireNotAgentService: (_req: unknown, _res: unknown, next: () => void) => next(),
