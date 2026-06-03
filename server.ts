@@ -36,7 +36,6 @@ import { createStartupRouter } from "./src/routes/startup";
 import { createTasksRouter } from "./src/routes/tasks";
 import { createUsageRouter } from "./src/routes/usage";
 import { createWorkflowsRouter } from "./src/routes/workflows";
-import { createWorkflowsEngineRouter } from "./src/routes/workflows-engine";
 import { Scheduler } from "./src/scheduler";
 import { loadSecretsIntoEnv } from "./src/secrets-store";
 import {
@@ -214,7 +213,6 @@ app.use(createTasksRouter(taskGraph, orchestrator, gradeStore));
 app.use(createSchedulerRouter(scheduler));
 app.use(createWorkflowsRouter(agentManager, messageBus));
 app.use(createLinearWorkflowsRouter(agentManager, messageBus));
-app.use(createWorkflowsEngineRouter(agentManager, messageBus));
 app.use(createRepoGateConfigRouter());
 app.use(createMergeGateRouter(agentManager));
 app.use(createRepositoriesRouter(agentManager));
