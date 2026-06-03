@@ -225,6 +225,16 @@ export interface PullRequestItem {
   labels: string[];
 }
 
+// ── Workflow types ──────────────────────────────────────────────────────────
+
+export interface WorkflowAgent {
+  id: string;
+  name: string;
+  role: string;
+  status?: string;
+  currentTask?: string;
+}
+
 export interface Workflow {
   id: string;
   linearUrl: string;
@@ -240,16 +250,17 @@ export interface Workflow {
     | "completed"
     | "failed"
     | "cancelled";
-  agents: Array<{ id: string; name: string; role: string; status?: string; currentTask?: string }>;
+  agents: WorkflowAgent[];
   prUrl?: string;
   error?: string;
   validation?: {
     verdict: "accept" | "accept_with_caveats" | "reject";
-    clarity: "high" | "medium" | "low";
-    missing: string[];
-    suggestions: string[];
+    clarity?: "high" | "medium" | "low";
+    missing?: string[];
+    suggestions?: string[];
+    reasoning?: string;
     readError?: "not_found" | "forbidden" | "auth_failed" | "rate_limited" | "multi_issue_empty";
-    evaluatedAt: string;
+    evaluatedAt?: string;
   };
   grade?: {
     taskId: string;
@@ -266,6 +277,9 @@ export interface Workflow {
   createdAt: string;
   updatedAt: string;
 }
+
+/** Alias kept for components that import LinearWorkflow by name */
+export type LinearWorkflow = Workflow;
 
 export type HookEvent = "PreToolUse" | "PostToolUse" | "Stop" | "SubagentStart" | "SubagentStop";
 export type HookType = "http" | "command";
@@ -508,6 +522,24 @@ export function createApi(authFetch: AuthFetch) {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to delete context");
+    },
+
+    // ── Workflows ──────────────────────────────────────────────────────────
+    async fetchWorkflows(): Promise<LinearWorkflow[]> {
+      const res = await authFetch("/api/workflows");
+      if (!res.ok) throw new Error("Failed to fetch workflows");
+      return res.json();
+    },
+
+    async getWorkflow(id: string): Promise<LinearWorkflow> {
+      const res = await authFetch(`/api/workflows/${encodeURIComponent(id)}`);
+      if (!res.ok) throw new Error(`Failed to fetch workflow ${id}`);
+      return res.json();
+    },
+
+    async cancelWorkflow(id: string): Promise<void> {
+      const res = await authFetch(`/api/workflows/${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to cancel workflow");
     },
 
     // Claude config
@@ -1090,24 +1122,6 @@ export function createApi(authFetch: AuthFetch) {
       const res = await authFetch(url);
       if (!res.ok) throw new Error("Failed to fetch pull requests");
       return res.json();
-    },
-
-    // Workflows
-    async fetchWorkflows(): Promise<Workflow[]> {
-      const res = await authFetch("/api/workflows");
-      if (!res.ok) throw new Error("Failed to fetch workflows");
-      return res.json();
-    },
-
-    async getWorkflow(id: string): Promise<Workflow> {
-      const res = await authFetch(`/api/workflows/${encodeURIComponent(id)}`);
-      if (!res.ok) throw new Error(`Failed to fetch workflow ${id}`);
-      return res.json();
-    },
-
-    async cancelWorkflow(id: string): Promise<void> {
-      const res = await authFetch(`/api/workflows/${encodeURIComponent(id)}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to cancel workflow");
     },
 
     // Hook config
