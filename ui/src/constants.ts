@@ -69,3 +69,18 @@ export function timeAgo(date: string): string {
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
   return `${Math.floor(seconds / 86400)}d ago`;
 }
+
+/** Maps a BadgeVariant to a Tailwind dot-colour class. */
+const VARIANT_DOT_COLOR: Record<string, string> = {
+  success: "bg-emerald-500",
+  warning: "bg-amber-500",
+  destructive: "bg-red-500",
+  info: "bg-blue-500",
+  default: "bg-zinc-500",
+};
+
+/** Returns a Tailwind bg-colour class for an agent-status dot. */
+export function getStatusDotColor(status: string): string {
+  const variant = STATUS_BADGE_VARIANT[status] ?? "default";
+  return VARIANT_DOT_COLOR[variant] ?? VARIANT_DOT_COLOR.default;
+}
