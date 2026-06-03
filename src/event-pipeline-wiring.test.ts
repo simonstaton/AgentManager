@@ -1,5 +1,6 @@
 /// <reference types="vitest/globals" />
 import { EventPipeline } from "./event-pipeline";
+
 // Smoke: EventPipeline is constructible and exposes required public methods.
 describe("EventPipeline smoke", () => {
   const ep = new EventPipeline(
