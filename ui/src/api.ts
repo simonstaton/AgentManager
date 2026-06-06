@@ -172,6 +172,8 @@ export interface Repository {
 
 export type RiskLevel = "low" | "medium" | "high";
 
+// ─── Repo Gate Config ─────────────────────────────────────────────────────────
+
 export type ConfidenceLabel = "high" | "medium" | "low" | "critical";
 
 export interface MergePolicyEntry {
@@ -179,20 +181,39 @@ export interface MergePolicyEntry {
   reason: string;
 }
 
-export interface GateRules {
-  autoMergeThreshold: ConfidenceLabel;
-  mergePolicy: Record<ConfidenceLabel, MergePolicyEntry>;
+export interface GateGradingConfig {
+  weights: { clarity: number; confidence: number; blastRadius: number };
+  riskThresholds: {
+    mediumMinTotal: number;
+    highMinTotal: number;
+    worstAxisForcesMedium: boolean;
+  };
 }
 
-export interface GateOverrides {
-  autoMergeThreshold?: ConfidenceLabel;
-  mergePolicy?: Partial<Record<ConfidenceLabel, Partial<MergePolicyEntry>>>;
+export interface GatePrSizeConfig {
+  maxLines: number;
+  maxFiles: number;
+  maxConcerns: number;
+}
+
+export interface GuardrailOverrides {
+  allowUnreviewedShell: boolean;
+  allowDirectPushToMain: boolean;
 }
 
 export interface RepoGateConfig {
-  defaults: GateRules;
-  overrides: GateOverrides;
-  effective: GateRules;
+  schemaVersion: 1;
+  mergePolicy: Record<ConfidenceLabel, MergePolicyEntry>;
+  autoMergeThreshold: ConfidenceLabel;
+  grading: GateGradingConfig;
+  prSize: GatePrSizeConfig;
+  guardrailOverrides: GuardrailOverrides;
+}
+
+export interface RepoGateConfigResponse {
+  defaults: RepoGateConfig;
+  overrides: Partial<RepoGateConfig>;
+  effective: RepoGateConfig;
   updatedAt: string | null;
   updatedBy: string | null;
 }
@@ -964,14 +985,14 @@ export function createApi(authFetch: AuthFetch) {
       return res.json();
     },
 
-    // Repo-gate config
-    async getRepoGateConfig(repoName: string): Promise<RepoGateConfig> {
+    // Repo Gate Config
+    async getRepoGateConfig(repoName: string): Promise<RepoGateConfigResponse> {
       const res = await authFetch(`/api/repositories/${encodeURIComponent(repoName)}/gate-config`);
-      if (!res.ok) throw new Error(`Failed to load gate config: ${res.status}`);
+      if (!res.ok) throw new Error(`Failed to get gate config: ${res.status}`);
       return res.json();
     },
 
-    async updateRepoGateConfig(repoName: string, overrides: GateOverrides): Promise<RepoGateConfig> {
+    async updateRepoGateConfig(repoName: string, overrides: Partial<RepoGateConfig>): Promise<RepoGateConfigResponse> {
       const res = await authFetch(`/api/repositories/${encodeURIComponent(repoName)}/gate-config`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -984,7 +1005,7 @@ export function createApi(authFetch: AuthFetch) {
       return res.json();
     },
 
-    async resetRepoGateConfig(repoName: string): Promise<RepoGateConfig> {
+    async resetRepoGateConfig(repoName: string): Promise<RepoGateConfigResponse> {
       const res = await authFetch(`/api/repositories/${encodeURIComponent(repoName)}/gate-config`, {
         method: "DELETE",
       });

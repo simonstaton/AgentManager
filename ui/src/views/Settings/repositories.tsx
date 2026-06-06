@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { createApi, Repository } from "../../api";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { RepoGateConfigPanel } from "../../components/RepoGateConfigPanel";
 import { Skeleton } from "../../components/Skeleton";
 
 const CLONE_OUTPUT_MAX_LINES = 200;
@@ -318,6 +319,7 @@ export function RepositoriesPanel({ api }: { api: ReturnType<typeof createApi> }
                     {savingPat === repo.name ? "Saving..." : "Save PAT"}
                   </Button>
                 </div>
+                <RepoGateConfigPanel api={api} repoName={repo.name} />
               </div>
             ))}
           </div>
