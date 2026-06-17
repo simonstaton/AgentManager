@@ -1025,43 +1025,39 @@ export function createApi(authFetch: AuthFetch) {
       return res.json();
     },
 
-    // TOTP
-    async getTotpStatus(): Promise<{ enabled: boolean; backupCodesRemaining: number; enabledAt: string | null }> {
-      const res = await authFetch("/api/auth/totp/status");
+    // ─── TOTP 2FA ─────────────────────────────────────────────────────────
+
+    async getTotpStatus(): Promise<{ enabled: boolean; enabledAt: string | null }> {
+      const res = await authFetch("/api/settings/totp/status");
       if (!res.ok) throw new Error("Failed to get TOTP status");
       return res.json();
     },
 
-    async getTotpSetup(): Promise<{
-      setupToken: string;
-      secret: string;
-      qrCodeDataUrl: string;
-      backupCodes: string[];
-    }> {
-      const res = await authFetch("/api/auth/totp/setup");
+    async setupTotp(): Promise<{ secret: string; uri: string }> {
+      const res = await authFetch("/api/settings/totp/setup", { method: "POST" });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error || "Failed to get TOTP setup");
+        throw new Error((data as { error?: string }).error || "Failed to initiate TOTP setup");
       }
       return res.json();
     },
 
-    async enableTotp(setupToken: string, code: string): Promise<{ ok: boolean }> {
-      const res = await authFetch("/api/auth/totp/enable", {
+    async verifyTotp(secret: string, code: string): Promise<{ ok: boolean; enabledAt: string }> {
+      const res = await authFetch("/api/settings/totp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ setupToken, code }),
+        body: JSON.stringify({ secret, code }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error || "Failed to enable TOTP");
+        throw new Error((data as { error?: string }).error || "Failed to verify TOTP code");
       }
       return res.json();
     },
 
     async disableTotp(code: string): Promise<{ ok: boolean }> {
-      const res = await authFetch("/api/auth/totp/disable", {
-        method: "DELETE",
+      const res = await authFetch("/api/settings/totp/disable", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
       });

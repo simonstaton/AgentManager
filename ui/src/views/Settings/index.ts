@@ -4,3 +4,4 @@ export { ContextPanel } from "./context";
 export { GuardrailsPanel } from "./guardrails";
 export { IntegrationsPanel } from "./integrations";
 export { RepositoriesPanel } from "./repositories";
+export { SecurityPanel } from "./security";

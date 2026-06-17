@@ -10,7 +10,9 @@ export default function SettingsPage() {
       <SettingsLayout>
         <div className="max-w-2xl space-y-6">
           <h2 className="text-lg font-medium text-zinc-200">Settings</h2>
-          <p className="text-sm text-zinc-400">Configure shared context, Claude config, guardrails, and API keys.</p>
+          <p className="text-sm text-zinc-400">
+            Configure shared context, Claude config, guardrails, API keys, and security.
+          </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Link
               href="/settings/context"
@@ -53,6 +55,13 @@ export default function SettingsPage() {
             >
               <span className="font-medium text-zinc-200">API Key</span>
               <p className="text-xs text-zinc-400 mt-1">Switch between OpenRouter and Anthropic keys</p>
+            </Link>
+            <Link
+              href="/settings/security"
+              className="block p-4 rounded-lg border border-zinc-800 bg-zinc-900/50 hover:border-zinc-700 hover:bg-zinc-800/50 transition-colors"
+            >
+              <span className="font-medium text-zinc-200">Security</span>
+              <p className="text-xs text-zinc-400 mt-1">Configure two-factor authentication (TOTP)</p>
             </Link>
           </div>
         </div>

@@ -14,6 +14,7 @@ const SETTINGS_LINKS = [
   { href: "/settings/integrations", label: "Integrations" },
   { href: "/settings/guardrails", label: "Guardrails" },
   { href: "/settings/apikey", label: "API Key" },
+  { href: "/settings/security", label: "Security" },
 ] as const;
 
 export function SettingsLayout({ children }: { children: React.ReactNode }) {
