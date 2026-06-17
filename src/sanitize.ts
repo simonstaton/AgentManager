@@ -61,6 +61,9 @@ function sanitizeString(input: string, patterns: string[]): string {
   for (const secret of patterns) {
     result = result.replaceAll(secret, REDACTED);
   }
+  for (const secret of dynamicSecrets) {
+    result = result.replaceAll(secret, REDACTED);
+  }
   return result;
 }
 
